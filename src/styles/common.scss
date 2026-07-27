@@ -1,0 +1,92 @@
+// ════════════════════════════════════════════════════════════
+// 全局公共类 — 瑞士精密白设计系统
+// 页面骨架 / 卡片 / 按钮 / 状态徽章 / 标签 / 字段网格 / 原生表格
+// ════════════════════════════════════════════════════════════
+
+/* ── 页头 ── */
+.head-b { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+.head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
+.head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; letter-spacing: -0.3px; }
+.head-b h1 .no { font-family: $font-mono; font-size: 16px; font-weight: 500; color: $cobalt; margin-left: 12px; }
+.head-actions { display: flex; gap: 10px; }
+
+/* ── 按钮 ── */
+.btn-fill {
+  padding: 9px 18px; font-size: 13px; background: $cobalt; border: none; color: #fff;
+  font-weight: 500; cursor: pointer; border-radius: 6px; font-family: $font-body;
+  box-shadow: $shadow-sm; transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-fill:hover { background: $cobalt-dark; box-shadow: $shadow-md; }
+.btn-fill:active { transform: scale(0.985); }
+.btn-fill:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-line {
+  padding: 9px 18px; font-size: 13px; background: $white; border: 1px solid $hairline;
+  color: $ink-soft; cursor: pointer; border-radius: 6px; font-family: $font-body; transition: all 0.15s;
+}
+.btn-line:hover { border-color: $ink; color: $ink; }
+
+/* ── 卡片 ── */
+.card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; box-shadow: $shadow-sm; overflow: hidden; }
+.card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid $hairline; }
+.card-head h2 { font-size: 14px; font-weight: 600; }
+.card-head .sub { font-family: $font-mono; font-size: 11px; color: $ink-faint; cursor: pointer; }
+
+/* ── 状态徽章 ── */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; background: $paper; color: $ink-soft; }
+.pill .d { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: $ink-faint; }
+.p-wait { background: $amber-dim; color: $amber; } .p-wait .d { background: $amber; }
+.p-run { background: $cobalt-dim; color: $cobalt; } .p-run .d { background: $cobalt; }
+.p-sign { background: $purple-dim; color: $purple; } .p-sign .d { background: $purple; }
+.p-lock { background: $signal-red-dim; color: $signal-red; } .p-lock .d { background: $signal-red; }
+.p-done { background: $green-dim; color: $green; } .p-done .d { background: $green; }
+
+/* ── 标签 ── */
+.tag-b { display: inline-block; padding: 3px 9px; font-size: 11px; border-radius: 4px; background: $paper; color: $ink-soft; border: 1px solid $hairline; white-space: nowrap; }
+.tag-ctq { background: $signal-red-dim; color: $signal-red; border-color: #f3cfc5; }
+
+/* ── 文本工具类 ── */
+.mono { font-family: $font-mono; }
+.c-cobalt { color: $cobalt; } .c-amber { color: $amber; } .c-red { color: $signal-red; }
+.c-green { color: $green; } .c-purple { color: $purple; } .c-ink { color: $ink; }
+
+/* ── 字段网格(详情头卡) ── */
+.field-grid {
+  background: $white; border: 1px solid $hairline; border-radius: 12px; box-shadow: $shadow-sm;
+  padding: 24px 28px; margin-bottom: 18px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 32px;
+}
+.field-grid .field .l { font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+.field-grid .field .v { font-size: 14px; font-weight: 500; }
+
+/* ── 信息行 ── */
+.info-row { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; font-size: 13px; }
+.info-row .l { color: $ink-faint; flex-shrink: 0; }
+
+/* ── 双栏布局 ── */
+.grid-b { display: grid; grid-template-columns: 1fr 320px; gap: 18px; }
+.right-b { display: flex; flex-direction: column; gap: 18px; }
+
+/* ── 原生表格(卡片内) ── */
+.card-b table { width: 100%; border-collapse: collapse; }
+.card-b th {
+  text-align: left; padding: 11px 22px; font-size: 11px; color: $ink-faint; font-weight: 500;
+  letter-spacing: 1px; border-bottom: 1px solid $hairline; background: $paper;
+}
+.card-b td { padding: 13px 22px; font-size: 13px; border-bottom: 1px solid $hairline-soft; }
+.card-b tbody tr { transition: background 0.12s; }
+.card-b tbody tr:hover { background: #fafaf8; }
+.card-b tbody tr:last-child td { border-bottom: none; }
+
+/* ── 筛选条 ── */
+.filter-bar { margin-bottom: 16px; }
+
+/* ── 下划线输入(表单页手写控件) ── */
+.field-input { border: none; border-bottom: 1.5px solid $hairline; background: transparent; padding: 6px 4px; font-size: 13px; font-family: $font-body; outline: none; transition: border-color 0.25s; }
+.field-input:focus { border-bottom-color: $cobalt; }
+
+/* ── 动效 ── */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pageout { to { opacity: 0; transform: translateY(-8px); } }
+.rise { animation: rise 0.4s ease both; }
+.page-enter-active { animation: rise 0.28s ease both; }
+.page-leave-active { animation: pageout 0.16s ease both; }

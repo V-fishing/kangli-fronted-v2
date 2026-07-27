@@ -1,0 +1,238 @@
+/** FIA 任务状态(含硬编码"待批准",未入 QmsEnums.FiaTaskStatus) */
+export type FiaTaskStatus =
+  | '待检' | '进行中' | '待复核' | '待批准'
+  | '审批中' | '已完成' | '超时' | '已作废' | '已驳回'
+
+/** 综合判定 */
+export type InspResult = '合格' | '不合格' | '警告' | '-'
+
+/** 触发来源 */
+export type FiaSource = 'FACTORY' | 'SUPPLIER'
+
+/** 处置路径 */
+export type FiaDisposition = '合格放行' | '合格入库' | '退货' | '返工' | '让步接收' | '紧急放行' | '豁免开工' | '挑选'
+
+// ── FiaTask ──
+export interface FiaTask {
+  id: string
+  code: string // FA-{timestamp},后端自动生成
+  orgId: string
+  source: FiaSource
+  woNo?: string
+  lineName?: string
+  productName?: string
+  procName?: string
+  triggerType?: string
+  stdId?: string
+  aql?: string
+  stdVersion?: string
+  partNo?: string
+  supplierId?: string
+  lotId?: string
+  batchNo?: string
+  isUrgent?: boolean
+  remark?: string
+  status: FiaTaskStatus
+  overallJudge?: InspResult
+  disposition?: FiaDisposition
+  inspectorId?: string
+  reviewerId?: string
+  approverId?: string
+  submittedAt?: string
+  reviewedAt?: string
+  approvedAt?: string
+  sampleSize?: number
+  sampleCount?: number
+  slaDueAt?: string
+  isOverdue?: boolean
+  createdAt?: string
+  updatedAt?: string
+  createdBy?: string
+  version?: number
+}
+
+// ── 检验项 ──
+export interface FiaInspItem {
+  id: string
+  taskId: string
+  seq: number
+  itemName: string
+  isCtq: boolean
+  stdValue?: string
+  tolerance?: string
+  unit?: string
+  valueType?: string // enum/numeric/text
+  enumValues?: string
+  measuredValue?: string
+  judge: string // 合格/不合格/-
+}
+
+export interface InspItemResultRequest {
+  items: { id: string; measuredValue: string; judge: string }[]
+}
+
+// ── 创建任务请求 ──
+export interface CreateFiaTaskRequest {
+  orgId: string
+  woNo: string
+  lineName: string
+  productName: string
+  procName: string
+  triggerType: string
+  stdId?: string
+  partNo?: string
+  supplierId?: string
+  lotId?: string
+  batchNo?: string
+  isUrgent?: boolean
+  remark?: string
+}
+
+// ── 签名 ──
+export interface SignRequest {
+  password: string
+  itemId?: string
+}
+
+// ── FiaTaskVo(详情,含检验项) ──
+export interface FiaTaskVo {
+  task: FiaTask
+  items: FiaInspItem[]
+  log?: TaskLogItem[]
+}
+
+export interface TaskLogItem {
+  node: string
+  t?: string
+  o?: string
+  done?: boolean
+}
+
+// ── 审批 ──
+export type ApprovalStatus = '待审批' | '已通过' | '已驳回'
+
+export interface FiaApproval {
+  id: string
+  code?: string
+  taskId?: string
+  approvalType?: string // disposition
+  applicantId?: string
+  approverId?: string
+  approveOpinion?: string
+  approveAt?: string
+  applyAt?: string
+  status: ApprovalStatus
+}
+
+// ── 检验标准 ──
+export interface FiaInspStd {
+  id: string
+  orgId?: string
+  code: string
+  material?: string
+  procName?: string
+  partNo?: string
+  aql?: string
+  inspectLevel?: string
+  samplePlan?: string
+  ctqText?: string
+  stdVersion?: string
+  status: string // 草稿/生效/停用
+  isDefault?: boolean
+  prevVersionId?: string
+  createdAt?: string
+}
+
+export interface FiaStdItemRequest {
+  seq: number
+  itemName: string
+  isCtq?: boolean
+  stdValue?: string
+  tolerance?: string
+  unit?: string
+  valueType?: string
+  enumValues?: string
+}
+
+export interface CreateInspStdRequest {
+  orgId?: string
+  code: string
+  material?: string
+  procName?: string
+  aql?: string
+  inspectLevel?: string
+  samplePlan?: string
+  ctqText?: string
+  stdVersion?: string
+  status?: string
+  items?: FiaStdItemRequest[]
+}
+
+export interface InspStdVo {
+  std: FiaInspStd
+  items: FiaInspItem[]
+}
+
+// ── 触发类型 ──
+export interface FiaTriggerType {
+  id: string
+  name: string
+  isEnabled?: boolean
+}
+
+// ── 签名配置 ──
+export interface FiaSignConfig {
+  id?: string
+  orgId?: string
+  signMethods: string[] // [password, handwriting, ca]
+  signNodes: string // 两级/三级
+  signGranularity?: string // 整单签名/逐项签名
+  lockAfterFail?: number
+  lockMinutes?: number
+}
+
+// ── 拦截配置 ──
+export interface FiaInterceptConfig {
+  id?: string
+  orgId?: string
+  interceptMode?: string
+  multiTriggerMode?: string
+  slaHours?: number
+  escalateFailCount?: number
+}
+
+// ── 工单锁 ──
+export interface FiaWoLock {
+  id: string
+  orgId?: string
+  woNo: string
+  lockStatus: string
+  lockReason?: string
+  unlockType?: string
+  approverId?: string
+  releaseReason?: string
+  traceTag?: string
+  wipHold?: boolean
+  createdAt?: string
+}
+
+// ── 看板 ──
+export interface FiaDashboard {
+  todayTasks?: number
+  todayPassRate?: number
+  overdueCount?: number
+  statusDistribution?: Record<string, number>
+  recentTrend?: { date: string; count: number; passRate: number }[]
+}
+
+// ── 批量来料建单 ──
+export interface BatchByLotRequest {
+  lotNo: string
+  orgId: string
+}
+
+export interface BatchByLotResult {
+  matched: number
+  missing: number
+  tasks?: FiaTask[]
+}

@@ -1,0 +1,82 @@
+// Element Plus 主题覆盖 - 瑞士精密白(钴蓝 #0047ab + 纸白 + 墨黑 + 发线)
+:root {
+  --el-color-primary: #0047ab;
+  --el-color-primary-light-3: #4a7bc4;
+  --el-color-primary-light-5: #8aabdb;
+  --el-color-primary-light-7: #c5d5ed;
+  --el-color-primary-light-8: #d8e3f3;
+  --el-color-primary-light-9: #eef3fa;
+  --el-color-primary-dark-2: #003a8c;
+
+  --el-color-success: #1a7f4b;
+  --el-color-success-light-9: #edf7f1;
+  --el-color-warning: #c77800;
+  --el-color-warning-light-9: #fdf6e9;
+  --el-color-danger: #e03616;
+  --el-color-danger-light-9: #fdf0ed;
+  --el-color-info: #5c5c5c;
+  --el-color-info-light-9: #f2f1ee;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f8f7f4;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f8f7f4;
+
+  --el-text-color-primary: #141414;
+  --el-text-color-regular: #5c5c5c;
+  --el-text-color-secondary: #9e9e9e;
+  --el-text-color-placeholder: #9e9e9e;
+
+  --el-border-color: #e4e2dd;
+  --el-border-color-light: #e4e2dd;
+  --el-border-color-lighter: #e4e2dd;
+  --el-border-color-extra-light: #f2f1ee;
+
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 20px;
+  --el-font-family: 'Noto Sans SC', sans-serif;
+  --el-box-shadow: 0 1px 3px rgba(20, 20, 20, 0.05);
+  --el-box-shadow-light: 0 1px 3px rgba(20, 20, 20, 0.05);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #f8f7f4;
+  color: #141414;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.font-display {
+  font-family: 'Archivo', 'Noto Sans SC', sans-serif;
+}
+.font-mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+// 滚动条
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #e4e2dd;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9e9e9e;
+}

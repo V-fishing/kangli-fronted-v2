@@ -1,0 +1,119 @@
+// ════════════════════════════════════════════════════════════
+// Element Plus 深度主题化 — 瑞士精密白
+// 注意:EP 组件样式随路由 chunk 懒加载注入,晚于本文件;
+// 因此统一用 body 前缀提升优先级,组件级 CSS 变量挂在 body 上覆盖 :root。
+// ════════════════════════════════════════════════════════════
+
+body {
+  // 圆角基调与手工按钮(6px)对齐
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+
+  // 表格
+  --el-table-border-color: #{$hairline-soft};
+  --el-table-header-bg-color: #{$paper};
+  --el-table-header-text-color: #{$ink-faint};
+  --el-table-text-color: #{$ink};
+  --el-table-row-hover-bg-color: #fafaf8;
+  --el-table-tr-bg-color: #{$white};
+  --el-table-bg-color: #{$white};
+
+  // 卡片 / 弹层
+  --el-card-border-color: #{$hairline};
+  --el-dialog-border-radius: 12px;
+  --el-messagebox-border-radius: 12px;
+  --el-popup-modal-bg-color: rgba(20, 20, 20, 0.35);
+}
+
+/* ── 表格:发丝线 + 纸色表头 ── */
+body .el-table {
+  font-size: 13px;
+
+  th.el-table__cell {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    border-bottom-color: $hairline;
+  }
+  td.el-table__cell { border-bottom-color: $hairline-soft; }
+  .el-table__cell { padding: 10px 0; }
+  .el-table__inner-wrapper::before { background-color: $hairline; }
+
+  .el-table__empty-text { color: $ink-faint; font-size: 12px; letter-spacing: 2px; }
+  .el-table__empty-block { min-height: 120px; }
+
+  // 固定列阴影柔化
+  .el-table-fixed-column--right::after { box-shadow: -6px 0 10px -6px rgba(20, 20, 20, 0.08) !important; }
+}
+
+/* ── 卡片 ── */
+body .el-card {
+  border-radius: 12px;
+  border-color: $hairline;
+  box-shadow: $shadow-sm;
+}
+
+/* ── 按钮:字重与主色微调 ── */
+body .el-button { font-weight: 500; }
+body .el-button--primary {
+  --el-button-bg-color: #{$cobalt};
+  --el-button-border-color: #{$cobalt};
+  --el-button-hover-bg-color: #{$cobalt-dark};
+  --el-button-hover-border-color: #{$cobalt-dark};
+  --el-button-active-bg-color: #{$cobalt-dark};
+  --el-button-active-border-color: #{$cobalt-dark};
+}
+body .el-button.is-link { font-weight: 500; }
+
+/* ── 表单 ── */
+body .el-form-item__label { color: $ink-soft; font-size: 13px; }
+body .el-input__wrapper,
+body .el-textarea__inner {
+  box-shadow: 0 0 0 1px $hairline inset;
+}
+body .el-input__wrapper:hover { box-shadow: 0 0 0 1px #c9c6bf inset; }
+body .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px $cobalt inset; }
+body .el-select .el-input.is-focus .el-input__wrapper { box-shadow: 0 0 0 1px $cobalt inset; }
+
+/* ── 弹窗 ── */
+body .el-dialog__header {
+  border-bottom: 1px solid $hairline;
+  padding: 16px 20px;
+  margin-right: 0;
+}
+body .el-dialog__title { font-weight: 600; font-size: 15px; }
+body .el-dialog__body { padding: 20px; }
+body .el-dialog__footer { border-top: 1px solid $hairline-soft; padding: 12px 20px; }
+
+/* ── 消息 / 确认框 ── */
+body .el-message { border-radius: 8px; border-color: $hairline; box-shadow: $shadow-md; }
+body .el-message-box__title { font-weight: 600; }
+
+/* ── 标签 ── */
+body .el-tag { border-radius: 4px; }
+
+/* ── 分页:等宽数字 ── */
+body .el-pagination {
+  --el-pagination-button-bg-color: transparent;
+  font-family: $font-mono;
+  font-weight: 500;
+}
+body .el-pagination .el-pager li { font-family: $font-mono; }
+
+/* ── 下拉菜单 ── */
+body .el-dropdown-menu { border-radius: 10px; border: 1px solid $hairline; box-shadow: $shadow-md; }
+body .el-dropdown-menu__item { font-size: 13px; }
+
+/* ── 加载遮罩 ── */
+body .el-loading-mask { background-color: rgba(255, 255, 255, 0.72); }
+body .el-loading-spinner .circular { width: 30px; height: 30px; }
+body .el-loading-spinner .path { stroke: $cobalt; }
+
+/* ── 空状态 ── */
+body .el-empty__description p { color: $ink-faint; font-size: 13px; }
+
+/* ── 分割线 ── */
+body .el-divider--horizontal { border-top-color: $hairline-soft; }
+
+/* ── 开关 ── */
+body .el-switch.is-checked .el-switch__core { background-color: $cobalt; border-color: $cobalt; }
