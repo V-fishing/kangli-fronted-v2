@@ -114,6 +114,16 @@ export interface CreateFiaTaskRequest {
   remark?: string
 }
 
+/** 工装首件检验任务创建(人工入口): 按 toolId 取工装档案自动匹配标准,批次号必填 */
+export interface CreateFromToolingRequest {
+  orgId: string
+  toolId: string
+  triggerType?: string
+  batchNo: string
+  isUrgent?: boolean
+  remark?: string
+}
+
 // ── 产品→工序 二级树节点 ──
 export interface ProductTreeNode {
   productName: string

@@ -35,6 +35,8 @@ export default defineConfig({
         allowedHosts: [
             'localhost',
             '127.0.0.1',
+            '192.168.23.232',
+            '192.168.165.140',
             '.ngrok-free.dev', // ngrok 免费域名通配
             '.ngrok.io', // ngrok 旧域名通配
         ], // 允许 ngrok 等公网域名访问 dev server(防 DNS 重绑定校验)

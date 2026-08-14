@@ -22,8 +22,11 @@ body {
   --el-card-border-color: #{$hairline};
   --el-dialog-border-radius: 12px;
   --el-messagebox-border-radius: 12px;
-  --el-popup-modal-bg-color: rgba(20, 20, 20, 0.35);
+  --el-popup-modal-bg-color: transparent;
 }
+
+/* 弹窗遮罩：去掉背后压暗的阴影效果，仅保留弹窗自身的发丝线边框浮起 */
+body .el-overlay { background-color: transparent; }
 
 /* ── 表格:发丝线 + 纸色表头 ── */
 body .el-table {
@@ -85,6 +88,10 @@ body .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px $cobalt inset; }
 body .el-select .el-input.is-focus .el-input__wrapper { box-shadow: 0 0 0 1px $cobalt inset; }
 
 /* ── 弹窗 ── */
+body .el-dialog {
+  border: 1px solid $hairline;
+  box-shadow: $shadow-md;
+}
 body .el-dialog__header {
   border-bottom: 1px solid $hairline;
   padding: 16px 20px;

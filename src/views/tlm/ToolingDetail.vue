@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, TlmProductDetail } from '@/api/types/tlm'
 import { tlmToolingApi } from '@/api/modules/tlm/tooling'
@@ -9,6 +9,7 @@ import { tlmMaintApi } from '@/api/modules/tlm/maint'
 import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
+const router = useRouter()
 const id = route.params.id as string
 const perm = usePermissionStore()
 const tool = ref<TlmTooling | null>(null)
@@ -33,6 +34,7 @@ async function openRelate() {
   selCandidate.value = null
   candidates.value = []
   relDialog.value = true
+  searchCandidates()
 }
 async function searchCandidates() {
   relLoading.value = true
@@ -40,6 +42,13 @@ async function searchCandidates() {
     candidates.value = await tlmToolingApi.productCandidates(relKeyword.value || undefined, relKind.value || undefined)
   } finally { relLoading.value = false }
 }
+// 关键词 / 类别变化即模糊搜索(300ms 防抖)，无需点按钮
+let kwTimer: any = null
+watch([relKeyword, relKind], () => {
+  if (!relDialog.value) return
+  clearTimeout(kwTimer)
+  kwTimer = setTimeout(searchCandidates, 300)
+})
 async function submitRelate() {
   if (!selCandidate.value) { ElMessage.warning('请选择要关联的产品'); return }
   savingRel.value = true
@@ -112,6 +121,16 @@ async function doRepairComplete() {
   }
 }
 
+// 创建首件: 跳转到 FIA 新建检验任务并以工装首件模式预填该工装
+function createFirst() {
+  if (!tool.value) return
+  if (!tool.value.productCode || !tool.value.procName) {
+    ElMessage.warning('该工装缺少产品编码或工序，无法匹配检验标准，请先完善工装档案')
+    return
+  }
+  router.push({ path: '/fia/tasks/create', query: { toolId: tool.value.id, toolNo: tool.value.toolNo, toolName: tool.value.toolName } })
+}
+
 async function load() {
   loading.value = true
   try {
@@ -132,43 +151,70 @@ onMounted(load)
         <h1>{{ tool.toolName }}<span class="no mono">{{ tool.toolNo }}</span></h1>
       </div>
       <span class="pill" :class="statusPill(tool.status)"><span class="d"></span>{{ statusText(tool.status) }}</span>
+      <span v-if="!tool.productCode || !tool.procName" class="pill p-wait"><span class="d"></span>待首件</span>
       <el-button v-if="tool.status === 'REPAIRING' && perm.has('tlm.tooling.repair')" type="primary" size="small" @click="doRepairComplete">维修完成</el-button>
+      <el-button v-if="perm.has('tlm.tooling.first')" type="primary" size="small" @click="createFirst">创建首件</el-button>
     </div>
 
     <div class="grid-b" v-if="tool">
       <div>
         <el-card class="card-b info-card" style="margin-bottom:18px" :body-style="{ padding: '0' }">
           <div class="card-head"><h2>资产信息</h2></div>
-          <div class="field-grid">
-            <div class="field"><div class="l">类别</div><div class="v">{{ tool.toolCategory === 'GAUGE' ? '测量设备' : '工装夹具' }}</div></div>
-            <div class="field"><div class="l">工装类型</div><div class="v">{{ tool.toolType || '—' }}</div></div>
-            <div class="field"><div class="l">风险等级</div><div class="v">{{ tool.riskClass || '—' }}</div></div>
-            <div class="field"><div class="l">状态</div><div class="v"><span class="pill" :class="statusPill(tool.status)"><span class="d"></span>{{ statusText(tool.status) }}</span></div></div>
-            <div class="field"><div class="l">数量</div><div class="v mono">{{ tool.quantity ?? 1 }}</div></div>
-            <div class="field"><div class="l">验证周期</div><div class="v">{{ tool.verifyCycle || '—' }}</div></div>
-            <div class="field"><div class="l">存放地点</div><div class="v">{{ tool.location || '—' }}</div></div>
-            <div class="field"><div class="l">材质</div><div class="v">{{ tool.material || '—' }}</div></div>
-            <div class="field"><div class="l">领用人</div><div class="v">{{ tool.ownerName || '—' }}</div></div>
-            <div class="field"><div class="l">设备管理员</div><div class="v">{{ tool.adminName || '—' }}</div></div>
-            <div class="field"><div class="l">供应商/厂家</div><div class="v">{{ tool.supplierName || '—' }}</div></div>
-            <template v-if="tool.toolCategory === 'GAUGE'">
-              <div class="field"><div class="l">精度</div><div class="v">{{ tool.precisionVal || '—' }}</div></div>
-              <div class="field"><div class="l">计量点位</div><div class="v">{{ tool.measurePoint || '—' }}</div></div>
-              <div class="field"><div class="l">软件版本</div><div class="v">{{ tool.softwareVer || '—' }}</div></div>
-              <div class="field"><div class="l">校准日期</div><div class="v mono">{{ tool.calibDate || '—' }}</div></div>
-              <div class="field"><div class="l">下次校准</div><div class="v mono" :class="tool.calibDueDate && new Date(tool.calibDueDate) < new Date() ? 'c-red' : 'c-green'">{{ tool.calibDueDate || '—' }}</div></div>
-              <div class="field"><div class="l">校准周期</div><div class="v">{{ tool.calibCycle != null ? tool.calibCycle + ' 月' : '—' }}</div></div>
-              <div class="field"><div class="l">保养周期</div><div class="v">{{ tool.maintCycle != null ? tool.maintCycle + ' 月' : '—' }}</div></div>
-            </template>
-            <div class="field"><div class="l">规格</div><div class="v">{{ tool.spec || '—' }}</div></div>
-            <div class="field"><div class="l">产品编码</div><div class="v mono">{{ tool.productCode || '—' }}</div></div>
-            <div class="field"><div class="l">工序</div><div class="v">{{ tool.procName || '—' }}</div></div>
-            <div class="field"><div class="l">采购日期</div><div class="v mono">{{ tool.purchaseDate || '—' }}</div></div>
-            <div class="field"><div class="l">入库日期</div><div class="v mono">{{ tool.inboundDate || '—' }}</div></div>
-            <div class="field"><div class="l">金额</div><div class="v mono">{{ tool.cost != null ? '¥' + tool.cost : '—' }}</div></div>
-            <div class="field"><div class="l">寿命</div><div class="v mono">{{ tool.bindCount || 0 }}<span v-if="tool.designLife">/{{ tool.designLife }}</span></div></div>
-            <div class="field"><div class="l">锁定</div><div class="v">{{ tool.locked ? '是' : '否' }}</div></div>
-            <div class="field" style="grid-column:1 / -1"><div class="l">备注</div><div class="v">{{ tool.remark || '—' }}</div></div>
+          <div class="grp">
+            <div class="grp-title">基础与归属</div>
+            <div class="info-cols">
+              <div class="info-col">
+                <div class="field"><div class="l">类别</div><div class="v">{{ tool.toolCategory === 'GAUGE' ? '测量设备' : '工装夹具' }}</div></div>
+                <div class="field"><div class="l">工装类型</div><div class="v">{{ tool.toolType || '—' }}</div></div>
+                <div class="field"><div class="l">风险等级</div><div class="v">{{ tool.riskClass || '—' }}</div></div>
+                <div class="field"><div class="l">状态</div><div class="v"><span class="pill" :class="statusPill(tool.status)"><span class="d"></span>{{ statusText(tool.status) }}</span></div></div>
+                <div class="field"><div class="l">数量</div><div class="v mono">{{ tool.quantity ?? 1 }}</div></div>
+                <div class="field"><div class="l">验证周期</div><div class="v">{{ tool.verifyCycle || '—' }}</div></div>
+                <div class="field"><div class="l">材质</div><div class="v">{{ tool.material || '—' }}</div></div>
+                <div class="field"><div class="l">存放地点</div><div class="v">{{ tool.location || '—' }}</div></div>
+                <div class="field"><div class="l">锁定</div><div class="v">{{ tool.locked ? '是' : '否' }}</div></div>
+              </div>
+              <div class="info-col">
+                <div class="field"><div class="l">领用人</div><div class="v">{{ tool.ownerName || '—' }}</div></div>
+                <div class="field"><div class="l">设备管理员</div><div class="v">{{ tool.adminName || '—' }}</div></div>
+                <div class="field"><div class="l">供应商/厂家</div><div class="v">{{ tool.supplierName || '—' }}</div></div>
+                <div class="field"><div class="l">规格</div><div class="v">{{ tool.spec || '—' }}</div></div>
+                <div class="field"><div class="l">产品编码</div><div class="v mono">{{ tool.productCode || '—' }}</div></div>
+                <div class="field"><div class="l">工序</div><div class="v">{{ tool.procName || '—' }}</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grp" v-if="tool.toolCategory === 'GAUGE'">
+            <div class="grp-title">计量与校准</div>
+            <div class="info-cols">
+              <div class="info-col">
+                <div class="field"><div class="l">精度</div><div class="v">{{ tool.precisionVal || '—' }}</div></div>
+                <div class="field"><div class="l">计量点位</div><div class="v">{{ tool.measurePoint || '—' }}</div></div>
+                <div class="field"><div class="l">软件版本</div><div class="v">{{ tool.softwareVer || '—' }}</div></div>
+                <div class="field"><div class="l">校准周期</div><div class="v">{{ tool.calibCycle != null ? tool.calibCycle + ' 月' : '—' }}</div></div>
+                <div class="field"><div class="l">保养周期</div><div class="v">{{ tool.maintCycle != null ? tool.maintCycle + ' 月' : '—' }}</div></div>
+              </div>
+              <div class="info-col">
+                <div class="field"><div class="l">校准日期</div><div class="v mono">{{ tool.calibDate || '—' }}</div></div>
+                <div class="field"><div class="l">下次校准</div><div class="v mono" :class="tool.calibDueDate && new Date(tool.calibDueDate) < new Date() ? 'c-red' : 'c-green'">{{ tool.calibDueDate || '—' }}</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grp">
+            <div class="grp-title">生命周期与备注</div>
+            <div class="info-cols">
+              <div class="info-col">
+                <div class="field"><div class="l">采购日期</div><div class="v mono">{{ tool.purchaseDate || '—' }}</div></div>
+                <div class="field"><div class="l">入库日期</div><div class="v mono">{{ tool.inboundDate || '—' }}</div></div>
+                <div class="field"><div class="l">金额</div><div class="v mono">{{ tool.cost != null ? '¥' + tool.cost : '—' }}</div></div>
+                <div class="field"><div class="l">寿命</div><div class="v mono">{{ tool.bindCount || 0 }}<span v-if="tool.designLife">/{{ tool.designLife }}</span></div></div>
+              </div>
+              <div class="info-col">
+                <div class="field remark-field"><div class="l">备注</div><div class="v">{{ tool.remark || '—' }}</div></div>
+              </div>
+            </div>
           </div>
         </el-card>
 
@@ -225,7 +271,7 @@ onMounted(load)
     </div>
 
     <!-- 新增版本记录弹窗 -->
-    <el-dialog v-model="verDialog" title="新增版本记录" width="520px">
+    <el-dialog v-model="verDialog" title="新增版本记录" width="520px" append-to-body>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div><label class="l">变更类型</label>
           <el-select v-model="verForm.changeType" style="width:100%">
@@ -248,7 +294,7 @@ onMounted(load)
     </el-dialog>
 
     <!-- 关联产品弹窗(MES 真实来源) -->
-    <el-dialog v-model="relDialog" title="关联产品" width="620px">
+    <el-dialog v-model="relDialog" title="关联产品" width="620px" append-to-body>
       <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
         <el-radio-group v-model="relKind">
           <el-radio-button value="">全部</el-radio-button>
@@ -256,7 +302,7 @@ onMounted(load)
           <el-radio-button value="SEMI">半成品</el-radio-button>
           <el-radio-button value="FINISHED">成品</el-radio-button>
         </el-radio-group>
-        <el-input v-model="relKeyword" placeholder="编码 / 名称 / 规格" style="flex:1;min-width:200px" @keyup.enter="searchCandidates" />
+        <el-input v-model="relKeyword" placeholder="输入编码 / 名称 / 规格模糊搜索" style="flex:1;min-width:200px" clearable @keyup.enter="searchCandidates" />
         <el-button type="primary" :loading="relLoading" @click="searchCandidates">搜索</el-button>
       </div>
       <el-table :data="candidates" style="width:100%" max-height="320" empty-text="输入关键词搜索 MES 产品" @current-change="(c: any) => selCandidate = c" highlight-current-row>
@@ -272,7 +318,7 @@ onMounted(load)
     </el-dialog>
 
     <!-- 产品详情弹窗(MES 检验记录) -->
-    <el-dialog v-model="detailDialog" :title="`产品详情 · ${detailCode}`" width="860px">
+    <el-dialog v-model="detailDialog" :title="`产品详情 · ${detailCode}`" width="860px" append-to-body>
       <el-table v-loading="detailLoading" :data="detailRows" style="width:100%" max-height="420" empty-text="无检验记录">
         <el-table-column label="类型" width="80"><template #default="{ row }"><span class="tag-b">{{ KIND_TEXT[row.kind] || row.kind }}</span></template></el-table-column>
         <el-table-column label="批次/批号" width="140"><template #default="{ row }"><span class="mono">{{ row.batchNo || '—' }}</span></template></el-table-column>
@@ -291,18 +337,62 @@ onMounted(load)
 </template>
 
 <style scoped>
-/* 资产信息卡：field-grid 自带卡片边框/阴影，已置于外层 el-card 内，
-   去掉其自带的卡片外观，仅保留网格与左右内边距，避免「卡片套卡片」 */
-.info-card :deep(.field-grid) {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  margin-bottom: 0;
-  padding: 18px 22px 22px;
+/* 整体收窄：本页右栏略收，主内容更聚焦 */
+.page-wrap :deep(.grid-b) {
+  grid-template-columns: minmax(0, 920px) 300px;
+  gap: 16px;
+  align-items: start;
 }
-/* 计量预警：info-row 默认左右 padding 为 0 导致文字贴边溢出卡片，
-   补左右内边距并对齐 card-head，加细分隔线提升可读性 */
+/* 资产信息卡：分组 + 双栏紧凑，组间用发丝线与 mono 小标题轻量分隔 */
+.info-card :deep(.grp) {
+  padding: 0 22px;
+}
+.info-card :deep(.grp + .grp) {
+  border-top: 1px solid $hairline-soft;
+}
+.info-card :deep(.grp-title) {
+  font-family: $font-display;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: $ink;
+  padding: 12px 0 2px;
+}
+.info-card :deep(.info-cols) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 36px;
+  padding-bottom: 4px;
+}
+.info-card :deep(.info-col) {
+  display: flex;
+  flex-direction: column;
+}
+.info-card :deep(.info-col .field) {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid $hairline-soft;
+}
+.info-card :deep(.info-col .field:last-child) {
+  border-bottom: none;
+}
+.info-card :deep(.info-col .field.remark-field) {
+  align-items: flex-start;
+}
+.info-card :deep(.info-col .field .l) {
+  font-size: 12px;
+  color: $ink-faint;
+  flex-shrink: 0;
+  width: 84px;
+}
+.info-card :deep(.info-col .field .v) {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+/* 计量预警：info-row 补左右内边距并对齐 card-head，加细分隔线 */
 .meter-card :deep(.info-row) {
   padding: 11px 22px;
   border-bottom: 1px solid $hairline-soft;

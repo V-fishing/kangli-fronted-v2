@@ -3,6 +3,7 @@ import type {
   FiaTask,
   FiaTaskVo,
   CreateFiaTaskRequest,
+  CreateFromToolingRequest,
   InspItemResultRequest,
   SignRequest,
   FiaDashboard,
@@ -39,6 +40,10 @@ export const fiaTaskApi = {
 
   /** POST /v1/fia/tasks */
   create: (body: CreateFiaTaskRequest) => request.post<FiaTask>('/v1/fia/tasks', body),
+
+  /** POST /v1/fia/tasks/from-tooling 工装首件(人工创建,按 toolId 自动匹配标准,批次必填) */
+  createFromTooling: (body: CreateFromToolingRequest) =>
+    request.post<FiaTask>('/v1/fia/tasks/from-tooling', body),
 
   /** GET /v1/fia/tasks/match-std */
   matchStd: (params: { orgId: string; partNo?: string; supplierId?: string; procName?: string }) =>

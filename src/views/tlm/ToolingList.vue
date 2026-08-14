@@ -17,6 +17,8 @@ const keyword = ref('')
 const catTab = ref<'ALL' | 'TOOL' | 'GAUGE'>('ALL')
 const filterStatus = ref('')
 const page = ref(1), size = ref(20), total = ref(0)
+// 工装「待首件」强提醒: toolId -> 是否存在待处理工装首件任务
+const pendingMap = ref<Record<string, boolean>>({})
 
 const statusPill = (s: string) => {
   switch (s) {
@@ -42,9 +44,22 @@ async function fetch() {
     })
     list.value = res.records
     total.value = res.total
+    // 逐行查「待首件」状态(轻量并发,失败时静默忽略)
+    const entries = await Promise.all((list.value || []).map(async (t) => {
+      if (!t.id) return null
+      const r = await tlmToolingApi.pendingFirst(t.id).catch(() => null)
+      return [t.id, !!(r && r.pending)] as [string, boolean]
+    }))
+    pendingMap.value = Object.fromEntries(entries.filter(Boolean) as [string, boolean][])
   } finally {
     loading.value = false
   }
+}
+
+// 工装首件「待首件」强提醒判定: 存在待处理 TOOLING 任务,或工装缺产品编码/工序(自动触发未建)
+function isPendingFirst(row: TlmTooling): boolean {
+  if (pendingMap.value[row.id || '']) return true
+  return !row.productCode || !row.procName
 }
 
 function onSearch() { page.value = 1; fetch() }
@@ -79,6 +94,14 @@ async function submit() {
 
 // ---------------- 操作 ----------------
 function goDetail(id?: string) { if (id) router.push(`/tlm/tooling/${id}`) }
+// 创建首件: 跳转到 FIA 新建检验任务并以工装首件模式预填该工装
+function createFirst(row: TlmTooling) {
+  if (!row.productCode || !row.procName) {
+    ElMessage.warning('该工装缺少产品编码或工序，无法匹配检验标准，请先完善工装档案')
+    return
+  }
+  router.push({ path: '/fia/tasks/create', query: { toolId: row.id, toolNo: row.toolNo, toolName: row.toolName } })
+}
 async function doRepair(row: TlmTooling) {
   const { value } = await ElMessageBox.prompt('送修说明', '工装送修', { inputType: 'textarea' })
   await tlmToolingApi.repair(row.id, { faultDesc: value || '' })
@@ -168,8 +191,11 @@ onMounted(fetch)
         <el-table-column label="类别" width="110">
           <template #default="{ row }"><span class="tag-b">{{ catText(row.toolCategory) }}</span></template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }"><span class="pill" :class="statusPill(row.status)"><span class="d"></span>{{ statusText(row.status) }}</span></template>
+        <el-table-column label="状态" width="150">
+          <template #default="{ row }">
+            <span class="pill" :class="statusPill(row.status)"><span class="d"></span>{{ statusText(row.status) }}</span>
+            <span v-if="isPendingFirst(row)" class="pill p-wait" style="margin-left:6px;"><span class="d"></span>待首件</span>
+          </template>
         </el-table-column>
         <el-table-column prop="location" label="存放地点" min-width="120" />
         <el-table-column label="下次校准" width="120">
@@ -185,6 +211,7 @@ onMounted(fetch)
           <template #default="{ row }">
             <div style="display:flex;align-items:center;gap:10px;">
               <el-button link type="primary" size="small" @click="goDetail(row.id)">详情</el-button>
+              <el-button v-if="perm.has('tlm.tooling.first')" link type="primary" size="small" @click="createFirst(row)">创建首件</el-button>
               <el-dropdown v-if="hasRowActions(row)" trigger="click" @command="(c:any)=>onRowCommand(c)">
                 <el-button link type="primary" size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>

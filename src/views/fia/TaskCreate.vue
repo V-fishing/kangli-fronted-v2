@@ -11,13 +11,34 @@
       <el-form :model="form" label-width="100px" style="max-width: 680px; padding: 24px" @submit.prevent="submitCreate">
         <el-input v-model="form.orgId" type="hidden" />
 
+        <!-- 一级分段: 产品首件 / 工装首件(方案 a,el-radio-group + el-radio-button,零手写) -->
+        <el-form-item label="任务类型">
+          <el-radio-group v-model="taskKind">
+            <el-radio-button value="product">产品首件</el-radio-button>
+            <el-radio-button value="tooling">工装首件</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
         <el-form-item label="触发类型" required>
           <el-select v-model="form.triggerType" clearable placeholder="选择触发事件类型" style="width: 100%" v-loading="triggerLoading">
             <el-option v-for="t in triggers" :key="t.id" :label="t.name" :value="t.name" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="产品料号" required>
+        <!-- 工装首件: 关联工装反选,自动带出工序/供应商/产品编码;隐藏产品料号与品类 -->
+        <template v-if="taskKind === 'tooling'">
+          <el-form-item label="关联工装" required>
+            <el-select v-model="form.toolId" filterable remote clearable :remote-method="remoteSearchTool"
+              :loading="toolLoading" placeholder="输入工装编码/名称搜索" style="width: 100%" @change="onToolPick">
+              <el-option v-for="t in toolOptions" :key="t.id" :label="`${t.toolNo} · ${t.toolName}`" :value="t.id || ''" />
+            </el-select>
+            <div class="hint" v-if="form.toolId">已带出: 工序 {{ form.procName || '—' }} · 产品编码 {{ form.partNo || '—' }}
+              <span class="tag-b" v-if="form.supplierName">供应商: {{ form.supplierName }}</span>
+            </div>
+          </el-form-item>
+        </template>
+
+        <el-form-item v-else label="产品料号" required>
           <el-select v-model="form.partNo" filterable remote clearable :remote-method="remoteSearchProduct"
             :loading="productLoading" placeholder="输入物料编码模糊搜索" style="width: 100%"
             @change="onProductPick">
@@ -33,7 +54,7 @@
           <el-input v-model="form.productName" placeholder="自动带出, 可修改" />
         </el-form-item>
 
-        <el-form-item label="品类">
+        <el-form-item v-if="taskKind === 'product'" label="品类">
           <el-radio-group v-model="form.category" @change="onCategoryChange">
             <el-radio value="material">物料首件</el-radio>
             <el-radio value="semi">半成品首件</el-radio>
@@ -42,10 +63,11 @@
         </el-form-item>
 
         <el-form-item label="工序">
-          <el-select v-model="form.procName" clearable filterable allow-create placeholder="选择工序(来自 SPC 工序字典)" style="width: 100%" v-loading="procLoading" @change="onProcChange">
+          <el-select v-model="form.procName" clearable filterable allow-create placeholder="选择工序(来自 SPC 工序字典)" style="width: 100%" v-loading="procLoading" :disabled="taskKind === 'tooling'" @change="onProcChange">
             <el-option v-for="p in procOptions" :key="p.id" :label="p.processName" :value="p.processName || p.processCode || ''" />
           </el-select>
-          <div class="hint" v-if="form.partNo && !form.procName">请先选择工序,再自动匹配检验标准</div>
+          <div class="hint" v-if="taskKind === 'tooling'">工序由关联工装自动带出,不可修改</div>
+          <div class="hint" v-else-if="form.partNo && !form.procName">请先选择工序,再自动匹配检验标准</div>
         </el-form-item>
 
         <el-form-item label="检验标准">
@@ -57,13 +79,14 @@
           <div class="hint" v-if="autoStd">已自动匹配标准: {{ autoStd }}</div>
         </el-form-item>
 
-        <el-form-item label="供应商">
+        <el-form-item :label="taskKind === 'tooling' ? '供应商(工装)' : '供应商'">
           <el-select v-model="form.supplierId" clearable filterable remote :remote-method="searchSuppliers"
-            :loading="supLoading" placeholder="输入名称/编码搜索供应商" style="width: 100%" :disabled="isFactorySelf"
+            :loading="supLoading" placeholder="输入名称/编码搜索供应商" style="width: 100%" :disabled="isFactorySelf || taskKind === 'tooling'"
             @visible-change="onSupVisible">
             <el-option v-for="s in suppliers" :key="s.id" :label="`${s.name} (${s.supplierCode || s.supplierNo || '-'})`" :value="s.id" />
           </el-select>
-          <div class="hint" v-if="isFactorySelf">成品/半成品首件为工厂自产, 供应商不可编辑</div>
+          <div class="hint" v-if="taskKind === 'tooling' && form.supplierName">供应商由关联工装自动带出: {{ form.supplierName }}</div>
+          <div class="hint" v-else-if="isFactorySelf">成品/半成品首件为工厂自产, 供应商不可编辑</div>
         </el-form-item>
 
         <el-form-item label="批次号" required>
@@ -110,7 +133,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -120,15 +143,21 @@ import { fiaStdApi } from '@/api/modules/fia/stds'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcProcessApi } from '@/api/modules/spc/process'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+import { tlmToolingApi } from '@/api/modules/tlm/tooling'
 import { orgApi } from '@/api/modules/uop/orgs'
 import type { FiaTriggerType, FiaInspStd, ProductSearchResult } from '@/api/types/fia'
 import type { SqmSupplier } from '@/api/types/sqm'
 import type { OrgTreeNode } from '@/api/types/uop'
 import type { SpcParam, SpcProcess } from '@/api/types/spc'
+import type { TlmTooling } from '@/api/types/tlm'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const submitting = ref(false)
+
+// 一级分段: product=产品首件 / tooling=工装首件
+const taskKind = ref<'product' | 'tooling'>('product')
 
 // 下拉选项
 const triggers = ref<FiaTriggerType[]>([])
@@ -141,6 +170,9 @@ const suppliers = ref<SqmSupplier[]>([])
 const supLoading = ref(false)
 const productOptions = ref<ProductSearchResult[]>([])
 const productLoading = ref(false)
+// 工装首件: 关联工装选项
+const toolOptions = ref<TlmTooling[]>([])
+const toolLoading = ref(false)
 
 // SPC 参数勾选:仅接受已关联 FIA 标准项(fiaStdItemId)的参数,确保提交后精确生成对应检验项
 const spcParams = ref<SpcParam[]>([])
@@ -166,6 +198,7 @@ const form = reactive({
   category: '',
   supplierId: '',
   supplierName: '',
+  toolId: '',
   lotId: '',
   batchNo: '',
   isUrgent: false,
@@ -202,11 +235,36 @@ async function submitCreate() {
   form.orgId = await effectiveOrgId()
   if (!form.orgId) { ElMessage.warning('请选择所属公司'); return }
   if (!form.triggerType) { ElMessage.warning('请选择触发类型'); return }
+  if (!form.batchNo) { ElMessage.warning('请填写批次号'); return }
+
+  // 工装首件分支: 关联工装 + 自动带出的工序/产品编码,走 createFromTooling
+  if (taskKind.value === 'tooling') {
+    if (!form.toolId) { ElMessage.warning('请选择关联工装'); return }
+    if (!form.procName) { ElMessage.warning('关联工装缺少工序(proc_name)，无法匹配检验标准'); return }
+    if (!form.partNo) { ElMessage.warning('关联工装缺少产品编码(product_code)，无法匹配检验标准'); return }
+    submitting.value = true
+    try {
+      const body = {
+        orgId: form.orgId,
+        toolId: form.toolId,
+        triggerType: form.triggerType,
+        batchNo: form.batchNo,
+        isUrgent: form.isUrgent,
+        remark: form.remark,
+      }
+      const task = await fiaTaskApi.createFromTooling(body)
+      ElMessage.success('已创建工装首件: ' + task.code)
+      router.push(`/fia/tasks/${task.id}`)
+    } catch { /* */ }
+    finally { submitting.value = false }
+    return
+  }
+
+  // 产品首件分支(原逻辑)
   if (!form.partNo) { ElMessage.warning('请选择产品料号'); return }
   if (!form.productName) { ElMessage.warning('请填写产品名称'); return }
   if (!form.category) { ElMessage.warning('请选择品类(物料/半成品/成品)'); return }
   if (!form.procName) { ElMessage.warning('请填写工序'); return }
-  if (!form.batchNo) { ElMessage.warning('请填写批次号'); return }
   if (form.category === 'material' && !form.supplierId) { ElMessage.warning('物料类首件必须选择供应商'); return }
   submitting.value = true
   try {
@@ -242,6 +300,39 @@ async function remoteSearchProduct(kw: string) {
     const orgId = await effectiveOrgId()
     productOptions.value = await fiaTaskApi.searchProduct({ orgId, keyword: k }).catch(() => [])
   } finally { productLoading.value = false }
+}
+
+// 关联工装模糊搜索(远程)
+async function remoteSearchTool(kw: string) {
+  const k = (kw || '').trim()
+  if (!k) { toolOptions.value = []; return }
+  toolLoading.value = true
+  try {
+    const r = await tlmToolingApi.page({ keyword: k, page: 1, size: 20 }).catch(() => null)
+    toolOptions.value = (r?.records || []) as TlmTooling[]
+  } finally { toolLoading.value = false }
+}
+
+// 选中工装: 自动带出 工序(proc_name)/产品编码(product_code)/供应商(supplier_id/name),并匹配标准+SPC参数
+async function onToolPick(toolId: string) {
+  const hit = (toolOptions.value || []).find(t => t.id === toolId)
+  spcParams.value = []
+  selStdItemIds.value = []
+  autoStd.value = ''
+  form.stdId = ''
+  form.productName = ''
+  form.supplierId = ''
+  form.supplierName = ''
+  if (!hit) return
+  form.procName = hit.procName || ''
+  form.partNo = hit.productCode || ''
+  form.productName = hit.toolName || ''
+  if (hit.supplierId) {
+    form.supplierId = hit.supplierId
+    form.supplierName = hit.supplierName || ''
+  }
+  if (form.procName) await matchStdAndLoad()
+  await loadSpcParams()
 }
 
 // 选中产品料号: 自动带出 产品名/品类/供应商; 仅当选定了工序才匹配标准(SPC 参数随后联动)
@@ -354,12 +445,28 @@ async function onStdVisible(open: boolean) { if (open && stds.value.length === 0
 async function onStdChange() { selStdItemIds.value = []; await loadSpcParams() }
 async function onSupVisible(open: boolean) { if (open && suppliers.value.length === 0) await loadSuppliers() }
 
-onMounted(() => {
+onMounted(async () => {
   loadTriggers()
   loadStds()
   loadProcOptions()
   loadSuppliers()
   loadRealOrg()
+  // 从工装台账「创建首件」跳转预填: query.toolId
+  const qToolId = route.query.toolId as string | undefined
+  if (qToolId) {
+    try {
+      const t = await tlmToolingApi.get(qToolId)
+      taskKind.value = 'tooling'
+      form.toolId = t.id || qToolId
+      form.procName = t.procName || ''
+      form.partNo = t.productCode || ''
+      form.productName = t.toolName || ''
+      if (t.supplierId) { form.supplierId = t.supplierId; form.supplierName = t.supplierName || '' }
+      toolOptions.value = [t]
+      if (form.procName) await matchStdAndLoad()
+      await loadSpcParams()
+    } catch { /* 工装不存在静默回退手动选择 */ }
+  }
 })
 </script>
 

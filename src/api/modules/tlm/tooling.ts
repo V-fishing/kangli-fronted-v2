@@ -20,6 +20,7 @@ export const tlmToolingApi = {
   approveScrap: (scrapId: string) => request.post<void>(`/v1/tlm/scrap/${scrapId}/approve`),
   rejectScrap: (scrapId: string) => request.post<void>(`/v1/tlm/scrap/${scrapId}/reject`),
   versions: (id: string) => request.get<TlmToolVersion[]>(`/v1/tlm/tooling/${id}/versions`),
+  pendingFirst: (id: string) => request.get<{ pending: boolean }>(`/v1/tlm/tooling/${id}/pending-first`),
   addVersion: (id: string, body: Partial<TlmToolVersion>) => request.post<TlmToolVersion>(`/v1/tlm/tooling/${id}/version`, body),
   products: (id: string) => request.get<TlmToolProduct[]>(`/v1/tlm/tooling/${id}/products`),
   productCandidates: (keyword?: string, kind?: string) =>
