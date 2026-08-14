@@ -94,6 +94,29 @@ async function submit() {
 
 // ---------------- 操作 ----------------
 function goDetail(id?: string) { if (id) router.push(`/tlm/tooling/${id}`) }
+// 派工(绑定工单): 受工装首件质量门禁约束(后端 bind() 拦截未完成首件检验的工装)
+const bindDialog = ref(false)
+const binding = ref(false)
+const bindRow = ref<TlmTooling | null>(null)
+const bindWoNo = ref('')
+function openBind(row: TlmTooling) {
+  bindRow.value = row
+  bindWoNo.value = ''
+  bindDialog.value = true
+}
+async function doBind() {
+  if (!bindRow.value) return
+  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请填写工单号'); return }
+  binding.value = true
+  try {
+    await tlmToolingApi.bind(bindRow.value.id!, bindWoNo.value.trim())
+    ElMessage.success('已派工')
+    bindDialog.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '派工失败')
+  } finally { binding.value = false }
+}
 // 创建首件: 跳转到 FIA 新建检验任务并以工装首件模式预填该工装
 function createFirst(row: TlmTooling) {
   if (!row.productCode || !row.procName) {
@@ -108,11 +131,38 @@ async function doRepair(row: TlmTooling) {
   ElMessage.success('已送修')
   fetch()
 }
-async function doScrap(row: TlmTooling) {
-  await ElMessageBox.confirm(`确认对 ${row.toolName} 发起报废？`, '工装报废', { type: 'warning' })
-  await tlmToolingApi.scrap(row.id, { scrapMethod: 'DESTROY', reason: '到期/不可修复' })
-  ElMessage.success('已发起报废')
-  fetch()
+// 报废:弹窗填报废方式 + 原因(审批人由「系统管理 › 审核配置」决定,不手选)
+const scrapDialog = ref(false)
+const scrapSubmitting = ref(false)
+const scrapRow = ref<TlmTooling | null>(null)
+const scrapMethod = ref<'DESTROY' | 'RETURN'>('DESTROY')
+const scrapReason = ref('')
+function openScrap(row: TlmTooling) {
+  scrapRow.value = row
+  scrapMethod.value = 'DESTROY'
+  scrapReason.value = ''
+  scrapDialog.value = true
+}
+async function submitScrap() {
+  if (!scrapRow.value) return
+  if (!scrapReason.value || !scrapReason.value.trim()) {
+    ElMessage.warning('请填写报废原因')
+    return
+  }
+  scrapSubmitting.value = true
+  try {
+    await tlmToolingApi.scrap(scrapRow.value.id!, {
+      scrapMethod: scrapMethod.value,
+      reason: scrapReason.value.trim(),
+    })
+    ElMessage.success('已发起报废，待审批人处理')
+    scrapDialog.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '发起报废失败')
+  } finally {
+    scrapSubmitting.value = false
+  }
 }
 async function doLock(row: TlmTooling) {
   await tlmToolingApi.lock(row.id, !row.locked)
@@ -128,15 +178,18 @@ async function doDelete(row: TlmTooling) {
 
 // 行内是否存在「更多」下拉中的任一操作（控制下拉显隐）
 function hasRowActions(row: TlmTooling) {
-  return perm.has('tlm.tooling.edit') || perm.has('tlm.tooling.repair') ||
+  return perm.has('tlm.tooling.first') || perm.has('tlm.tooling.bind') ||
+    perm.has('tlm.tooling.edit') || perm.has('tlm.tooling.repair') ||
     perm.has('tlm.tooling.scrap') || perm.has('tlm.tooling.lock') || perm.has('tlm.tooling.delete')
 }
 // 更多下拉命令分发
 function onRowCommand(c: { cmd: string, row: TlmTooling }) {
   switch (c.cmd) {
+    case 'first': return createFirst(c.row)
+    case 'bind': return openBind(c.row)
     case 'edit': return openEdit(c.row)
     case 'repair': return doRepair(c.row)
-    case 'scrap': return doScrap(c.row)
+    case 'scrap': return openScrap(c.row)
     case 'lock': return doLock(c.row)
     case 'delete': return doDelete(c.row)
   }
@@ -207,15 +260,16 @@ onMounted(fetch)
             <span v-if="row.locked" class="tag-ctq" style="margin-left:6px;">锁定</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <div style="display:flex;align-items:center;gap:10px;">
               <el-button link type="primary" size="small" @click="goDetail(row.id)">详情</el-button>
-              <el-button v-if="perm.has('tlm.tooling.first')" link type="primary" size="small" @click="createFirst(row)">创建首件</el-button>
               <el-dropdown v-if="hasRowActions(row)" trigger="click" @command="(c:any)=>onRowCommand(c)">
                 <el-button link type="primary" size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item v-if="perm.has('tlm.tooling.first')" :command="{ cmd: 'first', row }">创建首件</el-dropdown-item>
+                    <el-dropdown-item v-if="perm.has('tlm.tooling.bind')" :command="{ cmd: 'bind', row }">派工</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.tooling.edit')" :command="{ cmd: 'edit', row }">编辑</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.tooling.repair')" :command="{ cmd: 'repair', row }">送修</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.tooling.scrap')" :command="{ cmd: 'scrap', row }">报废</el-dropdown-item>
@@ -240,8 +294,8 @@ onMounted(fetch)
     <!-- 新建/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑工装' : '新增工装'" width="640px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div><label class="l">编号 *</label><input v-model="form.toolNo" class="field-input" style="width:100%" /></div>
-        <div><label class="l">名称 *</label><input v-model="form.toolName" class="field-input" style="width:100%" /></div>
+        <div><label class="l">编号 *</label><el-input v-model="form.toolNo" style="width:100%" /></div>
+        <div><label class="l">名称 *</label><el-input v-model="form.toolName" style="width:100%" /></div>
         <div><label class="l">类别</label>
           <el-select v-model="form.toolCategory" style="width:100%">
             <el-option label="工装夹具" value="TOOL" />
@@ -256,34 +310,73 @@ onMounted(fetch)
             <el-option label="报废" value="SCRAPPED" />
           </el-select>
         </div>
-        <div><label class="l">产品编码</label><input v-model="form.productCode" class="field-input" style="width:100%" placeholder="如：10.01.010400" /></div>
-        <div><label class="l">存放地点</label><input v-model="form.location" class="field-input" style="width:100%" /></div>
-        <div><label class="l">工序名称</label><input v-model="form.procName" class="field-input" style="width:100%" placeholder="如：冲压、焊接、检测" /></div>
-        <div><label class="l">工装类型</label><input v-model="form.toolType" class="field-input" style="width:100%" placeholder="如：研发工装" /></div>
-        <div><label class="l">材质</label><input v-model="form.material" class="field-input" style="width:100%" placeholder="如：不锈钢" /></div>
-        <div><label class="l">数量</label><input v-model="form.quantity" type="number" class="field-input" style="width:100%" :placeholder="'1'" /></div>
-        <div><label class="l">验证周期</label><input v-model="form.verifyCycle" class="field-input" style="width:100%" placeholder="如：一年" /></div>
-        <div><label class="l">风险等级</label><input v-model="form.riskClass" class="field-input" style="width:100%" placeholder="I/II/III/IV" /></div>
-        <div><label class="l">领用人</label><input v-model="form.ownerName" class="field-input" style="width:100%" /></div>
-        <div><label class="l">设备管理员</label><input v-model="form.adminName" class="field-input" style="width:100%" /></div>
-        <div><label class="l">供应商/厂家</label><input v-model="form.supplierName" class="field-input" style="width:100%" /></div>
-        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">精度</label><input v-model="form.precisionVal" class="field-input" style="width:100%" /></div>
-        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">计量点位</label><input v-model="form.measurePoint" class="field-input" style="width:100%" /></div>
-        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">软件版本</label><input v-model="form.softwareVer" class="field-input" style="width:100%" /></div>
+        <div><label class="l">产品编码</label><el-input v-model="form.productCode" style="width:100%" placeholder="如：10.01.010400" /></div>
+        <div><label class="l">存放地点</label><el-input v-model="form.location" style="width:100%" /></div>
+        <div><label class="l">工序名称</label><el-input v-model="form.procName" style="width:100%" placeholder="如：冲压、焊接、检测" /></div>
+        <div><label class="l">工装类型</label><el-input v-model="form.toolType" style="width:100%" placeholder="如：研发工装" /></div>
+        <div><label class="l">材质</label><el-input v-model="form.material" style="width:100%" placeholder="如：不锈钢" /></div>
+        <div><label class="l">数量</label><el-input-number v-model="form.quantity" :min="0" controls-position="right" style="width:100%" /></div>
+        <div><label class="l">验证周期</label><el-input v-model="form.verifyCycle" style="width:100%" placeholder="如：一年" /></div>
+        <div><label class="l">风险等级</label><el-input v-model="form.riskClass" style="width:100%" placeholder="I/II/III/IV" /></div>
+        <div><label class="l">领用人</label><el-input v-model="form.ownerName" style="width:100%" /></div>
+        <div><label class="l">设备管理员</label><el-input v-model="form.adminName" style="width:100%" /></div>
+        <div><label class="l">供应商/厂家</label><el-input v-model="form.supplierName" style="width:100%" /></div>
+        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">精度</label><el-input v-model="form.precisionVal" style="width:100%" /></div>
+        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">计量点位</label><el-input v-model="form.measurePoint" style="width:100%" /></div>
+        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">软件版本</label><el-input v-model="form.softwareVer" style="width:100%" /></div>
         <div v-if="form.toolCategory === 'GAUGE'"><label class="l">校准日期</label><el-date-picker v-model="form.calibDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
         <div v-if="form.toolCategory === 'GAUGE'"><label class="l">下次校准日期</label><el-date-picker v-model="form.calibDueDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
-        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">校准周期(月)</label><input v-model="form.calibCycle" type="number" class="field-input" style="width:100%" /></div>
-        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">保养周期(月)</label><input v-model="form.maintCycle" type="number" class="field-input" style="width:100%" /></div>
-        <div><label class="l">寿命上限(次)</label><input v-model="form.designLife" type="number" class="field-input" style="width:100%" /></div>
-        <div><label class="l">规格</label><input v-model="form.spec" class="field-input" style="width:100%" /></div>
+        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">校准周期(月)</label><el-input-number v-model="form.calibCycle" :min="0" controls-position="right" style="width:100%" /></div>
+        <div v-if="form.toolCategory === 'GAUGE'"><label class="l">保养周期(月)</label><el-input-number v-model="form.maintCycle" :min="0" controls-position="right" style="width:100%" /></div>
+        <div><label class="l">寿命上限(次)</label><el-input-number v-model="form.designLife" :min="0" controls-position="right" style="width:100%" /></div>
+        <div><label class="l">规格</label><el-input v-model="form.spec" style="width:100%" /></div>
         <div><label class="l">采购日期</label><el-date-picker v-model="form.purchaseDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
         <div><label class="l">入库日期</label><el-date-picker v-model="form.inboundDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
-        <div><label class="l">金额</label><input v-model="form.cost" type="number" step="0.01" class="field-input" style="width:100%" placeholder="0.00" /></div>
+        <div><label class="l">金额</label><el-input-number v-model="form.cost" :min="0" :precision="2" controls-position="right" style="width:100%" /></div>
         <div style="grid-column:1 / -1"><label class="l">备注</label><el-input v-model="form.remark" type="textarea" :rows="2" placeholder="备注信息" /></div>
       </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :disabled="saving" @click="submit">{{ saving ? '保存中' : '保存' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 派工(绑定工单)弹窗 -->
+    <el-dialog v-model="bindDialog" title="工装派工" width="480px" append-to-body>
+      <div v-if="bindRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
+        工装：<span class="mono c-cobalt">{{ bindRow.toolNo }}</span> {{ bindRow.toolName }}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        <div><label class="l">工单号 *</label><el-input v-model="bindWoNo" style="width:100%" placeholder="如：WO-20260814-001" /></div>
+      </div>
+      <template #footer>
+        <el-button @click="bindDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="binding" @click="doBind">{{ binding ? '提交中' : '确认派工' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 报废弹窗(审批人由审核配置决定,不手选) -->
+    <el-dialog v-model="scrapDialog" title="工装报废" width="520px" append-to-body>
+      <div v-if="scrapRow" style="margin-bottom:16px;color:var(--el-text-color-regular);font-size:13px;">
+        工装：<span class="mono c-cobalt">{{ scrapRow.toolNo }}</span> {{ scrapRow.toolName }}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+        <div>
+          <label class="l">报废方式</label>
+          <el-radio-group v-model="scrapMethod" style="margin-top:6px;">
+            <el-radio-button value="DESTROY">销毁</el-radio-button>
+            <el-radio-button value="RETURN">退供应商</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div>
+          <label class="l">报废原因 *</label>
+          <el-input v-model="scrapReason" type="textarea" :rows="3" placeholder="请说明报废原因（如：到期/不可修复/闲置）" style="margin-top:6px;" />
+        </div>
+        <div class="mute" style="font-size:12px;">审批人将按「系统管理 › 审核配置 › 工装报废审核」节点自动指派，无需在此选择。</div>
+      </div>
+      <template #footer>
+        <el-button @click="scrapDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="scrapSubmitting" @click="submitScrap">{{ scrapSubmitting ? '提交中' : '确认报废' }}</el-button>
       </template>
     </el-dialog>
   </div>

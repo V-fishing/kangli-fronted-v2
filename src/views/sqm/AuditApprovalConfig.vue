@@ -85,7 +85,7 @@
     <!-- 工装(TLM)报废/维修签批配置 -->
     <section class="cfg-section">
       <h2 class="sec-title">工装报废 / 维修签批</h2>
-      <p class="tip">配置工装报废的默认审批人（会签范式，复用审核会签配置）。发起报废时填写审批人，审批中心按指定审批人聚合待办；维修工单亦在此登记默认负责人。</p>
+      <p class="tip">配置工装报废、维修的默认审批人（会签范式，复用审核会签配置）。发起报废/送修时从对应节点读取审批人，审批中心按指定审批人聚合待办。</p>
       <div class="card-b">
         <div class="card-head">
           <h3>工装报废审批人</h3>
@@ -114,6 +114,37 @@
         </el-table>
         <div class="row-actions">
           <el-button size="small" @click="tlmApprovers.push({ userIds: [], role: '', label: '', veto: false })">+ 添加审批人</el-button>
+        </div>
+      </div>
+
+      <div class="card-b" style="margin-top:18px">
+        <div class="card-head">
+          <h3>工装维修审批人</h3>
+          <el-button type="primary" size="small" :loading="savingTlmRepair" @click="saveTlmRepair">保存配置</el-button>
+        </div>
+        <el-table :data="tlmRepairApprovers" size="small" border>
+          <el-table-column label="审批人(可多选)" min-width="260">
+            <template #default="{ row }">
+              <el-select v-model="row.userIds" multiple filterable collapse-tags
+                placeholder="选择维修审批人(可多选)" style="width:100%" @change="onTlmRepairUserChange(row, $event)">
+                <el-option v-for="u in userOptions" :key="u.id" :label="u.realName || u.username" :value="u.id">
+                  <span>{{ u.realName || u.username }}</span>
+                  <span style="color:#999;margin-left:6px;font-size:12px">{{ u.username }}</span>
+                </el-option>
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="一票否决" width="120">
+            <template #default="{ row }"><el-switch v-model="row.veto" /></template>
+          </el-table-column>
+          <el-table-column label="操作" width="90">
+            <template #default="{ row, $index }">
+              <el-button link type="danger" size="small" @click="tlmRepairApprovers.splice($index, 1)">移除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="row-actions">
+          <el-button size="small" @click="tlmRepairApprovers.push({ userIds: [], role: '', label: '', veto: false })">+ 添加审批人</el-button>
         </div>
       </div>
     </section>
@@ -254,10 +285,20 @@ async function save8d() {
 
 // ── 工装(TLM)报废/维修签批配置 ──
 const TLM_AUDIT_TYPE = '工装报废审核'
+const TLM_REPAIR_AUDIT_TYPE = '工装维修审核'
 const tlmApprovers = ref<any[]>([])
+const tlmRepairApprovers = ref<any[]>([])
 const savingTlm = ref(false)
+const savingTlmRepair = ref(false)
 
 function onTlmUserChange(row: any, ids: string[]) {
+  const picked = (userOptions.value || []).filter((x) => (ids || []).includes(x.id))
+  if (picked.length) {
+    if (!row.label) row.label = picked.map((u) => u.realName || u.username).join('、')
+    row.role = roleCodeFromUsername(picked[0].username, 0)
+  } else { row.label = ''; row.role = '' }
+}
+function onTlmRepairUserChange(row: any, ids: string[]) {
   const picked = (userOptions.value || []).filter((x) => (ids || []).includes(x.id))
   if (picked.length) {
     if (!row.label) row.label = picked.map((u) => u.realName || u.username).join('、')
@@ -271,7 +312,11 @@ async function loadTlm() {
     let items: any[] = []
     if (cfg && cfg.auditors) { try { items = JSON.parse(cfg.auditors) } catch { items = [] } }
     tlmApprovers.value = normalizeItems(items)
-  } catch { tlmApprovers.value = [] }
+    const cfg2 = (list || []).find((c: any) => c.auditType === TLM_REPAIR_AUDIT_TYPE)
+    let items2: any[] = []
+    if (cfg2 && cfg2.auditors) { try { items2 = JSON.parse(cfg2.auditors) } catch { items2 = [] } }
+    tlmRepairApprovers.value = normalizeItems(items2)
+  } catch { tlmApprovers.value = []; tlmRepairApprovers.value = [] }
 }
 async function saveTlm() {
   const raw = tlmApprovers.value || []
@@ -300,6 +345,34 @@ async function saveTlm() {
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || e?.message || '保存失败')
   } finally { savingTlm.value = false }
+}
+async function saveTlmRepair() {
+  const raw = tlmRepairApprovers.value || []
+  const auditors = raw.map((it: any, i: number) => {
+    const ids: string[] = Array.isArray(it.userIds) ? it.userIds.filter(Boolean) : []
+    if (ids.length === 0) return null
+    const names = ids.map((uid: string) => {
+      const u = (userOptions.value || []).find((x) => x.id === uid)
+      return u ? (u.realName || u.username) : ''
+    }).filter(Boolean)
+    const label = (it.label || '').trim() || names.join('、')
+    let role = (it.role || '').trim()
+    if (!role && ids.length) {
+      const u = (userOptions.value || []).find((x) => x.id === ids[0])
+      role = roleCodeFromUsername(u ? u.username : undefined, i)
+    }
+    if (!role) role = deriveRole(label, i)
+    return { userIds: ids, userId: ids.join(','), role, label, veto: !!it.veto }
+  }).filter((a: any) => a && a.label)
+  if (auditors.length === 0) { ElMessage.warning('请至少配置一名审批人'); return }
+  savingTlmRepair.value = true
+  try {
+    await sqmAuditApi.saveAuditApprovalCfg({ auditType: TLM_REPAIR_AUDIT_TYPE, auditors })
+    ElMessage.success('工装维修审批配置已保存')
+    await loadTlm()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || e?.message || '保存失败')
+  } finally { savingTlmRepair.value = false }
 }
 
 onMounted(async () => {

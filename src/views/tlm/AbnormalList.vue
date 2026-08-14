@@ -6,14 +6,14 @@ import type { TlmTooling } from '@/api/types/tlm'
 import { tlmToolingApi } from '@/api/modules/tlm/tooling'
 
 const router = useRouter()
-const tab = ref<'locked' | 'life' | 'calib'>('locked')
+const tab = ref<'locked' | 'life' | 'calib' | 'maint'>('locked')
 const list = ref<TlmTooling[]>([])
 const loading = ref(false)
 
 const statusPill = (s: string) => ({ IN_USE: 'p-done', DISABLED: 'p-mute', REPAIRING: 'p-run', SCRAPPED: 'p-lock' }[s] || 'p-wait')
 const statusText = (s: string) => ({ IN_USE: '在用', DISABLED: '停用', REPAIRING: '维修中', SCRAPPED: '报废' }[s] || s)
-const abnPill = (t: string) => (t === 'calib' ? 'p-lock' : t === 'life' ? 'p-lock' : 'p-wait')
-const abnText = (t: string) => (t === 'calib' ? '校准逾期' : t === 'life' ? '寿命超限' : '锁定')
+const abnPill = (t: string) => (t === 'calib' || t === 'life' || t === 'maint' ? 'p-lock' : 'p-wait')
+const abnText = (t: string) => (t === 'calib' ? '校准逾期' : t === 'life' ? '寿命超限' : t === 'maint' ? '保养到期' : '锁定')
 
 async function fetch() {
   loading.value = true
@@ -39,6 +39,7 @@ onMounted(fetch)
         <el-radio-button value="locked">锁定</el-radio-button>
         <el-radio-button value="life">寿命超限</el-radio-button>
         <el-radio-button value="calib">校准逾期</el-radio-button>
+        <el-radio-button value="maint">保养到期</el-radio-button>
       </el-radio-group>
     </el-card>
 
@@ -53,6 +54,7 @@ onMounted(fetch)
           <template #default="{ row }">
             <span class="mono" v-if="tab === 'life'">{{ row.bindCount }}/{{ row.designLife }}</span>
             <span class="mono" v-else-if="tab === 'calib'">{{ row.calibDueDate }}</span>
+            <span class="mono" v-else-if="tab === 'maint'">{{ row.nextMaintDate }}</span>
             <span class="mono" v-else>{{ row.locked ? '已锁定' : '正常' }}</span>
           </template>
         </el-table-column>

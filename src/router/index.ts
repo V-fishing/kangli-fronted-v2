@@ -96,6 +96,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'tlm/tooling/:id', name: 'TlmToolingDetail', component: () => import('@/views/tlm/ToolingDetail.vue'), meta: { title: '工装详情' } },
       { path: 'tlm/maint', name: 'TlmMaint', component: () => import('@/views/tlm/MaintList.vue'), meta: { title: '工装维保' } },
       { path: 'tlm/abnormals', name: 'TlmAbnormals', component: () => import('@/views/tlm/AbnormalList.vue'), meta: { title: '工装异常' } },
+      { path: 'tlm/repairs', name: 'TlmRepairs', component: () => import('@/views/tlm/RepairList.vue'), meta: { title: '维修工单' } },
+      { path: 'tlm/scraps', name: 'TlmScraps', component: () => import('@/views/tlm/ScrapList.vue'), meta: { title: '报废管理' } },
       { path: 'archive', redirect: '/archive/list' },
       { path: 'archive/list', name: 'ArchiveList', component: () => import('@/views/archive/ArchiveList.vue'), meta: { title: '归档查询' } },
       { path: 'system', redirect: '/system/users' },

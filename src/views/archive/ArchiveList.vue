@@ -3,14 +3,14 @@
     <div class="head-b"><AppBreadcrumb /><h1>归档查询</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
-        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:120px"><el-option value="fia" label="FIA首件" /><el-option value="audit" label="SQM审核" /><el-option value="8d" label="8D整改" /><el-option value="patrol" label="巡检" /></el-select></el-form-item>
+        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:120px"><el-option value="fia" label="FIA首件" /><el-option value="audit" label="SQM审核" /><el-option value="8d" label="8D整改" /><el-option value="patrol" label="巡检" /><el-option value="tlm" label="工装报废" /></el-select></el-form-item>
         <el-form-item label="关键词"><el-input v-model="filterKeyword" clearable placeholder="报告号/工单号" style="width:200px" /></el-form-item>
         <el-form-item><el-button type="primary" @click="fetch">查询</el-button></el-form-item>
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
-        <el-table-column prop="archiveType" label="类型" width="80"><template #default="{row}"><el-tag size="small">{{ (row as any).archiveType==='fia'?'FIA':(row as any).archiveType==='audit'?'SQM':(row as any).archiveType==='8d'?'8D':'巡检' }}</el-tag></template></el-table-column>
+        <el-table-column prop="archiveType" label="类型" width="80"><template #default="{row}"><el-tag size="small">{{ (row as any).archiveType==='fia'?'FIA':(row as any).archiveType==='audit'?'SQM':(row as any).archiveType==='8d'?'8D':(row as any).archiveType==='tlm'?'工装报废':'巡检' }}</el-tag></template></el-table-column>
         <el-table-column prop="archiveNo" label="归档号" width="180" />
         <el-table-column prop="refNo" label="关联单号" width="160" />
         <el-table-column prop="archiveDate" label="归档日期" width="160" />
@@ -29,7 +29,7 @@
       <template v-if="detail">
         <!-- 档案信息 -->
         <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="类型">{{ detail.archiveType==='fia'?'FIA 首件':detail.archiveType==='audit'?'SQM 审核':detail.archiveType==='8d'?'8D 整改':'巡检' }}</el-descriptions-item>
+          <el-descriptions-item label="类型">{{ detail.archiveType==='fia'?'FIA 首件':detail.archiveType==='audit'?'SQM 审核':detail.archiveType==='8d'?'8D 整改':detail.archiveType==='tlm'?'工装报废':'巡检' }}</el-descriptions-item>
           <el-descriptions-item label="归档号">{{ detail.archiveNo }}</el-descriptions-item>
           <el-descriptions-item label="关联单号">{{ detail.refNo || '-' }}</el-descriptions-item>
           <el-descriptions-item label="归档日期">{{ detail.archiveDate || '-' }}</el-descriptions-item>
@@ -78,6 +78,17 @@
             <el-descriptions-item label="完成时间">{{ detail.finishTime || '-' }}</el-descriptions-item>
             <el-descriptions-item label="应检/已检点位">{{ detail.totalPoints ?? '-' }} / {{ detail.donePoints ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="异常点数">{{ detail.abnormalCount ?? '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </template>
+        <!-- 工装报废概要 -->
+        <template v-else-if="detail.archiveType==='tlm'">
+          <div class="sec-title">工装报废概要</div>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="报废单号">{{ detail.refNo || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="工装编号">{{ detail.toolNo || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="工装名称">{{ detail.toolName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="处置方式">{{ detail.scrapMethod === 'RETURN' ? '退供应商' : detail.scrapMethod === 'DESTROY' ? '销毁' : (detail.scrapMethod || '-') }}</el-descriptions-item>
+            <el-descriptions-item label="报废原因">{{ detail.reason || '-' }}</el-descriptions-item>
           </el-descriptions>
         </template>
         <!-- 任务概要(FIA) -->

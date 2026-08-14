@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, TlmProductDetail } from '@/api/types/tlm'
 import { tlmToolingApi } from '@/api/modules/tlm/tooling'
 import { tlmMaintApi } from '@/api/modules/tlm/maint'
+import { tlmRepairApi } from '@/api/modules/tlm/repair'
 import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
@@ -16,7 +17,18 @@ const tool = ref<TlmTooling | null>(null)
 const records = ref<any[]>([])
 const versions = ref<TlmToolVersion[]>([])
 const products = ref<TlmToolProduct[]>([])
-const activeTab = ref<'maint' | 'product' | 'version'>('maint')
+const repairOrders = ref<any[]>([])
+const activeTab = ref<'maint' | 'product' | 'version' | 'repair'>('maint')
+
+// 最新一条维修工单(按创建时间倒序), 用于详情页驱动当前维修步骤
+const latestRepair = computed(() => {
+  if (!repairOrders.value || repairOrders.value.length === 0) return null
+  return [...repairOrders.value].sort((a: any, b: any) =>
+    (b.createdAt || '').localeCompare(a.createdAt || ''))[0]
+})
+
+const repairPill = (s: string) => ({ PENDING: 'p-wait', REPAIRING: 'p-run', DONE: 'p-wait', VERIFYING: 'p-wait', VERIFIED: 'p-done' }[s] || 'p-wait')
+const repairText = (s: string) => ({ PENDING: '待处理', REPAIRING: '维修中', DONE: '已完成', VERIFYING: '验证中', VERIFIED: '已验证' }[s] || s)
 
 // ---- 关联产品(MES 真实来源) ----
 const KIND_TEXT: Record<string, string> = { MATERIAL: '物料', SEMI: '半成品', FINISHED: '成品' }
@@ -111,10 +123,41 @@ async function submitVersion() {
   } finally { savingVer.value = false }
 }
 
+// 详情页维修步骤推进: 与维修工单列表一致(PENDING/REPAIRING 填措施 → REPAIRING 完成维修 → DONE 验证通过)
+const fillDialog = ref(false)
+const filling = ref(false)
+const fillMeasure = ref('')
+
+function openFillRepair() {
+  fillMeasure.value = latestRepair.value?.measure || ''
+  fillDialog.value = true
+}
+async function submitFillRepair() {
+  if (!id) return
+  filling.value = true
+  try {
+    await tlmToolingApi.repairFill(id, fillMeasure.value)
+    ElMessage.success('已填写维修措施，工装进入维修中')
+    fillDialog.value = false
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
+  } finally { filling.value = false }
+}
+async function doRepairDone() {
+  if (!id) return
+  try {
+    await tlmToolingApi.repairDone(id)
+    ElMessage.success('已标记维修完成，待首件验证')
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
+  }
+}
 async function doRepairComplete() {
   try {
     await tlmToolingApi.repairComplete(id)
-    ElMessage.success('维修完成，已触发首件检验任务')
+    ElMessage.success('验证通过，已触发首件检验任务')
     await load()
   } catch (e: any) {
     ElMessage.error(e?.message || '操作失败')
@@ -131,6 +174,28 @@ function createFirst() {
   router.push({ path: '/fia/tasks/create', query: { toolId: tool.value.id, toolNo: tool.value.toolNo, toolName: tool.value.toolName } })
 }
 
+// 派工(绑定工单): 受工装首件质量门禁约束(后端 bind() 拦截未完成首件检验的工装)
+const bindDialog = ref(false)
+const binding = ref(false)
+const bindWoNo = ref('')
+function openBind() {
+  bindWoNo.value = ''
+  bindDialog.value = true
+}
+async function doBind() {
+  if (!tool.value) return
+  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请填写工单号'); return }
+  binding.value = true
+  try {
+    await tlmToolingApi.bind(tool.value.id!, bindWoNo.value.trim())
+    ElMessage.success('已派工')
+    bindDialog.value = false
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '派工失败')
+  } finally { binding.value = false }
+}
+
 async function load() {
   loading.value = true
   try {
@@ -138,6 +203,7 @@ async function load() {
     records.value = await tlmMaintApi.records(id)
     versions.value = await tlmToolingApi.versions(id)
     products.value = await tlmToolingApi.products(id)
+    repairOrders.value = await tlmRepairApi.page({ toolId: id, size: 50 })
   } finally { loading.value = false }
 }
 onMounted(load)
@@ -152,8 +218,13 @@ onMounted(load)
       </div>
       <span class="pill" :class="statusPill(tool.status)"><span class="d"></span>{{ statusText(tool.status) }}</span>
       <span v-if="!tool.productCode || !tool.procName" class="pill p-wait"><span class="d"></span>待首件</span>
-      <el-button v-if="tool.status === 'REPAIRING' && perm.has('tlm.tooling.repair')" type="primary" size="small" @click="doRepairComplete">维修完成</el-button>
+      <template v-if="tool.status === 'REPAIRING' && perm.has('tlm.tooling.repair')">
+        <el-button v-if="latestRepair && latestRepair.status !== 'DONE' && latestRepair.status !== 'VERIFIED'" type="primary" size="small" @click="openFillRepair">填写措施</el-button>
+        <el-button v-if="latestRepair && latestRepair.status === 'REPAIRING'" type="primary" size="small" @click="doRepairDone">完成维修</el-button>
+        <el-button v-if="latestRepair && latestRepair.status === 'DONE'" type="primary" size="small" @click="doRepairComplete">验证通过</el-button>
+      </template>
       <el-button v-if="perm.has('tlm.tooling.first')" type="primary" size="small" @click="createFirst">创建首件</el-button>
+      <el-button v-if="perm.has('tlm.tooling.bind')" size="small" @click="openBind">派工</el-button>
     </div>
 
     <div class="grid-b" v-if="tool">
@@ -224,6 +295,7 @@ onMounted(load)
               <el-radio-button value="maint">保养历史</el-radio-button>
               <el-radio-button value="product">产品关联</el-radio-button>
               <el-radio-button value="version">版本变更</el-radio-button>
+              <el-radio-button value="repair">维修历史</el-radio-button>
             </el-radio-group>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'version'" type="primary" size="small" @click="openAddVersion">+ 新增版本记录</el-button>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'product'" type="primary" size="small" @click="openRelate">+ 关联产品</el-button>
@@ -247,13 +319,22 @@ onMounted(load)
               </el-table-column>
             </el-table>
           </div>
-          <template v-else>
+          <template v-else-if="activeTab === 'version'">
             <el-table :data="versions" style="width:100%" empty-text="暂无版本变更记录">
               <el-table-column label="版本号" width="100"><template #default="{ row }"><span class="mono c-cobalt">{{ row.versionNo }}</span></template></el-table-column>
               <el-table-column label="变更类型" width="120"><template #default="{ row }"><span class="tag-b">{{ changeText(row.changeType) }}</span></template></el-table-column>
               <el-table-column prop="changeDesc" label="变更说明" min-width="220" />
               <el-table-column label="变更人" width="120"><template #default="{ row }">{{ row.changedBy || '—' }}</template></el-table-column>
               <el-table-column label="变更日期" width="130"><template #default="{ row }"><span class="mono">{{ row.changedAt || '—' }}</span></template></el-table-column>
+            </el-table>
+          </template>
+          <template v-else>
+            <el-table :data="repairOrders" style="width:100%" empty-text="暂无维修记录">
+              <el-table-column label="维修单号" width="200"><template #default="{ row }"><span class="mono c-cobalt">{{ row.repairNo || '—' }}</span></template></el-table-column>
+              <el-table-column label="故障现象" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.faultDesc || '—' }}</template></el-table-column>
+              <el-table-column label="维修措施" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.measure || '—' }}</template></el-table-column>
+              <el-table-column label="状态" width="110"><template #default="{ row }"><span class="pill" :class="repairPill(row.status)"><span class="d"></span>{{ repairText(row.status) }}</span></template></el-table-column>
+              <el-table-column label="创建时间" width="170"><template #default="{ row }"><span class="mono">{{ row.createdAt || '—' }}</span></template></el-table-column>
             </el-table>
           </template>
         </el-card>
@@ -331,6 +412,35 @@ onMounted(load)
       </el-table>
       <template #footer>
         <el-button @click="detailDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 派工(绑定工单)弹窗 -->
+    <el-dialog v-model="bindDialog" title="工装派工" width="480px" append-to-body>
+      <div v-if="tool" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
+        工装：<span class="mono c-cobalt">{{ tool.toolNo }}</span> {{ tool.toolName }}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        <div><label class="l">工单号 *</label><el-input v-model="bindWoNo" style="width:100%" placeholder="如：WO-20260814-001" /></div>
+      </div>
+      <template #footer>
+        <el-button @click="bindDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="binding" @click="doBind">{{ binding ? '提交中' : '确认派工' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 填写维修措施弹窗 -->
+    <el-dialog v-model="fillDialog" title="填写维修措施" width="520px" append-to-body>
+      <div v-if="latestRepair" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
+        工装：<span class="mono c-cobalt">{{ latestRepair.toolNo }}</span> {{ latestRepair.toolName }}
+      </div>
+      <div style="display:grid;gap:8px;">
+        <div><label class="l">故障现象</label><div class="v-mute">{{ latestRepair?.faultDesc || '—' }}</div></div>
+        <div><label class="l">维修措施 *</label><el-input v-model="fillMeasure" type="textarea" :rows="4" placeholder="如：更换磨损导柱、校准定位精度至 ±0.02mm" /></div>
+      </div>
+      <template #footer>
+        <el-button @click="fillDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="filling" @click="submitFillRepair">{{ filling ? '提交中' : '确认填写' }}</el-button>
       </template>
     </el-dialog>
   </div>

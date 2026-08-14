@@ -106,3 +106,34 @@ export interface TlmMaintRecord {
   responsibleId?: string
   attachment?: string
 }
+
+export interface TlmScrap {
+  id?: string
+  orgId?: string
+  toolId?: string
+  toolNo?: string
+  toolName?: string
+  scrapNo?: string
+  scrapMethod?: 'DESTROY' | 'RETURN' // 销毁 / 退供应商
+  reason?: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  approverId?: string
+  approvalId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TlmRepair {
+  id?: string
+  orgId?: string
+  toolId?: string
+  toolNo?: string
+  toolName?: string
+  repairNo?: string
+  faultDesc?: string
+  measure?: string
+  status: 'PENDING' | 'REPAIRING' | 'DONE' | 'VERIFYING' | 'VERIFIED'
+  approverId?: string
+  verifyTaskId?: string
+  createdAt?: string
+}

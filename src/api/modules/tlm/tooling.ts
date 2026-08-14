@@ -12,6 +12,8 @@ export const tlmToolingApi = {
   repair: (id: string, params: { faultDesc?: string; approverId?: string }) =>
     request.post<void>(`/v1/tlm/tooling/${id}/repair`, null, { params }),
   repairComplete: (id: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-complete`),
+  repairFill: (id: string, measure: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-fill`, null, { params: { measure } }),
+  repairDone: (id: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-done`),
   scrap: (id: string, params: { scrapMethod?: string; reason?: string; approverId?: string }) =>
     request.post<void>(`/v1/tlm/tooling/${id}/scrap`, null, { params }),
   lock: (id: string, locked: boolean) => request.post<void>(`/v1/tlm/tooling/${id}/lock`, null, { params: { locked } }),
