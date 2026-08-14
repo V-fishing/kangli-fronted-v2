@@ -65,27 +65,61 @@ export interface FiaInspItem {
   enumValues?: string
   measuredValue?: string
   judge: string // 合格/不合格/-
+  /** 枚举型合格值(如 合格) */
+  passValues?: string
+  /** 推荐控制图类型集合(标准库明细项含此字段;逗号分隔字符串) */
+  chartTypes?: string
+}
+
+/** 首件任务追溯结果(最小结构,字段由后端 trace 接口返回) */
+export interface StdTraceResult {
+  [key: string]: any
 }
 
 export interface InspItemResultRequest {
   items: { id: string; measuredValue: string; judge: string }[]
 }
 
+// ── 实时判定预览(录入时按标准值±公差 / passValues 自动判定) ──
+export interface PreviewJudgeItem {
+  id: string
+  measuredValue: string
+}
+export interface PreviewJudgeRequest {
+  items: PreviewJudgeItem[]
+}
+export interface PreviewJudgeResult {
+  id: string
+  judge?: string // 合格/不合格(不可匹配时为 null)
+  matchable: boolean // 是否按标准规则命中可自动判定
+  autoJudged?: boolean
+}
+
 // ── 创建任务请求 ──
 export interface CreateFiaTaskRequest {
   orgId: string
-  woNo: string
-  lineName: string
+  woNo?: string
+  lineName?: string
   productName: string
   procName: string
   triggerType: string
+  category?: string
   stdId?: string
   partNo?: string
   supplierId?: string
   lotId?: string
   batchNo?: string
+  stdItemIds?: string[]
   isUrgent?: boolean
   remark?: string
+}
+
+// ── 产品→工序 二级树节点 ──
+export interface ProductTreeNode {
+  productName: string
+  partNo?: string
+  category?: string
+  procNames: string[]
 }
 
 // ── 签名 ──
@@ -152,6 +186,9 @@ export interface FiaStdItemRequest {
   unit?: string
   valueType?: string
   enumValues?: string
+  passValues?: string
+  /** 推荐控制图类型集合: 前端编辑态为 string[] (多选), 提交后端归一为逗号分隔字符串。 */
+  chartTypes?: string | string[]
 }
 
 export interface CreateInspStdRequest {
@@ -218,7 +255,13 @@ export interface FiaWoLock {
 
 // ── 看板 ──
 export interface FiaDashboard {
+  /** 今日新建任务数(后端 key: todayCount) */
+  todayCount?: number
   todayTasks?: number
+  /** 今日完成数(后端 key: todayCompleted) */
+  todayCompleted?: number
+  /** 全局合格率(后端 key: passRate, 全部已完成任务口径, 非今日/本月) */
+  passRate?: number
   todayPassRate?: number
   overdueCount?: number
   statusDistribution?: Record<string, number>

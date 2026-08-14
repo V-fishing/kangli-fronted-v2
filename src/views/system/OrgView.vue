@@ -1,6 +1,6 @@
 <template>
   <div class="org-view">
-    <div class="head-b"><div class="crumb">SYSTEM / 系统管理</div><h1>组织管理</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>组织管理</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-button type="primary" v-permission="'system.org.create'" @click="openCreate()">+ 新建</el-button>
     </el-card>
@@ -8,8 +8,8 @@
       <el-tree :data="treeData" :props="treeProps" default-expand-all v-loading="loading" highlight-current node-key="id">
         <template #default="{ data }">
           <span class="tree-node">
-            <span>{{ data.orgName }}</span>
-            <el-tag size="small" type="info" style="margin-left:8px">{{ data.orgType }}</el-tag>
+            <span>{{ data.org?.orgName }}</span>
+            <el-tag size="small" type="info" style="margin-left:8px">{{ data.org?.orgType }}</el-tag>
             <span class="node-actions">
               <el-button link type="primary" size="small" v-permission="'system.org.create'" @click.stop="openCreate(data)">+</el-button>
               <el-button link type="danger" size="small" v-permission="'system.org.delete'" @click.stop="handleDelete(data)">x</el-button>
@@ -34,18 +34,21 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { request } from '@/api/client'
 import type { OrgTreeNode } from '@/api/types/uop'
 
 const treeData = ref<OrgTreeNode[]>([])
 const loading = ref(false)
+// 后端 OrgTreeNode 结构为 { org: SysOrg, children: [] }，需映射 label/children
+const treeProps = { label: (d: any) => d?.org?.orgName, children: 'children' }
 const dialogVisible = ref(false), parentId = ref<string | null>(null)
 const form = reactive({ orgCode: '', orgName: '', orgType: '产线', parentId: null as string | null, sortOrder: 0 })
 
 async function fetch() { loading.value = true; try { treeData.value = await request.get<OrgTreeNode[]>('/v1/uop/orgs/tree') } finally { loading.value = false } }
-function openCreate(parent?: OrgTreeNode) { parentId.value = parent?.id || null; form.orgCode = ''; form.orgName = ''; form.orgType = '产线'; form.parentId = parent?.id || null; form.sortOrder = 0; dialogVisible.value = true }
+function openCreate(parent?: any) { const pid = parent?.org?.id || null; parentId.value = pid; form.orgCode = ''; form.orgName = ''; form.orgType = '产线'; form.parentId = pid; form.sortOrder = 0; dialogVisible.value = true }
 async function handleSubmit() { await request.post('/v1/uop/orgs', { ...form }); ElMessage.success('已创建'); dialogVisible.value = false; fetch() }
-async function handleDelete(node: OrgTreeNode) { await ElMessageBox.confirm('确认删除?'); await request.delete(`/v1/uop/orgs/${node.id}`); ElMessage.success('已删除'); fetch() }
+async function handleDelete(node: any) { await ElMessageBox.confirm('确认删除?'); await request.delete(`/v1/uop/orgs/${node.org.id}`); ElMessage.success('已删除'); fetch() }
 onMounted(() => fetch())
 </script>
 

@@ -1,7 +1,26 @@
 <template>
   <div class="approval-list">
-    <div class="head-b"><div class="crumb">FIA / 首件检验</div><h1>审批单</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>审批单</h1></div>
     <el-card shadow="never" class="card-b">
+      <el-form :inline="true" class="filter-b">
+        <el-form-item label="审批类型">
+          <el-select v-model="filterType" clearable placeholder="全部" style="width:140px">
+            <el-option v-for="t in approvalTypeOptions" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filterStatus" clearable placeholder="全部" style="width:120px">
+            <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="审批编号">
+          <el-input v-model="keyword" clearable placeholder="输入编号关键字" style="width:180px" @keyup.enter="fetch" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="fetch">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
         <el-table-column prop="code" label="审批编号" width="170" />
         <el-table-column prop="applicantId" label="申请人" width="120">
@@ -61,6 +80,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useRouter } from 'vue-router'
 import { fiaApprovalApi } from '@/api/modules/fia/approvals'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
@@ -77,14 +97,32 @@ const loading = ref(false)
 const dialogVisible = ref(false), approveId = ref(''), detailVisible = ref(false)
 const form = reactive({ approved: true, opinion: '' })
 
+// 检索栏条件
+const filterType = ref('')
+const filterStatus = ref('')
+const keyword = ref('')
+const approvalTypeOptions = ['CONCESSION', 'EMERGENCY', 'EXEMPTION']
+const statusOptions = ['待审批', '已通过', '已驳回']
+
 const userMap = computed(() => {
   const m: Record<string, string> = {}
   users.value.forEach(u => { m[u.id] = u.username })
   return m
 })
 
-async function fetch() { loading.value = true; try { list.value = await fiaApprovalApi.list() } finally { loading.value = false } }
+async function fetch() {
+  loading.value = true
+  try {
+    list.value = await fiaApprovalApi.list({
+      approvalType: filterType.value || undefined,
+      status: filterStatus.value || undefined,
+      keyword: keyword.value || undefined,
+    })
+  } finally { loading.value = false }
+}
+function resetFilter() { filterType.value = ''; filterStatus.value = ''; keyword.value = ''; fetch() }
 async function loadUsers() { try { users.value = await request.get<SysUser[]>('/v1/uop/users') } catch { /* */ } }
+function openApprove(r: FiaApproval) { approveId.value = r.id; form.approved = true; form.opinion = ''; dialogVisible.value = true }
 function viewApproval(r: FiaApproval) {
   if (!r.taskId) { ElMessage.info('该审批单未关联任务'); return }
   loadTaskDetail(r.taskId)
@@ -115,6 +153,8 @@ onMounted(() => { fetch(); loadUsers() })
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
+.filter-b { padding: 4px 4px 16px; margin-bottom: 8px; border-bottom: 1px solid $hairline; }
+.filter-b :deep(.el-form-item) { margin-bottom: 0; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; }
 .p-wait { background: $amber-dim; color: $amber; } .p-wait .d { background: $amber; }

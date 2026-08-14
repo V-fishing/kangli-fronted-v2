@@ -1,6 +1,6 @@
 <template>
   <div class="user-list">
-    <div class="head-b"><div class="crumb">SYSTEM / 系统管理</div><h1>用户管理</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>用户管理</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建用户</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
@@ -36,6 +36,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
 import { request } from '@/api/client'
 import type { SysUser } from '@/api/types/uop'

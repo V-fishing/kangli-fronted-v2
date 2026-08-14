@@ -1,10 +1,10 @@
 <template>
   <div class="capa-list">
-    <div class="head-b"><div class="crumb">NCM / 不良管理</div><h1>CAPA</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>CAPA</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
-        <el-form-item label="状态"><el-select v-model="filterStatus" clearable placeholder="全部" style="width:120px"><el-option v-for="s in ['待启动','分析中','待审批','实施中','已验证','已关闭']" :key="s" :label="s" :value="s" /></el-select></el-form-item>
-        <el-form-item><el-button type="primary" @click="fetch">查询</el-button></el-form-item>
+        <el-form-item label="状态"><el-select v-model="filterStatus" clearable placeholder="全部" style="width:120px" @change="page = 1; fetch()"><el-option v-for="s in ['待启动','分析中','待审批','实施中','已验证','已关闭']" :key="s" :label="s" :value="s" /></el-select></el-form-item>
+        <el-form-item><el-button type="primary" @click="page = 1; fetch()">查询</el-button></el-form-item>
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
@@ -13,16 +13,25 @@
         <el-table-column prop="issue" label="问题" min-width="200" />
         <el-table-column prop="triggerType" label="触发类型" width="100" />
         <el-table-column label="进度" width="80"><template #default="{row}"><span class="mono">{{ (row as QmsCapa).progress ?? 0 }}%</span></template></el-table-column>
-        <el-table-column prop="owner" label="负责人" width="100" />
+        <el-table-column label="负责人" width="100">
+          <template #default="{row}">{{ (row as QmsCapa).ownerUserName || (row as QmsCapa).owner || '—' }}</template>
+        </el-table-column>
         <el-table-column prop="dueDate" label="期限" width="110" />
         <el-table-column label="状态" width="90"><template #default="{row}"><span class="pill" :class="capaStatusClass((row as QmsCapa).status)"><span class="d"></span>{{ (row as QmsCapa).status }}</span></template></el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openQuick(row as QmsCapa)">详情</el-button>
             <el-button link type="primary" size="small" @click="router.push(`/ncm/capas/${(row as QmsCapa).id}`)">完整页</el-button>
+            <el-button link type="warning" size="small" @click="openAssign(row as QmsCapa)">改派</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager" v-if="total > 0">
+        <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
+          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
+          @current-change="(p: number) => { page = p; fetch() }"
+          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+      </div>
     </el-card>
 
     <!-- 快速查看弹窗 -->
@@ -46,6 +55,15 @@
         <el-button @click="goDetail">前往完整详情</el-button>
       </template>
     </el-dialog>
+
+    <AssignDialog
+      v-model="assignVisible"
+      :title="`改派责任人 · ${assignBizNo}`"
+      :biz-no="assignBizNo"
+      :is-reassign="true"
+      biz-type="CAPA"
+      @submit="onAssignSubmit"
+    />
   </div>
 </template>
 
@@ -53,17 +71,46 @@
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ncmCapaApi } from '@/api/modules/ncm/capas'
 import type { QmsCapa } from '@/api/types/ncm'
+import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
+import AssignDialog from '@/components/common/AssignDialog.vue'
 
 const router = useRouter()
 const list = ref<QmsCapa[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
+const page = ref(1), size = ref(20), total = ref(0)
 const dialogVisible = ref(false)
 const cur = ref<QmsCapa | null>(null)
 
-async function fetch() { loading.value = true; try { const all = await ncmCapaApi.list(); list.value = all.filter(r => !filterStatus.value || r.status === filterStatus.value) } finally { loading.value = false } }
+// ── 列表级改派责任人 ──
+const assignVisible = ref(false)
+const assignBizNo = ref('')
+const assigningId = ref('')
+async function openAssign(row: QmsCapa) {
+  assigningId.value = row.id
+  assignBizNo.value = row.capaNo
+  assignVisible.value = true
+}
+async function onAssignSubmit(body: DefectLaunchRequest) {
+  try {
+    await ncmCapaApi.reassign(assigningId.value, body)
+    ElMessage.success('已改派并通知责任人')
+    assignVisible.value = false
+    fetch()
+  } finally { /* 弹窗内部保留 submitting 态 */ }
+}
+
+async function fetch() {
+  loading.value = true
+  try {
+    const res = await ncmCapaApi.listPage({ page: page.value, size: size.value })
+    list.value = res.records.filter(r => !filterStatus.value || r.status === filterStatus.value)
+    total.value = res.total
+  } finally { loading.value = false }
+}
 
 function openQuick(row: QmsCapa) { cur.value = row; dialogVisible.value = true }
 
@@ -91,6 +138,7 @@ onMounted(() => fetch())
 
 <style lang="scss" scoped>
 .capa-list { width: 100%; }
+.pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 .head-b { margin-bottom: 24px; }
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }

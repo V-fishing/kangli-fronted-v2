@@ -2,10 +2,13 @@
   <div class="audit-list">
     <div class="head-b">
       <div>
-        <div class="crumb">SQM / 供应商质量</div>
+        <AppBreadcrumb />
         <h1>供应商审核</h1>
       </div>
-      <el-button size="small" @click="goConfig">审核人员配置</el-button>
+      <div style="display:flex; gap:8px">
+        <el-button type="primary" size="small" @click="openCreate">+ 新建审核计划</el-button>
+        <el-button size="small" @click="goConfig">审核人员配置</el-button>
+      </div>
     </div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
@@ -21,17 +24,27 @@
         <el-table-column label="供应商" min-width="160"><template #default="{row}">{{ supplierName((row as SqmAuditPlan).supplierId) }}</template></el-table-column>
         <el-table-column prop="auditType" label="审核类型" width="120" />
         <el-table-column prop="auditorTeam" label="审核组" min-width="130"><template #default="{row}"><span>{{ (row as SqmAuditPlan).actualAuditors || (row as SqmAuditPlan).auditorTeam || '—' }}</span><el-tag v-if="(row as SqmAuditPlan).actualAuditors" size="small" type="success" effect="plain" style="margin-left:6px">已参与</el-tag></template></el-table-column>
+        <el-table-column label="组长" width="100"><template #default="{row}">{{ (row as SqmAuditPlan).auditLeadUserName || (row as SqmAuditPlan).auditLead || '—' }}</template></el-table-column>
         <el-table-column prop="riskLevel" label="风险" width="60"><template #default="{row}"><span class="pill" :class="riskClass((row as SqmAuditPlan).riskLevel)">{{ (row as SqmAuditPlan).riskLevel || '无' }}</span></template></el-table-column>
         <el-table-column prop="planDate" label="计划日期" width="110" />
         <el-table-column label="状态" width="90"><template #default="{row}"><span class="pill" :class="planStatusClass((row as SqmAuditPlan).status)"><span class="d"></span>{{ (row as SqmAuditPlan).status }}</span></template></el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openDetail(row as SqmAuditPlan)">详情</el-button>
+            <el-button link type="warning" size="small" @click="openAssign(row as SqmAuditPlan)">指派组长</el-button>
             <el-button v-if="(row as SqmAuditPlan).status==='待执行'" link type="success" size="small" @click="start(row as SqmAuditPlan)">开始执行</el-button>
+            <el-button v-if="(row as SqmAuditPlan).status==='进行中'" link type="primary" size="small" @click="goExecute(row as SqmAuditPlan)">执行</el-button>
+            <el-button v-if="(row as SqmAuditPlan).status==='已完成' && recordIdOf(row as SqmAuditPlan)" link type="primary" size="small" @click="goRecord(row as SqmAuditPlan)">查看记录</el-button>
             <el-button v-if="recordIdOf(row as SqmAuditPlan)" link type="primary" size="small" @click="downloadReport(row as SqmAuditPlan)">下载报告</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager" v-if="total > 0">
+        <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
+          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
+          @current-change="(p: number) => { page = p; fetch() }"
+          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+      </div>
     </el-card>
 
     <el-dialog v-model="detailVisible" title="审核详情" width="760px">
@@ -130,6 +143,64 @@
         </template>
       </template>
     </el-dialog>
+
+    <!-- 新建审核计划 -->
+    <el-dialog v-model="createVisible" title="新建审核计划" width="560px" @open="onCreateOpen">
+      <el-form :model="createForm" label-width="92px">
+        <el-form-item label="供应商" required>
+          <el-select v-model="createForm.supplierId" filterable clearable placeholder="选择供应商" style="width:100%">
+            <el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="审核类型" required>
+          <el-select v-model="createForm.auditType" style="width:100%" @change="onTypeChange">
+            <el-option v-for="t in auditTypeKeys" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="计划日期">
+          <el-date-picker v-model="createForm.planDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="审核组长">
+          <el-input v-model="createForm.auditLead" placeholder="审核组长" />
+        </el-form-item>
+        <el-form-item label="审核组">
+          <el-input v-model="createForm.auditorTeam" placeholder="审核组成员,逗号分隔,如 质量,采购" />
+        </el-form-item>
+        <el-form-item label="风险等级">
+          <el-select v-model="createForm.riskLevel" style="width:100%">
+            <el-option label="高" value="高" />
+            <el-option label="中" value="中" />
+            <el-option label="低" value="低" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="范围">
+          <el-input v-model="createForm.scope" type="textarea" :rows="2" placeholder="审核范围" />
+        </el-form-item>
+        <template v-if="createMetaFields.length">
+          <el-divider content-position="left">类型特有信息（{{ createForm.auditType }}）</el-divider>
+          <el-form-item v-for="f in createMetaFields" :key="f.key" :label="f.label">
+            <el-select v-if="f.type==='boolean'" v-model="createExt[f.key]" style="width:100%">
+              <el-option label="是" :value="true" />
+              <el-option label="否" :value="false" />
+            </el-select>
+            <el-input v-else v-model="createExt[f.key]" :placeholder="f.label" />
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="createVisible=false">取消</el-button>
+        <el-button type="primary" :loading="creating" @click="submitCreate">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <AssignDialog
+      v-model="assignVisible"
+      :title="`指派审核组长 · ${assignBizNo}`"
+      :biz-no="assignBizNo"
+      :is-reassign="true"
+      biz-type="审核"
+      @submit="onAssignSubmit"
+    />
   </div>
 </template>
 
@@ -137,10 +208,13 @@
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
+import AssignDialog from '@/components/common/AssignDialog.vue'
 import type { SqmAuditPlan, SqmAuditApproval, SqmAuditRecord, SqmSupplier, SqmChangeOrder } from '@/api/types/sqm'
 import { AUDIT_TYPE_META, auditMeta, parseExt, processStepsOf } from '@/views/sqm/auditTypeMeta'
 
@@ -151,6 +225,7 @@ const auditTypeKeys = Object.keys(AUDIT_TYPE_META)
 const list = ref<SqmAuditPlan[]>([])
 const loading = ref(false)
 const filterStatus = ref(''), filterType = ref('')
+const page = ref(1), size = ref(20), total = ref(0)
 // 从供应商详情跳转而来时按供应商过滤
 const filterSupplierId = ref((route.query.supplierId as string) || '')
 const filterSupplierName = ref((route.query.supplierName as string) || '')
@@ -184,9 +259,15 @@ function recordIdOf(r?: SqmAuditPlan): string | undefined {
 }
 
 function clearSupplierFilter() { filterSupplierId.value = ''; filterSupplierName.value = ''; router.replace({ query: {} }); fetch() }
-async function fetch() { loading.value = true; try { const [all, recs] = await Promise.all([sqmAuditApi.listPlans(), sqmAuditApi.listRecords()]); records.value = recs; list.value = all.filter(r => (!filterStatus.value || r.status === filterStatus.value) && (!filterType.value || r.auditType === filterType.value) && (!filterSupplierId.value || r.supplierId === filterSupplierId.value)) } finally { loading.value = false } }
-async function confirm(r: SqmAuditPlan) { try { await sqmAuditApi.confirmPlan(r.id); ElMessage.success('已确认'); fetch() } catch (e: any) { ElMessage.error(e?.response?.data?.msg || e?.message || '操作失败') } }
-async function start(r: SqmAuditPlan) { try { await sqmAuditApi.startPlan(r.id); ElMessage.success('已开始'); fetch() } catch (e: any) { ElMessage.error(e?.response?.data?.msg || e?.message || '操作失败') } }
+async function fetch() { loading.value = true; try { const [res, recs] = await Promise.all([sqmAuditApi.listPlansPage({ status: filterStatus.value || undefined, auditType: filterType.value || undefined, supplierId: filterSupplierId.value || undefined, page: page.value, size: size.value }), sqmAuditApi.listRecords()]); records.value = recs; list.value = res.records; total.value = res.total } finally { loading.value = false } }
+async function start(r: SqmAuditPlan) {
+  try {
+    await sqmAuditApi.startPlan(r.id)
+    ElMessage.success('已开始执行')
+    router.push(`/sqm/audits/execute/${r.id}`)
+  } catch (e: any) { ElMessage.error(e?.response?.data?.msg || e?.message || '操作失败') }
+}
+function goExecute(r: SqmAuditPlan) { router.push(`/sqm/audits/execute/${r.id}`) }
 
 function planStatusType(s: string): '' | 'info' | 'warning' | 'success' | 'primary' {
   if (s === '已完成') return 'success'
@@ -281,6 +362,24 @@ function downloadReport(r: SqmAuditPlan) {
 }
 
 function goConfig() { router.push('/system/audit-config') }
+
+// ── 列表级指派/改派审核组长 ──
+const assignVisible = ref(false)
+const assignBizNo = ref('')
+const assigningId = ref('')
+function openAssign(row: SqmAuditPlan) {
+  assigningId.value = row.id
+  assignBizNo.value = row.planNo || row.id
+  assignVisible.value = true
+}
+async function onAssignSubmit(body: DefectLaunchRequest) {
+  try {
+    await sqmAuditApi.reassign(assigningId.value, body)
+    ElMessage.success('已指派并通知审核组长')
+    assignVisible.value = false
+    fetch()
+  } finally { /* 弹窗内部保留 submitting 态 */ }
+}
 // 双向追溯: 跳转到来源变更单详情
 function goChange(id: string) { console.log('[AuditList] goChange, changeId=', id); router.push({ path: '/sqm/changes', query: { changeId: id } }) }
 function changeStatusType(s: string): '' | 'info' | 'warning' | 'success' | 'danger' {
@@ -304,6 +403,52 @@ onMounted(async () => {
   }
 })
 async function loadSuppliers() { try { suppliers.value = await sqmSupplierApi.list() } catch { suppliers.value = [] } }
+
+// ---- 新建审核计划 ----
+const createVisible = ref(false)
+const creating = ref(false)
+const createForm = reactive<Record<string, any>>({
+  supplierId: '', auditType: '', planDate: '', auditLead: '', auditorTeam: '', riskLevel: '中', scope: '',
+})
+const createExt = reactive<Record<string, any>>({})
+// 按所选审核类型动态渲染计划级特有字段
+const createMetaFields = computed(() => auditMeta(createForm.auditType)?.fields ?? [])
+function onTypeChange() { for (const k in createExt) delete createExt[k] }
+function openCreate() {
+  Object.assign(createForm, { supplierId: filterSupplierId.value || '', auditType: '', planDate: '', auditLead: '', auditorTeam: '', riskLevel: '中', scope: '' })
+  for (const k in createExt) delete createExt[k]
+  createVisible.value = true
+}
+function onCreateOpen() {}
+async function submitCreate() {
+  if (!createForm.supplierId) { ElMessage.warning('请选择供应商'); return }
+  if (!createForm.auditType) { ElMessage.warning('请选择审核类型'); return }
+  creating.value = true
+  try {
+    const ext: Record<string, any> = {}
+    for (const f of createMetaFields.value) {
+      const v = createExt[f.key]
+      if (v !== undefined && v !== null && v !== '') ext[f.key] = v
+    }
+    await sqmAuditApi.createPlan({
+      supplierId: createForm.supplierId,
+      auditType: createForm.auditType,
+      planDate: createForm.planDate || undefined,
+      auditLead: createForm.auditLead || undefined,
+      auditorTeam: createForm.auditorTeam || undefined,
+      riskLevel: createForm.riskLevel,
+      scope: createForm.scope || undefined,
+      extJson: Object.keys(ext).length ? JSON.stringify(ext) : undefined,
+    })
+    ElMessage.success('审核计划已创建（待执行）')
+    createVisible.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || e?.message || '创建失败')
+  } finally {
+    creating.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -312,6 +457,7 @@ async function loadSuppliers() { try { suppliers.value = await sqmSupplierApi.li
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
+.pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; }
 .p-wait { background: $amber-dim; color: $amber; } .p-wait .d { background: $amber; }

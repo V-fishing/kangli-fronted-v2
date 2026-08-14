@@ -6,6 +6,10 @@
 /* ── 页头 ── */
 .head-b { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
+.head-b .crumb .crumb-link { color: $ink-soft; text-decoration: none; cursor: pointer; transition: color 0.15s; }
+.head-b .crumb .crumb-link:hover { color: $cobalt; }
+.head-b .crumb .crumb-node { color: $ink-faint; }
+.head-b .crumb .crumb-sep { color: $hairline; margin: 0 1px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; letter-spacing: -0.3px; }
 .head-b h1 .no { font-family: $font-mono; font-size: 16px; font-weight: 500; color: $cobalt; margin-left: 12px; }
 .head-actions { display: flex; gap: 10px; }
@@ -39,6 +43,7 @@
 .p-sign { background: $purple-dim; color: $purple; } .p-sign .d { background: $purple; }
 .p-lock { background: $signal-red-dim; color: $signal-red; } .p-lock .d { background: $signal-red; }
 .p-done { background: $green-dim; color: $green; } .p-done .d { background: $green; }
+.p-mute { background: #ececea; color: $ink-faint; } .p-mute .d { background: $ink-faint; }
 
 /* ── 标签 ── */
 .tag-b { display: inline-block; padding: 3px 9px; font-size: 11px; border-radius: 4px; background: $paper; color: $ink-soft; border: 1px solid $hairline; white-space: nowrap; }

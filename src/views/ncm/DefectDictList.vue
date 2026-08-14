@@ -1,6 +1,6 @@
 <template>
   <div class="dict-list">
-    <div class="head-b"><div class="crumb">NCM / 不良管理</div><h1>不良字典</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>不良字典</h1></div>
     <el-card shadow="never" class="card-b filter-bar">
       <el-form :inline="true" :model="filter">
         <el-form-item label="编码"><el-input v-model="filter.code" clearable placeholder="搜索" style="width:140px" /></el-form-item>
@@ -43,6 +43,7 @@
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ncmDefectDictApi } from '@/api/modules/ncm/defect-dicts'
 import type { NcmDefectDict } from '@/api/types/ncm'
 

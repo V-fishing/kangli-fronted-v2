@@ -1,6 +1,6 @@
 <template>
   <div class="supplier-list">
-    <div class="head-b"><div class="crumb">SQM / 供应商质量</div><h1>供应商档案</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>供应商档案</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
         <el-form-item label="名称"><el-input v-model="filterName" clearable placeholder="搜索" style="width:180px" /></el-form-item>
@@ -12,6 +12,7 @@
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建供应商</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe>
+        <el-table-column type="index" label="#" width="50" :index="(i: number) => (page - 1) * size + i + 1" />
         <el-table-column prop="supplierNo" label="编号" width="120" />
         <el-table-column prop="name" label="名称" />
         <el-table-column label="等级" width="60"><template #default="{row}"><span class="pill" :class="levelClass((row as SqmSupplier).level)">{{ (row as SqmSupplier).level || '-' }}</span></template></el-table-column>
@@ -28,6 +29,12 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager" v-if="total > 0">
+        <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
+          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
+          @current-change="(p: number) => { page = p; fetch() }"
+          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+      </div>
     </el-card>
     <el-dialog v-model="dialogVisible" :title="isEdit?'编辑供应商':'新建供应商'" width="480px">
       <el-form :model="form" label-width="80px">
@@ -80,6 +87,11 @@
             <div class="rel-label">物料变更</div>
             <el-button link type="primary" size="small">查看 →</el-button>
           </div>
+          <div class="rel-card" @click="goRelated('/sqm/supplier-lots')">
+            <div class="rel-num">{{ relStats.lot }}</div>
+            <div class="rel-label">来料批次</div>
+            <el-button link type="primary" size="small">查看 →</el-button>
+          </div>
         </div>
       </template>
       <template #footer>
@@ -92,14 +104,16 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { sqmAbnormalApi } from '@/api/modules/sqm/abnormals'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
+import { sqmTraceApi } from '@/api/modules/sqm/trace'
 import type { SqmSupplier } from '@/api/types/sqm'
 
 const router = useRouter()
@@ -107,6 +121,7 @@ const auth = useAuthStore()
 const list = ref<SqmSupplier[]>([])
 const loading = ref(false)
 const filterName = ref(''), filterLevel = ref(''), filterStatus = ref('')
+const page = ref(1), size = ref(20), total = ref(0)
 const dialogVisible = ref(false), isEdit = ref(false)
 const form = reactive<Partial<SqmSupplier>>({ name: '', status: '启用' })
 
@@ -114,22 +129,25 @@ const form = reactive<Partial<SqmSupplier>>({ name: '', status: '启用' })
 const detailVisible = ref(false)
 const detailRow = ref<SqmSupplier | null>(null)
 const relLoading = ref(false)
-const relStats = reactive({ abnormal: 0, audit: 0, change: 0 })
+const relStats = reactive({ abnormal: 0, audit: 0, change: 0, lot: 0 })
 
 async function openDetail(r: SqmSupplier) {
   detailRow.value = r
   detailVisible.value = true
   relLoading.value = true
-  Object.assign(relStats, { abnormal: 0, audit: 0, change: 0 })
+  Object.assign(relStats, { abnormal: 0, audit: 0, change: 0, lot: 0 })
   try {
-    const [abnormals, audits, changes] = await Promise.all([
+    const [abnormals, audits, changes, lots] = await Promise.all([
       sqmAbnormalApi.list().catch(() => []),
       sqmAuditApi.listPlans().catch(() => []),
       sqmChangeApi.list().catch(() => []),
+      sqmTraceApi.listLots().catch(() => []),
     ])
     relStats.abnormal = abnormals.filter(a => a.supplierId === r.id).length
     relStats.audit = audits.filter(a => a.supplierId === r.id).length
     relStats.change = changes.filter(c => c.supplierId === r.id).length
+    const lotArr = Array.isArray(lots) ? lots : (lots as any)?.records || (lots as any)?.list || []
+    relStats.lot = lotArr.filter((l: any) => l.supplierId === r.id).length
   } finally {
     relLoading.value = false
   }
@@ -141,18 +159,20 @@ function goRelated(path: string) {
   router.push({ path, query: { supplierId: detailRow.value.id, supplierName: detailRow.value.name } })
 }
 
-async function fetch() { loading.value = true; try { const all = await sqmSupplierApi.list(); list.value = all.filter(r => (!filterName.value || r.name?.includes(filterName.value)) && (!filterLevel.value || r.level === filterLevel.value) && (!filterStatus.value || r.status === filterStatus.value)) } finally { loading.value = false } }
+async function fetch() { loading.value = true; try { const res = await sqmSupplierApi.page({ keyword: filterName.value || undefined, level: filterLevel.value || undefined, status: filterStatus.value || undefined, page: page.value, size: size.value }); list.value = res.records; total.value = res.total } finally { loading.value = false } }
 function openCreate() { isEdit.value = false; Object.assign(form, { supplierNo: '', name: '', category: '', creditCode: '', contactPerson: '', contactPhone: '', address: '', status: '启用' }); dialogVisible.value = true }
 function openEdit(r: SqmSupplier) { isEdit.value = true; Object.assign(form, r); dialogVisible.value = true }
 async function handleSubmit() {
   if (isEdit.value) { await sqmSupplierApi.update({ ...form, orgId: form.orgId || auth.user?.orgId }); ElMessage.success('已更新') }
   else { await sqmSupplierApi.create({ ...form, orgId: auth.user?.orgId }); ElMessage.success('已创建') }
-  dialogVisible.value = false; fetch()
+  dialogVisible.value = false; page.value = 1; fetch()
 }
-async function handleDelete(id: string) { await ElMessageBox.confirm('确认删除?'); await sqmSupplierApi.delete(id); ElMessage.success('已删除'); fetch() }
+async function handleDelete(id: string) { await ElMessageBox.confirm('确认删除?'); await sqmSupplierApi.delete(id); ElMessage.success('已删除'); page.value = 1; fetch() }
 function levelClass(l?: string) { return { A: 'p-done', B: 'p-run', C: 'p-wait', D: 'p-lock' }[l || ''] || '' }
 function statusType(s?: string) { return { '启用': 'success', '待审核': 'warning', '冻结': 'info', '淘汰': 'danger' }[s || ''] || '' }
 onMounted(() => fetch())
+// 组织视图切换(梅州/深圳/全部)时自动重置分页并重新拉取,保证数据按所选分公司隔离
+watch(() => auth.currentOrgId, () => { page.value = 1; fetch() })
 </script>
 
 <style lang="scss" scoped>
@@ -166,10 +186,11 @@ onMounted(() => fetch())
 .p-run { background: $cobalt-dim; color: $cobalt; }
 .p-wait { background: $amber-dim; color: $amber; }
 .p-lock { background: $signal-red-dim; color: $signal-red; }
-.rel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.rel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .rel-card { border: 1px solid $hairline; border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; transition: box-shadow .15s, border-color .15s; }
 .rel-card:hover { border-color: $cobalt; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
 .rel-num { font-family: $font-display; font-size: 26px; font-weight: 800; line-height: 1.2; }
 .rel-num.danger { color: $signal-red; }
 .rel-label { font-size: 12px; color: $ink-faint; margin: 4px 0 6px; }
+.pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 </style>

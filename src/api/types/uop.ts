@@ -6,6 +6,10 @@ export interface SysUser {
   orgId: string | null // null = 跨公司管理员(dataScope=all)
   realName?: string
   status: string // 启用/停用/锁定
+  /** 邮箱(点对点通知·邮件渠道接收人) */
+  email?: string
+  /** 手机号(点对点通知·短信/钉钉/企微按手机号桥接) */
+  phone?: string
   failCount?: number
   lockUntil?: string
   createdAt?: string
@@ -24,6 +28,8 @@ export interface SysRole {
   permDesc?: string
   status?: string
   createdAt?: string
+  /** 所属分公司 org_id；null = 集团(跨公司，如 sysadmin) */
+  orgId?: string | null
 }
 
 export interface SysOrg {
@@ -47,6 +53,8 @@ export interface SysMenu {
   path?: string
   component?: string
   sort?: number
+  /** 后端菜单树节点排序(与 sort 同义,树接口返回此字段) */
+  sortOrder?: number
   icon?: string
   parentId?: string | null
   children?: SysMenu[]
@@ -87,4 +95,14 @@ export interface CurrentUserVo {
   orgId: string | null
   dataScope: string // all = 跨公司,否则 = org_id
   permissions: string[]
+  /** 按角色菜单权限过滤后的菜单树(绝对路径;前端据此动态渲染导航) */
+  menus?: SysMenu[]
+}
+
+/** GET /v1/uop/users/select 返回:采集任务"选择接收人"下拉项(仅启用用户) */
+export interface UserSelectVo {
+  id: string
+  username: string
+  realName?: string
+  orgId?: string | null
 }

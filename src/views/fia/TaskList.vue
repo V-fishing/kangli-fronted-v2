@@ -2,7 +2,7 @@
   <div class="task-list">
     <div class="head-b">
       <div>
-        <div class="crumb">FIRST ARTICLE INSPECTION / 首件检验</div>
+        <AppBreadcrumb />
         <h1>任务列表</h1>
       </div>
       <div class="head-actions">
@@ -16,6 +16,10 @@
           <el-select v-model="filter.status" clearable placeholder="全部" style="width:140px">
             <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="产品/工序">
+          <el-cascader v-model="productProc" :options="productTreeOptions" :props="{ expandTrigger: 'hover' }"
+            clearable placeholder="选择产品→工序" style="width:260px" @change="onProductProcChange" />
         </el-form-item>
         <el-form-item label="工单号">
           <el-input v-model="filter.woNo" clearable placeholder="请输入" style="width:160px" />
@@ -61,15 +65,39 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
-import type { FiaTask, FiaTaskStatus } from '@/api/types/fia'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import type { FiaTask, FiaTaskStatus, ProductTreeNode } from '@/api/types/fia'
 
 const router = useRouter()
 const list = ref<FiaTask[]>([])
 const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
-const filter = reactive({ status: '', woNo: '' })
+const filter = reactive({ status: '', woNo: '', productName: '', procName: '' })
 const statusOptions: FiaTaskStatus[] = ['待检', '进行中', '待复核', '待批准', '审批中', '已完成', '超时', '已作废', '已驳回']
+
+// 产品→工序 二级树(cascader)
+const productProc = ref<(string | null)[]>([])
+type CascaderNode = { value: string; label: string; children?: CascaderNode[] }
+const productTreeOptions = ref<CascaderNode[]>([])
+async function loadProductTree() {
+  try {
+    const nodes = await fiaTaskApi.productTree().catch(() => [] as ProductTreeNode[])
+    productTreeOptions.value = (nodes || []).map(n => ({
+      value: n.productName,
+      label: n.productName,
+      children: (n.procNames || []).map(p => ({ value: p, label: p })),
+    }))
+  } catch { /* */ }
+}
+function onProductProcChange(val: (string | null)[]) {
+  // 选中二级节点 = [productName, procName];仅选一级节点 = [productName]
+  const [productName, procName] = val || []
+  filter.productName = productName || ''
+  filter.procName = procName || ''
+  page.value = 1
+  fetchData()
+}
 
 function statusClass(s: FiaTaskStatus): string {
   const m: Record<string, string> = {
@@ -86,7 +114,13 @@ function judgeClass(j?: string): string {
 async function fetchData() {
   loading.value = true
   try {
-    const res = await fiaTaskApi.list({ page: page.value, size: 20, ...filter })
+    const res = await fiaTaskApi.list({
+      page: page.value, size: 20,
+      status: filter.status || undefined,
+      woNo: filter.woNo || undefined,
+      productName: filter.productName || undefined,
+      procName: filter.procName || undefined,
+    })
     list.value = res ?? []
     total.value = list.value.length
   } finally {
@@ -94,5 +128,5 @@ async function fetchData() {
   }
 }
 
-onMounted(() => fetchData())
+onMounted(() => { loadProductTree(); fetchData() })
 </script>

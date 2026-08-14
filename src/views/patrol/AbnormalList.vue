@@ -1,6 +1,6 @@
 <template>
   <div class="abnormal-list">
-    <div class="head-b"><div class="crumb">PATROL / 巡检管理</div><h1>巡检异常</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>巡检异常</h1></div>
     <el-card shadow="never" class="card-b">
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
         <el-table-column prop="checkpointName" label="异常点位" />
@@ -21,6 +21,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { patlAbnormalApi } from '@/api/modules/patrol/abnormals'
 import type { PatlAbnormal } from '@/api/types/patrol'
 

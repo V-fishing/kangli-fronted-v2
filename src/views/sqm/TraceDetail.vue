@@ -5,7 +5,7 @@
 <template>
   <div class="trace-detail-page">
     <div class="head-b">
-      <div class="crumb"><span class="crumb-link" @click="$router.push('/sqm/trace')">SQM / 物料追溯</span><span class="crumb-sep"> / </span><span>追溯树详情</span></div>
+      <AppBreadcrumb />
       <h1>{{ treeRoot?.nodeName || '追溯树' }}</h1>
       <p class="desc-s" v-if="rootLotNo">来料批次 {{ rootLotNo }}</p>
       <div class="head-actions">
@@ -181,6 +181,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'

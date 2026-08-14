@@ -1,6 +1,6 @@
 <template>
   <div class="alarm-list">
-    <div class="head-b"><div class="crumb">SPC / 过程控制</div><h1>告警列表</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>告警列表</h1></div>
     <el-card shadow="never" class="card-b filter-bar">
       <el-form :inline="true" :model="filter">
         <el-form-item label="状态"><el-select v-model="filter.status" clearable placeholder="全部" style="width:120px"><el-option value="待确认" /><el-option value="已关闭" /></el-select></el-form-item>
@@ -95,6 +95,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { spcAlarmApi } from '@/api/modules/spc/alarms'
 import { spcRuleApi } from '@/api/modules/spc/rules'

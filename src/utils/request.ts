@@ -6,6 +6,17 @@ const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE || '/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
+  // 数组参数序列化为 key=v1&key=v2(Spring @RequestParam List 可绑定)
+  paramsSerializer: {
+    serialize: (params) => {
+      const usp = new URLSearchParams()
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (Array.isArray(v)) v.forEach(item => usp.append(k, String(item)))
+        else if (v !== undefined && v !== null) usp.append(k, String(v))
+      })
+      return usp.toString()
+    },
+  },
 })
 
 // ── 错误提示:全局统一弹窗 + 去重节流(1.5s 内相同文案只弹一次,避免并发刷屏)──
@@ -35,11 +46,14 @@ function redirectToLogin() {
   window.location.href = `/login?redirect=${redirect}`
 }
 
-// 请求拦截:注入 JWT + X-Trace-Id
+// 请求拦截:注入 JWT + X-Trace-Id + X-Org-Context(组织视图切换,供后端 DataScope 过滤)
 service.interceptors.request.use((config) => {
   const token = localStorage.getItem('qms_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   config.headers['X-Trace-Id'] = `trace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // 组织视图:ALL = 全局视图(不带头);MZ/SZ = 对应分公司过滤
+  const org = localStorage.getItem('qms_current_org')
+  if (org && org !== 'ALL') config.headers['X-Org-Context'] = org
   return config
 })
 

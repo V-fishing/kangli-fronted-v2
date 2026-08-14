@@ -2,13 +2,16 @@
   <div class="task-detail">
     <div class="head-b">
       <div>
-        <div class="crumb">FIRST ARTICLE INSPECTION / 任务详情</div>
+        <AppBreadcrumb />
         <h1>任务详情 <span class="mono no">{{ vo?.task?.code }}</span></h1>
       </div>
       <div class="head-actions">
         <button v-if="canSign('inspector')" class="btn-fill" @click="showSignDialog('inspector')">检验员签名</button>
         <button v-if="canSign('reviewer')" class="btn-fill" @click="showSignDialog('reviewer')">复核员签名</button>
         <button v-if="canSign('approver')" class="btn-fill" @click="showSignDialog('approver')">批准员签名</button>
+        <button v-if="isCompleted" class="btn-fill btn-cobalt" @click="goSpcCollect">
+          <span class="first-badge">FIRST</span> 首件 CPK 验证采集
+        </button>
       </div>
     </div>
 
@@ -111,14 +114,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { fiaSignConfigApi } from '@/api/modules/fia/sign-config'
 import { useAuthStore } from '@/stores/auth'
 import { request } from '@/api/client'
-import type { FiaTaskVo, FiaTaskStatus, InspResult, FiaSignConfig } from '@/api/types/fia'
+import type { FiaTaskVo, FiaTaskStatus, InspResult, FiaSignConfig, PreviewJudgeRequest, PreviewJudgeResult } from '@/api/types/fia'
 import type { SysUser } from '@/api/types/uop'
 
 const route = useRoute()
@@ -164,6 +168,12 @@ function showSignDialog(role: 'inspector' | 'reviewer' | 'approver') {
   signVisible.value = true
 }
 
+// 任务签字通过(已完成)后,可进入首件 CPK 验证采集(自动带出该任务的参数/工单/批次,stage=FIRST)
+const isCompleted = computed(() => vo.value?.task?.status === '已完成')
+function goSpcCollect() {
+  router.push({ path: '/spc/collect', query: { taskId: id, stage: 'FIRST' } })
+}
+
 async function submitSign() {
   signLoading.value = true
   try {
@@ -186,6 +196,40 @@ async function submitItems() {
   ElMessage.success('检验结果已保存')
   await load()
 }
+
+// 实时自动判定:测量值变化后,调用后端 previewJudge 按「标准值±公差 / passValues」
+// 实时回填判定(可匹配则覆盖 judge;不可匹配项保留人工下拉选择)。
+// 后端 enterResults 保存时也会再次以系统判定为准,此处仅提供即时视觉反馈。
+const applyingPreview = ref(false)
+let previewTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleAutoJudge() {
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(() => { void autoJudge() }, 250)
+}
+async function autoJudge() {
+  const req: PreviewJudgeRequest = {
+    items: itemValues
+      .filter(v => v.measuredValue && v.measuredValue.trim())
+      .map(v => ({ id: v.id, measuredValue: v.measuredValue.trim() })),
+  }
+  if (!req.items.length) return
+  try {
+    const res: PreviewJudgeResult[] = await fiaTaskApi.previewJudge(id, req)
+    applyingPreview.value = true
+    res.forEach(r => {
+      if (r.matchable && r.judge) {
+        const idx = itemValues.findIndex(v => v.id === r.id)
+        if (idx >= 0) itemValues[idx].judge = r.judge
+      }
+    })
+  } catch { /* 预览失败静默,保留人工判定 */ }
+  finally { applyingPreview.value = false }
+}
+watch(
+  () => itemValues.map(v => v.measuredValue),
+  () => { if (!applyingPreview.value) scheduleAutoJudge() },
+  { deep: false },
+)
 
 // 处置
 const needDisposition = computed(() => vo.value && vo.value.task.overallJudge === '不合格')
@@ -244,6 +288,7 @@ onMounted(() => load())
 
 <style lang="scss" scoped>
 .head-b h1 { font-size: 26px; }
+.first-badge { font-family: $font-mono; font-size: 10px; letter-spacing: 1px; background: rgba(0, 71, 171, 0.15); color: $cobalt; border: 1px solid rgba(0, 71, 171, 0.3); padding: 2px 6px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
 .meas-input { width: 80px; border: none; border-bottom: 1.5px solid $hairline; background: transparent; padding: 4px 2px; font-size: 13px; font-family: $font-mono; outline: none; transition: border-color 0.25s; }
 .meas-input:focus { border-bottom-color: $cobalt; }
 .judge-select { font-size: 13px; border: 1px solid $hairline; border-radius: 4px; padding: 2px 6px; background: $white; outline: none; }

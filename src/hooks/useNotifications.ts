@@ -4,11 +4,16 @@ import type { SysNotification } from '@/api/types/notify'
 
 /**
  * 统一的前端消息接收封装:列表 / 未读计数 / 单条已读 / 全部已读 / 时间格式化。
- * 供顶栏铃铛(BasicLayout)复用,避免重复逻辑。
+ * 供顶栏铃铛(BasicLayout)与消息中心(MessageCenter)复用。
+ *
+ * 注意:notices/unread 为模块级单例状态——铃铛与消息中心共享同一数据源,
+ * 任何一方 markRead/markAll 都会实时反映到另一方的未读徽标/圆点。
+ * 轮询 timer 仍为调用方各自持有,互不干扰。
  */
+const notices = ref<SysNotification[]>([])
+const unread = ref(0)
+
 export function useNotifications() {
-  const notices = ref<SysNotification[]>([])
-  const unread = ref(0)
   let timer = 0
 
   function fmtTime(t?: string) {

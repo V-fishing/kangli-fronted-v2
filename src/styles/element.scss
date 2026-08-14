@@ -44,6 +44,15 @@ body .el-table {
 
   // 固定列阴影柔化
   .el-table-fixed-column--right::after { box-shadow: -6px 0 10px -6px rgba(20, 20, 20, 0.08) !important; }
+
+  // 异常子组行高亮(与控制图异常点呼应):浅红底 + 左侧信号红竖条
+  tr.el-table__row.row-outlier > td.el-table__cell {
+    background-color: #{$signal-red-dim};
+    box-shadow: inset 3px 0 0 #{$signal-red};
+  }
+  tr.el-table__row.row-outlier:hover > td.el-table__cell {
+    background-color: #{$signal-red-dim};
+  }
 }
 
 /* ── 卡片 ── */

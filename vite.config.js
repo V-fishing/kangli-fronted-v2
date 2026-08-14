@@ -46,4 +46,15 @@ export default defineConfig({
             },
         },
     },
+    preview: {
+        host: '0.0.0.0',
+        port: 4173,
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                // 生产预览模式同样代理 /api 到后端,保持接口可用
+            },
+        },
+    },
 });

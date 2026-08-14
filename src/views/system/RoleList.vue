@@ -1,6 +1,6 @@
 <template>
   <div class="role-list">
-    <div class="head-b"><div class="crumb">SYSTEM / 系统管理</div><h1>角色管理</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>角色管理</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建角色</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
@@ -29,6 +29,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { request } from '@/api/client'
 import type { SysRole } from '@/api/types/uop'

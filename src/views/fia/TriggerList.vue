@@ -1,6 +1,6 @@
 <template>
   <div class="trigger-list">
-    <div class="head-b"><div class="crumb">FIA / 首件检验</div><h1>触发类型</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>触发类型</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
@@ -27,6 +27,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { fiaTriggerApi } from '@/api/modules/fia/triggers'
 import type { FiaTriggerType } from '@/api/types/fia'
 

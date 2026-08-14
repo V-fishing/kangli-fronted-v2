@@ -1,10 +1,10 @@
 <template>
   <div class="change-list">
-    <div class="head-b"><div class="crumb">SQM / 供应商质量</div><h1>物料变更</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>物料变更</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
         <el-form-item label="状态"><el-select v-model="filterStatus" clearable placeholder="全部" style="width:120px"><el-option v-for="s in ['待申请','审批中','已批准','已驳回','已关闭','已回滚']" :key="s" :label="s" :value="s" /></el-select></el-form-item>
-        <el-form-item><el-button type="primary" @click="fetch">查询</el-button></el-form-item>
+        <el-form-item><el-button type="primary" @click="page = 1; fetch()">查询</el-button></el-form-item>
         <el-form-item v-if="filterSupplierId"><el-tag closable type="warning" @close="clearSupplierFilter">供应商: {{ filterSupplierName || filterSupplierId }}</el-tag></el-form-item>
       </el-form>
     </el-card>
@@ -41,6 +41,12 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager" v-if="total > 0">
+        <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
+          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
+          @current-change="(p: number) => { page = p; fetch() }"
+          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+      </div>
     </el-card>
 
     <!-- 审批弹窗(采购→研发→质量 依次签字) -->
@@ -149,6 +155,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
@@ -163,17 +170,19 @@ const auth = useAuthStore()
 const list = ref<SqmChangeOrderListVo[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
+const page = ref(1), size = ref(20), total = ref(0)
 // 从供应商详情跳转而来时按供应商过滤
 const filterSupplierId = ref((route.query.supplierId as string) || '')
 const filterSupplierName = ref((route.query.supplierName as string) || '')
 
-function clearSupplierFilter() { filterSupplierId.value = ''; filterSupplierName.value = ''; router.replace({ query: {} }); fetch() }
+function clearSupplierFilter() { filterSupplierId.value = ''; filterSupplierName.value = ''; router.replace({ query: {} }); page.value = 1; fetch() }
 
 async function fetch() {
   loading.value = true
   try {
-    const all = await sqmChangeApi.list()
-    list.value = all.filter(r => (!filterStatus.value || r.status === filterStatus.value) && (!filterSupplierId.value || r.supplierId === filterSupplierId.value))
+    const res = await sqmChangeApi.listPage({ status: filterStatus.value || undefined, supplierId: filterSupplierId.value || undefined, page: page.value, size: size.value })
+    list.value = res.records
+    total.value = res.total
   } finally { loading.value = false }
 }
 
@@ -325,6 +334,7 @@ onMounted(async () => {
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
+.pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 .muted { color: $ink-faint; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; }

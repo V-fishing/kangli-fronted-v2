@@ -1,6 +1,6 @@
 <template>
   <div class="menu-list">
-    <div class="head-b"><div class="crumb">SYSTEM / 系统管理</div><h1>菜单管理</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>菜单管理</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" v-permission="'system.menu.create'" @click="openCreate()">+ 新建菜单</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
@@ -29,6 +29,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { request } from '@/api/client'
 import type { SysMenu } from '@/api/types/uop'
 

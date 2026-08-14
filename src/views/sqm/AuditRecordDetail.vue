@@ -16,7 +16,7 @@
             <el-descriptions-item label="状态">
               <el-tag size="small" :type="statusType(plan.status)">{{ plan.status }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="供应商">{{ plan.supplierId }}</el-descriptions-item>
+            <el-descriptions-item label="供应商">{{ supplierName(plan?.supplierId) }}</el-descriptions-item>
             <el-descriptions-item label="审核类型">{{ plan.auditType }}</el-descriptions-item>
             <el-descriptions-item label="组长">{{ plan.auditLead }}</el-descriptions-item>
             <el-descriptions-item label="审核组">{{ plan.actualAuditors || plan.auditorTeam || '—' }}</el-descriptions-item>
@@ -62,24 +62,12 @@
 
     <el-card class="card" shadow="never" v-if="plan || record">
       <template #header>生命周期（按审核类型差异化）</template>
-      <el-row :gutter="16">
-        <el-col :span="12" v-if="plan">
-          <div class="life-title">计划 · {{ plan.auditType }}</div>
-          <el-timeline>
-            <el-timeline-item v-for="s in planTimeline" :key="s.key" :type="s.active ? 'primary' : 'info'" :hollow="!s.active">
-              <span :class="{ 'step-active': s.active }">{{ s.label }}</span>
-            </el-timeline-item>
-          </el-timeline>
-        </el-col>
-        <el-col :span="12" v-if="record">
-          <div class="life-title">记录 · {{ record.auditType }}</div>
-          <el-timeline>
-            <el-timeline-item v-for="s in recTimeline" :key="s.key" :type="s.active ? 'primary' : 'info'" :hollow="!s.active">
-              <span :class="{ 'step-active': s.active }">{{ s.label }}</span>
-            </el-timeline-item>
-          </el-timeline>
-        </el-col>
-      </el-row>
+      <div class="life-title">审核流程 · {{ (plan || record)?.auditType }}</div>
+      <el-timeline>
+        <el-timeline-item v-for="s in lifecycle" :key="s.key" :type="s.active ? 'primary' : 'info'" :hollow="!s.active">
+          <span :class="{ 'step-active': s.active }">{{ s.label }}</span>
+        </el-timeline-item>
+      </el-timeline>
     </el-card>
 
     <el-card class="card" shadow="never">
@@ -109,6 +97,8 @@
             </div>
             <div class="approval-meta">
               <span>执行人：{{ a.operator || '—' }}</span>
+              <span v-if="a.approverId">指定审批人：{{ userName(a.approverId) }}</span>
+              <span v-else>指定审批人：不限定</span>
               <span v-if="a.opinion">意见：{{ a.opinion }}</span>
             </div>
             <el-button
@@ -117,6 +107,17 @@
               @click="openApprove(a)"
             >会签</el-button>
           </div>
+        </el-timeline-item>
+      </el-timeline>
+    </el-card>
+
+    <el-card class="card" shadow="never" v-if="logs.length">
+      <template #header>流程轨迹</template>
+      <el-timeline>
+        <el-timeline-item v-for="(w, i) in logs" :key="w.id || i" type="success" :timestamp="w.createdAt" placement="top">
+          <b>{{ w.action }}</b>
+          <span class="mono" style="color:#8a8780; margin-left:8px">{{ w.operator }}</span>
+          <div v-if="w.remark" class="log-remark">{{ w.remark }}</div>
         </el-timeline-item>
       </el-timeline>
     </el-card>
@@ -173,7 +174,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
-import type { SqmAuditPlan, SqmAuditRecord, SqmAuditNc, SqmAuditApproval } from '@/api/types/sqm'
+import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+import { auditExecuteApi } from '@/api/modules/sqm/auditExecute'
+import type { SqmAuditPlan, SqmAuditRecord, SqmAuditNc, SqmAuditApproval, SqmAuditWorkflowLog, SqmSupplier, SqmAuditChecklistItem } from '@/api/types/sqm'
 import { auditMeta, parseExt, processStepsOf } from '@/views/sqm/auditTypeMeta'
 
 const route = useRoute()
@@ -181,9 +184,21 @@ const router = useRouter()
 
 const plan = ref<SqmAuditPlan | null>(null)
 const record = ref<SqmAuditRecord | null>(null)
+const checklist = ref<Partial<SqmAuditChecklistItem>[]>([])
 const ncs = ref<SqmAuditNc[]>([])
 const approvals = ref<SqmAuditApproval[]>([])
+const logs = ref<SqmAuditWorkflowLog[]>([])
 const loadingApprovals = ref(false)
+// 供应商名称映射(supplierId → name)
+const suppliers = ref<SqmSupplier[]>([])
+const supplierNameMap = computed<Record<string, string>>(() => {
+  const m: Record<string, string> = {}
+  for (const s of suppliers.value) if (s.id) m[s.id] = s.name
+  return m
+})
+function supplierName(id?: string): string {
+  return (id && supplierNameMap.value[id]) || id || '—'
+}
 const submitting = ref(false)
 
 const approveVisible = ref(false)
@@ -223,33 +238,46 @@ function extVal(json?: string, key?: string): string {
 // 审核组会签是否全部通过
 const allApproved = computed(() => approvals.value.length > 0 && approvals.value.every(a => a.status === 'done'))
 
-// 按审核类型把生命周期步骤映射为「已激活/未激活」时间线
-function toTimeline(steps: { key: string; label: string }[], status?: string, hasRecord = false) {
-  const n = steps.length
-  const lastThree = Math.max(0, n - 3)
+// 单条生命周期时间线:按真实数据驱动激活(计划/记录/检查项/不符合项/复核进度),而非分两列重复展示
+const reviewDone = computed(() => {
+  const r = approvals.value.find(a => a.approvalRole === 'review')
+  return !!r && r.status === 'done'
+})
+const lifecycle = computed(() => {
+  const steps = processStepsOf((plan.value || record.value)?.auditType || '')
+  const hasRecord = !!record.value
+  const planned = !!plan.value && plan.value.status !== '计划中' && plan.value.status !== '待执行'
+  const onSite = checklist.value.length > 0
+  const hasNc = ncs.value.length > 0
+  const archived = reviewDone.value || record.value?.status === '已完成'
   return steps.map((s, i) => {
     let active = false
     if (i === 0) active = true
-    else if (i >= lastThree) active = hasRecord
-    else active = !!status && status !== '计划中' && status !== '待执行'
+    else if (i === 1) active = planned
+    else if (i === 2) active = hasRecord && onSite
+    else if (i === 3) active = hasNc || archived
+    else if (i === steps.length - 1) active = archived
+    else active = planned
     return { key: s.key, label: s.label, active }
   })
-}
-const planTimeline = computed(() => toTimeline(processStepsOf(plan.value?.auditType || ''), plan.value?.status, false))
-const recTimeline = computed(() => toTimeline(processStepsOf(record.value?.auditType || ''), record.value?.status, true))
+})
 
 async function load() {
   const recordId = route.params.recordId as string
   if (!recordId) return
   record.value = await sqmAuditApi.getRecord(recordId)
+  checklist.value = await auditExecuteApi.listChecklist(recordId)
   const planId = record.value.planId
   if (planId) {
     plan.value = await sqmAuditApi.getPlan(planId)
     await loadApprovals(planId)
+    logs.value = await auditExecuteApi.workflowLog(planId)
   }
   const all = await sqmAuditApi.listNcs()
   ncs.value = all.filter(n => n.recordId === recordId)
+  await loadSuppliers()
 }
+async function loadSuppliers() { try { suppliers.value = await sqmSupplierApi.list() } catch { suppliers.value = [] } }
 
 async function loadApprovals(planId: string) {
   loadingApprovals.value = true

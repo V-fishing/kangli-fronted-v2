@@ -1,7 +1,7 @@
 <template>
   <div class="trend-report">
     <div class="head-b">
-      <div class="crumb">NCM / 不良管理</div>
+      <AppBreadcrumb />
       <h1>不良趋势报表</h1>
       <div class="sub">按产品自动生成日 / 周 / 月粒度不良趋势,含环比·同比与恶化告警</div>
     </div>
@@ -115,6 +115,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { ncmTrendReportApi } from '@/api/modules/ncm/trend-report'
 import type { TrendPoint, TrendRule } from '@/api/types/ncm'

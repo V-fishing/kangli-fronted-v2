@@ -3,9 +3,13 @@ import type {
   SqmAuditPlan, SqmAuditRecord, SqmAuditNc, SqmAuditApproval, SqmAuditReportArchive,
   CloseNcRequest, ApproveAuditRequest, SqmAuditApprovalCfg, SqmAuditorItem,
 } from '@/api/types/sqm'
+import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
+import type { PageResult } from '@/api/types/common'
 
 export const sqmAuditApi = {
   listPlans: () => request.get<SqmAuditPlan[]>('/v1/sqm/audits/plans'),
+  listPlansPage: (params: { status?: string; auditType?: string; supplierId?: string; page?: number; size?: number }) =>
+    request.get<PageResult<SqmAuditPlan>>('/v1/sqm/audits/plans/page', { params }),
   /** 按来源变更单 id 反查其联动生成的审核计划(双向追溯:变更单详情 → 审核计划)。 */
   listByChangeId: (changeId: string) => request.get<SqmAuditPlan[]>(`/v1/sqm/audits/plans/by-change/${changeId}`),
   getPlan: (id: string) => request.get<SqmAuditPlan>(`/v1/sqm/audits/plans/${id}`),
@@ -26,4 +30,6 @@ export const sqmAuditApi = {
   getAuditApprovalCfg: () => request.get<SqmAuditApprovalCfg[]>('/v1/sqm/audits/audit-approval-cfg'),
   saveAuditApprovalCfg: (body: { auditType: string; auditors: SqmAuditorItem[] }) =>
     request.put<void>('/v1/sqm/audits/audit-approval-cfg', body),
+  /** 列表级指派/改派审核组长(单人 ownerUserId 或 角色团队 assignRoleCodes) */
+  reassign: (id: string, body?: DefectLaunchRequest) => request.post<void>(`/v1/sqm/audits/plans/${id}/reassign`, body),
 }

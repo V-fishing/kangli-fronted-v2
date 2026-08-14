@@ -1,6 +1,6 @@
 <template>
   <div class="ncm-index">
-    <div class="head-b"><div class="crumb">NCM / 不良管理</div><h1>不良管理</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>不良管理</h1></div>
     <div class="card-grid">
       <div class="entrance-card" @click="router.push('/ncm/defect-dicts')">
         <div class="ic ic-amber">D</div>
@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 const router = useRouter()
 </script>
 

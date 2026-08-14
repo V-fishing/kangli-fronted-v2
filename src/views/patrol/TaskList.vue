@@ -1,6 +1,6 @@
 <template>
   <div class="task-list">
-    <div class="head-b"><div class="crumb">PATROL / 巡检管理</div><h1>巡检任务</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>巡检任务</h1></div>
     <el-card shadow="never" class="card-b">
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
         <el-table-column prop="taskNo" label="任务编号" width="170" />
@@ -19,6 +19,7 @@
 // @ts-nocheck
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { patlTaskApi } from '@/api/modules/patrol/tasks'
 import type { PatlTask } from '@/api/types/patrol'
 

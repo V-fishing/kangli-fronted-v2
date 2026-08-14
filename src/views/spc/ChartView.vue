@@ -1,24 +1,26 @@
 <template>
   <div class="chart-view">
-    <div class="head-b"><div class="crumb">SPC / 过程控制</div><h1>控制图 · {{ param?.paramName || '选择参数' }}</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>控制图 · {{ param?.paramName || '选择参数' }}<span v-if="sampleTaskId" class="mode-tag">抽样任务视图</span></h1></div>
     <el-card shadow="never" class="card-b filter-bar">
       <el-form :inline="true">
-        <el-form-item label="参数"><el-select v-model="paramId" @change="loadChart" placeholder="选择SPC参数" style="width:240px"><el-option v-for="p in params" :key="p.id" :label="p.paramName" :value="p.id" /></el-select></el-form-item>
+        <el-form-item label="参数"><el-select v-model="paramId" @change="loadChart" placeholder="选择SPC参数" style="width:240px"><el-option v-for="p in sameProductParams" :key="p.id" :label="p.paramName" :value="p.id" /></el-select></el-form-item>
+        <el-form-item label="阶段">
+          <span class="stage-hint"><span class="dot" :class="stageClass"></span>{{ stageLabel }}（控制图基于全部样本子组计算，不受阶段限制）</span>
+        </el-form-item>
         <el-form-item label="时间范围"><el-date-picker v-model="timeRange" type="datetimerange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width:360px" @change="loadChart" /></el-form-item>
-        <el-form-item><el-button type="primary" plain @click="openManual">设置控制限</el-button></el-form-item>
+        <el-form-item><el-button type="primary" plain :disabled="hasCountChart" @click="openManual">设置控制限</el-button></el-form-item>
       </el-form>
     </el-card>
 
     <div class="grid-b">
       <div class="left-b">
-        <div class="card-b">
-          <div class="card-head"><h2>Xbar 控制图</h2><span class="sub">{{ chartData?.subgroups?.length || 0 }} 个子组</span></div>
-          <div class="chart" ref="xbarChartRef"></div>
-        </div>
-        <div class="card-b">
-          <div class="card-head"><h2>R 控制图（极差）</h2></div>
-          <div class="chart" ref="rChartRef"></div>
-        </div>
+        <template v-for="(card, idx) in chartCards" :key="idx">
+          <div class="card-b">
+            <div class="card-head"><h2>{{ card.title }}</h2><span class="sub">{{ cardSubtitle(card) }}</span></div>
+            <div class="chart" :ref="el => setCardRef(el, idx)"></div>
+          </div>
+        </template>
+        <div v-if="!chartCards.length" class="card-b card-empty">该参数未配置控制图类型（chartCandidates 为空）</div>
       </div>
       <div class="right-b">
         <div class="card-b">
@@ -50,6 +52,60 @@
       </div>
     </div>
 
+    <!-- 子组数据(每个节点的录入溯源:批号/工单/录入人) -->
+    <div class="card-b sg-card" v-if="chartData?.subgroups?.length">
+      <div class="card-head">
+        <h2>子组数据</h2>
+        <span class="sub">{{ chartData.subgroups.length }} 个子组 · 按录入时间升序</span>
+      </div>
+      <el-table :data="pagedSubgroups" :row-class-name="subgroupRowClass" size="default" style="width: 100%" :cell-style="{ padding: '7px 0' }">
+        <el-table-column type="index" label="#" width="52" align="center" />
+        <el-table-column label="子组号" width="84" align="center">
+          <template #default="{ row }"><span class="mono">{{ row.subgroupNo ?? '-' }}</span></template>
+        </el-table-column>
+        <el-table-column label="批号" min-width="120">
+          <template #default="{ row }"><span class="mono">{{ row.batchNo || '-' }}</span></template>
+        </el-table-column>
+        <el-table-column label="工单号" min-width="120">
+          <template #default="{ row }"><span class="mono">{{ row.woNo || '-' }}</span></template>
+        </el-table-column>
+        <el-table-column label="录入人" min-width="100">
+          <template #default="{ row }">{{ row.operatorName || row.operatorId || '系统' }}</template>
+        </el-table-column>
+        <el-table-column label="录入时间" min-width="150">
+          <template #default="{ row }"><span class="mono">{{ fmtTime(row.subgroupTime || row.createdAt) }}</span></template>
+        </el-table-column>
+        <el-table-column label="均值 X̄" width="96" align="right">
+          <template #default="{ row }"><span class="mono">{{ fmtNum(row.xbar) }}</span></template>
+        </el-table-column>
+        <el-table-column label="极差 R" width="88" align="right">
+          <template #default="{ row }"><span class="mono">{{ fmtNum(row.rangeR) }}</span></template>
+        </el-table-column>
+        <el-table-column label="数据源" width="92" align="center">
+          <template #default="{ row }"><span class="src-tag">{{ srcLabel(row.dataSource) }}</span></template>
+        </el-table-column>
+        <el-table-column label="判定" width="140" align="center">
+          <template #default="{ row }">
+            <span class="pill" :class="judgePill(row)"><span class="d"></span>{{ row.isOutlier ? '异常' : (row.judge || '正常') }}</span>
+            <span v-if="row.isOutlier && row.outlierRule" class="rule-tag">规则 {{ row.outlierRule }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="sg-foot">
+        <el-pagination
+          v-model:current-page="subgroupPage"
+          :page-size="subgroupSize"
+          :total="chartData.subgroups.length"
+          layout="total, prev, pager, next"
+          background
+          @current-change="onSubgroupPage" />
+      </div>
+    </div>
+    <div class="card-b sg-card sg-empty" v-else-if="chartData && !chartData.subgroups?.length">
+      <div class="card-head"><h2>子组数据</h2></div>
+      <p class="empty-tip">该参数暂无子组数据（请先采集或录入测量值）</p>
+    </div>
+
     <!-- 设置控制限(人工覆盖) -->
     <el-dialog v-model="manualVisible" title="设置控制限（人工覆盖）" width="640px" append-to-body>
       <div class="m-help">
@@ -77,7 +133,7 @@
         </div>
         <div class="m-ref__grid mono">
           <span>Xbar：UCL {{ fmtNum(autoRef.xbarUcl) }} · CL {{ fmtNum(autoRef.xbarCl) }} · LCL {{ fmtNum(autoRef.xbarLcl) }}</span>
-          <span>R：UCL {{ fmtNum(autoRef.rUcl) }} · CL {{ fmtNum(autoRef.rCl) }} · LCL {{ fmtNum(autoRef.rLcl) }}</span>
+          <span>R：UCL {{ fmtNum(autoRef.rucl) }} · CL {{ fmtNum(autoRef.rcl) }} · LCL {{ fmtNum(autoRef.rlcl) }}</span>
         </div>
       </div>
       <el-alert v-else type="warning" :closable="false" style="margin-bottom:12px" title="该参数暂无自动计算基线，请谨慎人工设定（可先在数据采集后执行控制限计算获得参考值）。" />
@@ -88,9 +144,9 @@
         <el-form-item label="CL 中心线" required><el-input-number v-model="manual.xbarCl" :step="0.001" controls-position="right" style="width:100%" /></el-form-item>
         <el-form-item label="LCL 下控制限" required><el-input-number v-model="manual.xbarLcl" :step="0.001" controls-position="right" style="width:100%" /></el-form-item>
         <el-divider content-position="left">R 图（子组极差，选填）</el-divider>
-        <el-form-item label="UCL 上控制限"><el-input-number v-model="manual.rUcl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
-        <el-form-item label="CL 中心线"><el-input-number v-model="manual.rCl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
-        <el-form-item label="LCL 下控制限"><el-input-number v-model="manual.rLcl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
+        <el-form-item label="UCL 上控制限"><el-input-number v-model="manual.rucl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
+        <el-form-item label="CL 中心线"><el-input-number v-model="manual.rcl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
+        <el-form-item label="LCL 下控制限"><el-input-number v-model="manual.rlcl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
       </el-form>
       <div v-if="manualWarn" class="m-warn">⚠ {{ manualWarn }}</div>
       <template #footer><el-button @click="manualVisible=false">取消</el-button><el-button type="primary" :loading="manualSaving" @click="saveManual">保存覆盖</el-button></template>
@@ -102,31 +158,46 @@
 // @ts-nocheck
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcChartApi } from '@/api/modules/spc/chart'
 import { spcCapabilityApi } from '@/api/modules/spc/capability'
 import { spcControlLimitApi } from '@/api/modules/spc/control-limits'
-import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit } from '@/api/types/spc'
+import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit, SpcSubgroup } from '@/api/types/spc'
 
 const route = useRoute()
 const params = ref<SpcParam[]>([])
 const paramId = ref((route.params.id as string) || '')
 const param = computed(() => params.value.find(p => p.id === paramId.value))
 const timeRange = ref<[string, string] | null>(null)
+// 阶段由进入来源确定(首件列表→FIRST,抽样列表→ROUTINE),不再提供手动切换
+const stage = ref((route.query.stage as string) || (route.query.sampleTaskId ? 'ROUTINE' : 'ROUTINE') as string)
+const sampleTaskId = ref((route.query.sampleTaskId as string) || '')
+
+// 阶段说明(只读展示)
+const stageLabel = computed(() => ({ FIRST: '首件点', ROUTINE: '量产线', ALL: '全部' }[stage.value] || '量产线'))
+const stageClass = computed(() => ({ FIRST: 'first', ROUTINE: 'routine', ALL: 'all' }[stage.value] || 'routine'))
+
+// 参数下拉:仅展示与当前参数同属一个产品(料号)的参数,避免混入其他产品的参数
+const sameProductParams = computed(() => {
+  const cur = param.value
+  const curParts = new Set((cur?.products || []).map(p => p.partNo).filter(Boolean))
+  if (curParts.size === 0) return params.value.filter(p => p.id === paramId.value)
+  return params.value.filter(p => (p.products || []).some(pr => curParts.has(pr.partNo)))
+})
 const chartData = ref<ControlChartVo | null>(null)
 const capability = ref<SpcCapability | null>(null)
 const hist = ref<SpcHistogramVo | null>(null)
 const trend = ref<SpcCapability[]>([])
 const trendRows = computed(() => trend.value.slice(0, 6))
 
-const xbarChartRef = ref<HTMLElement>()
-const rChartRef = ref<HTMLElement>()
 const histChartRef = ref<HTMLElement>()
 const trendChartRef = ref<HTMLElement>()
-let xbarChart: echarts.ECharts | null = null
-let rChart: echarts.ECharts | null = null
+const cardRefs = ref<(HTMLElement | null)[]>([])
+const cardCharts = ref<(echarts.ECharts | null)[]>([])
+function setCardRef(el: any, idx: number) { if (cardRefs.value) cardRefs.value[idx] = el }
 let histChart: echarts.ECharts | null = null
 let trendChart: echarts.ECharts | null = null
 
@@ -136,13 +207,39 @@ const manualSaving = ref(false)
 const autoRef = ref<SpcControlLimit | null>(null)
 
 function fmtNum(v: any) { return v == null ? '-' : Number(v).toFixed(3) }
+function fmtTime(v: string | null | undefined): string {
+  if (!v) return '-'
+  return v.replace('T', ' ').slice(0, 19)
+}
+
+/** 子组数据列表:前端分页(controlChart 已全量返回 subgroups) */
+const subgroupPage = ref(1)
+const subgroupSize = ref(20)
+const pagedSubgroups = computed(() => {
+  const all = chartData.value?.subgroups || []
+  const start = (subgroupPage.value - 1) * subgroupSize.value
+  return all.slice(start, start + subgroupSize.value)
+})
+function onSubgroupPage(p: number) { subgroupPage.value = p }
+/** 异常子组(isOutlier)行高亮,与控制图异常点呼应 */
+function subgroupRowClass({ row }: { row: SpcSubgroup }): string {
+  return row.isOutlier ? 'row-outlier' : ''
+}
+/** 判定 StatusPill:异常/报警锁红,正常通过绿 */
+function judgePill(row: SpcSubgroup): string {
+  return row.isOutlier ? 'p-lock' : 'p-done'
+}
+/** 数据源中文标签 */
+function srcLabel(s: string | undefined): string {
+  return ({ manual: '手动录入', fia: '首件联动', sample: '抽样任务', auto: '自动' } as Record<string, string>)[s || ''] || (s || '其他')
+}
 
 const manualWarn = computed(() => {
   const m = manual.value
   if (m.xbarUcl == null && m.xbarCl == null && m.xbarLcl == null) return ''
   if (m.xbarUcl != null && m.xbarCl != null && m.xbarUcl <= m.xbarCl) return 'Xbar 图必须满足 UCL > CL'
   if (m.xbarCl != null && m.xbarLcl != null && m.xbarCl <= m.xbarLcl) return 'Xbar 图必须满足 CL > LCL'
-  if (m.rUcl != null && m.rLcl != null && m.rUcl < m.rLcl) return 'R 图必须满足 UCL ≥ LCL'
+  if (m.rucl != null && m.rlcl != null && m.rucl < m.rlcl) return 'R 图必须满足 UCL ≥ LCL'
   const pu = param.value?.specUpper, pl = param.value?.specLower
   if (pu != null && m.xbarUcl != null && m.xbarUcl > pu) return `UCL 超出规格上限 USL=${pu}，控制限通常应窄于规格限`
   if (pl != null && m.xbarLcl != null && m.xbarLcl < pl) return `LCL 低于规格下限 LSL=${pl}，控制限通常应窄于规格限`
@@ -152,7 +249,7 @@ const manualWarn = computed(() => {
 function fillFromAuto() {
   const a = autoRef.value
   if (!a) return
-  manual.value = { xbarUcl: a.xbarUcl, xbarCl: a.xbarCl, xbarLcl: a.xbarLcl, rUcl: a.rUcl, rCl: a.rCl, rLcl: a.rLcl }
+  manual.value = { xbarUcl: a.xbarUcl, xbarCl: a.xbarCl, xbarLcl: a.xbarLcl, rucl: a.rucl, rcl: a.rcl, rlcl: a.rlcl }
 }
 
 const cpkLevel = computed(() => { const v = capability.value?.cpk; if (v == null) return ''; return v >= 1.33 ? 'c-green' : v >= 1.0 ? 'c-amber' : 'c-red' })
@@ -160,17 +257,82 @@ function levelClass(l: string) { return { '充足': 'p-done', '尚可': 'p-run',
 
 async function loadChart() {
   if (!paramId.value) return
-  const p = { paramId: paramId.value, startTime: timeRange.value?.[0], endTime: timeRange.value?.[1] }
+  // 控制图/直方图统一基于全量子组计算(忽略 stage 维度), 与过程能力口径一致;
+  // stage 入口参数在此作废(不再作为过滤条件), 仅保留展示标签意义。
+  const p = { paramId: paramId.value, startTime: timeRange.value?.[0], endTime: timeRange.value?.[1], stage: 'ALL', sampleTaskId: sampleTaskId.value || undefined }
   const [data, cap, h] = await Promise.all([
     spcChartApi.controlChart(p).catch(() => null),
     spcCapabilityApi.calc({ paramId: paramId.value }).catch(() => null),
     spcChartApi.histogram(p).catch(() => null),
   ])
   chartData.value = data
+  subgroupPage.value = 1
   capability.value = cap
   hist.value = h
   trend.value = await spcCapabilityApi.trend({ paramId: paramId.value }).catch(() => [])
-  nextTick(() => { drawXbar(); drawR(); drawHist(); drawTrend() })
+  // 先销毁旧图实例,再按 chartCards 动态渲染(卡片数量随 chartCandidates 变化)
+  cardCharts.value.forEach(c => c?.dispose())
+  cardCharts.value = []
+  nextTick(() => {
+    // 单图绘制异常不应中断其余图(如某类控制图 markLine 解析失败),逐项容错
+    chartCards.value.forEach((card, idx) => { try { drawCard(card, idx) } catch (e) { console.warn('drawCard fail', card.kind, e) } })
+    try { drawHist() } catch (e) { console.warn('drawHist fail', e) }
+    try { drawTrend() } catch (e) { console.warn('drawTrend fail', e) }
+  })
+}
+
+/** 图类型 → 卡片列表:每个图类型一张独立卡片(沿用 Xbar/R 卡片结构)。 */
+const chartCards = computed(() => {
+  const raw = param.value?.chartCandidates
+  if (!raw || !raw.trim()) {
+    // 兜底:用 chartType 单元素,兼容历史数据
+    const t = param.value?.chartType
+    if (!t) return []
+    return expandTypes([t])
+  }
+  const types = raw.split(',').map(s => s.trim()).filter(Boolean)
+  return expandTypes(types)
+})
+
+/** 参数是否含计数型图(P/NP/C/U):控制限由系统自动计算,不支持人工覆盖 */
+const hasCountChart = computed(() => {
+  const raw = param.value?.chartCandidates || param.value?.chartType || ''
+  return raw.split(',').map(s => s.trim()).filter(Boolean).some(t => ['P', 'NP', 'C', 'U'].includes(t))
+})
+
+/** 控制图页卡片生成: 输入已统一为基础图码(Xbar/R/S/I/MR/P/NP/C/U)直接映射为卡片;
+ *  同时向下兼容历史组合码(Xbar-R→[Xbar,R]; Xbar-S→[Xbar,S]; I-MR→[I,MR])。
+ *  按基础图 kind 去重(保留首次出现顺序): 勾选 Xbar+R+S 仅得 [Xbar,R,S], 不重复。 */
+function expandTypes(types: string[]) {
+  const cards: { kind: string; title: string }[] = []
+  const seen = new Set<string>()
+  const titleMap: Record<string, string> = {
+    Xbar: 'Xbar 控制图（均值）', R: 'R 控制图（极差）', S: 'S 控制图（标准差）',
+    I: 'I 控制图（单值）', MR: 'MR 控制图（移动极差）',
+    P: 'P 控制图（不合格品率）', NP: 'NP 控制图（不合格品数）',
+    C: 'C 控制图（缺陷数）', U: 'U 控制图（单位缺陷数）',
+  }
+  const pushKind = (k: string) => {
+    if (seen.has(k)) return
+    seen.add(k)
+    cards.push({ kind: k, title: titleMap[k] })
+  }
+  for (const t of types) {
+    if (t === 'Xbar-R') { pushKind('Xbar'); pushKind('R') }
+    else if (t === 'Xbar-S') { pushKind('Xbar'); pushKind('S') }
+    else if (t === 'I-MR') { pushKind('I'); pushKind('MR') }
+    else if (titleMap[t]) pushKind(t)
+  }
+  return cards
+}
+
+function cardSubtitle(card: { kind: string }) {
+  if (['P', 'NP', 'C', 'U'].includes(card.kind)) {
+    const cs = chartData.value?.countSeries?.find(s => s.chartType === card.kind)
+    const n = cs?.values?.filter(v => v != null).length || 0
+    return `${n} 个子组`
+  }
+  return `${chartData.value?.subgroups?.length || 0} 个子组`
 }
 
 function specLines(): any[] {
@@ -181,52 +343,149 @@ function specLines(): any[] {
   return ml
 }
 
-function drawXbar() {
-  if (!xbarChartRef.value) return
-  xbarChart?.dispose(); xbarChart = echarts.init(xbarChartRef.value)
-  const d = chartData.value; if (!d?.subgroups?.length) return
-  const xbars = d.subgroups.map(s => s.xbar)
-  const limit = d.limit
-  const ml: any[] = []
-  if (limit) {
-    ml.push({ yAxis: limit.xbarUcl, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'UCL', color: '#e03616', fontSize: 9 } })
-    ml.push({ yAxis: limit.xbarCl, lineStyle: { color: '#0047ab', width: 1 }, label: { formatter: 'CL', color: '#0047ab', fontSize: 9 } })
-    ml.push({ yAxis: limit.xbarLcl, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'LCL', color: '#e03616', fontSize: 9 } })
+/** 通用计量型折线控制图绘制(单序列 + 控制限线 + 异常点)。
+ *  showSpec: 是否叠加规格限 USL/LSL。极差/标准差类图(R/S/MR)量纲与特性值不同,
+ *  规格限为特性值绝对值(如 50±0.05),若纳入会把 Y 轴拉爆、把极差线压成一条,故关闭。 */
+function drawLineChart(chart: echarts.ECharts, values: any[], limitLines: { yAxis: number; label: string }[], alertIdx: number[], firstIdx: number[], showSpec = true) {
+  const d = chartData.value
+  const specML = showSpec ? specLines() : []
+  const series: any[] = [{
+    type: 'line', data: values, smooth: true, symbolSize: 5, connectNulls: false,
+    lineStyle: { color: '#141414', width: 1.5 }, itemStyle: { color: '#141414', borderColor: '#fff', borderWidth: 1 },
+    markLine: { symbol: ['none', 'none'], data: [...limitLines.map(l => ({ yAxis: l.yAxis, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: l.label, color: '#e03616', fontSize: 9 } })), ...specML] },
+  }]
+  if (alertIdx.length) series.push({ type: 'scatter', data: alertIdx.map(i => [i, values[i]]), itemStyle: { color: '#e03616' }, symbolSize: 10 })
+  if (firstIdx.length) series.push({ type: 'scatter', data: firstIdx.map(i => [i, values[i]]), name: '首件点', symbol: 'diamond', symbolSize: 11, itemStyle: { color: '#0047ab', borderColor: '#fff', borderWidth: 1.5 } })
+  // Y 轴自适应:以数据 + 过程控制限为参考范围(规格限仅特性值图参与),避免波动被压成一条线。
+  // 极差/非负类图(参考下界贴近 0)锁定 Y 轴从 0 起、上端留 15% 余量;
+  // 其余(如 Xbar 中心远离 0)居中对称留 15% 余量。
+  const refVals: number[] = values.filter((v): v is number => v != null)
+  ;[...limitLines, ...specML].forEach(l => { if (l && typeof l.yAxis === 'number') refVals.push(l.yAxis) })
+  let yMin: number | undefined
+  let yMax: number | undefined
+  if (refVals.length) {
+    const lo = Math.min(...refVals)
+    const hi = Math.max(...refVals)
+    // 参考上界(优先控制限 UCL,其次数据/规格上限)
+    const top = Math.max(hi, Math.abs(hi) < 1e-9 ? 1e-6 : 0)
+    if (lo <= top * 0.1) {
+      // 下界贴近 0:从 0 起,上端留 15% 余量(极差图场景)
+      yMin = 0
+      yMax = top * 1.15
+    } else {
+      const span = hi - lo
+      const margin = Math.max(span * 0.15, 1e-9)
+      const center = (lo + hi) / 2
+      const half = (hi - lo) / 2 + margin
+      yMin = center - half
+      yMax = center + half
+    }
   }
-  xbarChart.setOption({
+  chart.setOption({
     tooltip: { trigger: 'axis' }, grid: { left: 45, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: xbars.map((_, i) => '子组' + (i + 1)), axisLine: { lineStyle: { color: '#e4e2dd' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f1ee' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
-    series: [{
-      type: 'line', data: xbars, smooth: true, symbolSize: 5,
-      lineStyle: { color: '#141414', width: 1.5 }, itemStyle: { color: '#141414', borderColor: '#fff', borderWidth: 1 },
-      markLine: { symbol: 'none', data: [...ml, ...specLines()] },
-    }, ...(d.marks?.length ? [{ type: 'scatter', data: d.marks.filter(m => m.level === '报警').map(m => [m.i, xbars[m.i]]), itemStyle: { color: '#e03616' }, symbolSize: 10 }] : [] as any)]
+    xAxis: { type: 'category', data: values.map((_, i) => '子组' + (i + 1)), axisLine: { lineStyle: { color: '#e4e2dd' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
+    yAxis: { type: 'value', min: yMin, max: yMax, splitLine: { lineStyle: { color: '#f2f1ee' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
+    series,
   })
 }
 
-function drawR() {
-  if (!rChartRef.value) return
-  rChart?.dispose(); rChart = echarts.init(rChartRef.value)
-  const d = chartData.value; if (!d?.subgroups?.length) return
-  const ranges = d.subgroups.map(s => s.rangeR)
-  const limit = d.limit
-  const ml: any[] = []
-  if (limit) {
-    ml.push({ yAxis: limit.rUcl, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'RUCL', color: '#e03616', fontSize: 9 } })
-    ml.push({ yAxis: limit.rCl, lineStyle: { color: '#0047ab', width: 1 }, label: { formatter: 'RCL', color: '#0047ab', fontSize: 9 } })
-    ml.push({ yAxis: limit.rLcl, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'RLCL', color: '#e03616', fontSize: 9 } })
+/** 通用计数型控制图绘制(变限 UCL/LCL + CL 线)。 */
+function drawCountChart(chart: echarts.ECharts, cs: any) {
+  const labels = cs.values.map((_: any, i: number) => '子组' + (i + 1))
+  const limitLines: any[] = []
+  cs.cl.forEach((v: number, i: number) => { if (v != null) limitLines.push({ yAxis: v, lineStyle: { color: '#0047ab', width: 1 }, label: { formatter: 'CL', color: '#0047ab', fontSize: 9 } }) })
+  cs.ucl.forEach((v: number, i: number) => { if (v != null) limitLines.push({ yAxis: v, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'UCL', color: '#e03616', fontSize: 9 } }) })
+  cs.lcl.forEach((v: number, i: number) => { if (v != null) limitLines.push({ yAxis: v, lineStyle: { color: '#e03616', width: 1, type: 'dashed' }, label: { formatter: 'LCL', color: '#e03616', fontSize: 9 } }) })
+  // Y 轴自适应:以数据 + 控制限为参考范围,留出 15% 余量
+  const refVals2: number[] = cs.values.filter((v: any): v is number => v != null)
+  limitLines.forEach(l => { if (l && typeof l.yAxis === 'number') refVals2.push(l.yAxis) })
+  let yMin2: number | undefined
+  let yMax2: number | undefined
+  if (refVals2.length) {
+    const lo = Math.min(...refVals2)
+    const hi = Math.max(...refVals2)
+    const margin2 = Math.max((hi - lo) * 0.15, Math.abs(hi - lo) < 1e-9 ? Math.max(Math.abs(hi), 1e-6) * 0.1 : 0)
+    const center = (lo + hi) / 2
+    const half = Math.max((hi - lo) / 2 + margin2, 1e-9)
+    yMin2 = center - half
+    yMax2 = center + half
   }
-  rChart.setOption({
+  chart.setOption({
     tooltip: { trigger: 'axis' }, grid: { left: 45, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: ranges.map((_, i) => '子组' + (i + 1)), axisLine: { lineStyle: { color: '#e4e2dd' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f1ee' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
+    xAxis: { type: 'category', data: labels, axisLine: { lineStyle: { color: '#e4e2dd' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
+    yAxis: { type: 'value', min: yMin2, max: yMax2, splitLine: { lineStyle: { color: '#f2f1ee' } }, axisLabel: { color: '#9e9e9e', fontSize: 10 } },
     series: [{
-      type: 'line', data: ranges, smooth: true, symbolSize: 5,
+      type: 'line', data: cs.values, smooth: true, symbolSize: 5, connectNulls: false,
       lineStyle: { color: '#141414', width: 1.5 }, itemStyle: { color: '#141414', borderColor: '#fff', borderWidth: 1 },
-      markLine: { symbol: 'none', data: ml },
-    }, ...(d.marks?.length ? [{ type: 'scatter', data: d.marks.filter(m => m.level === '报警').map(m => [m.i, ranges[m.i]]), itemStyle: { color: '#e03616' }, symbolSize: 10 }] : [] as any)]
+      markLine: { symbol: ['none', 'none'], data: limitLines },
+    }],
   })
+}
+
+/** 按卡片 kind 调度对应绘图(计量型 Xbar/R/S/I/MR 取 subgroups;计数型 P/NP/C/U 取 countSeries)。 */
+function drawCard(card: { kind: string }, idx: number) {
+  const el = cardRefs.value[idx]
+  if (!el) return
+  const chart = echarts.init(el)
+  cardCharts.value[idx] = chart
+  const d = chartData.value
+  const sg = d?.subgroups || []
+  const alertIdx = (d?.marks || []).filter(m => m.level === '报警').map(m => m.i)
+  const firstIdx = sg.map((s: any, i: number) => s.stage === 'FIRST' ? i : -1).filter((i: number) => i >= 0)
+  const limit = d?.limit
+  const lim = (ucl: number, cl: number, lcl: number) => [
+    { yAxis: ucl, label: 'UCL' }, { yAxis: cl, label: 'CL' }, { yAxis: lcl, label: 'LCL' },
+  ]
+  // 由数据序列自动计算 CL ± 3σ 控制限(用于 S/I/MR 等无独立基线字段的图)
+  const autoLim = (vals: (number | null)[]) => {
+    const xs = vals.filter((v): v is number => v != null) as number[]
+    if (!xs.length) return null
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length
+    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length)
+    return lim(mean + 3 * sd, mean, Math.max(0, mean - 3 * sd))
+  }
+  switch (card.kind) {
+    case 'Xbar': {
+      if (!sg.length) return
+      const L = limit ? lim(limit.xbarUcl, limit.xbarCl, limit.xbarLcl) : autoLim(sg.map((s: any) => s.xbar))
+      if (!L) return
+      drawLineChart(chart, sg.map((s: any) => s.xbar), L, alertIdx, firstIdx)
+      break
+    }
+    case 'R': {
+      if (!sg.length) return
+      const L = limit ? lim(limit.rucl, limit.rcl, limit.rlcl) : autoLim(sg.map((s: any) => s.rangeR))
+      if (!L) return
+      drawLineChart(chart, sg.map((s: any) => s.rangeR), L, alertIdx, [], false)
+      break
+    }
+    case 'S': {
+      const vals = sg.map((s: any) => s.stdDev)
+      const L = autoLim(vals); if (!L) return
+      drawLineChart(chart, vals, L, alertIdx, [], false)
+      break
+    }
+    case 'I': {
+      const vals = sg.map((s: any) => s.xbar)
+      const L = autoLim(vals); if (!L) return
+      drawLineChart(chart, vals, L, alertIdx, firstIdx)
+      break
+    }
+    case 'MR': {
+      const mr = sg.map((s: any, i: number) => i === 0 ? null : Math.abs((sg[i].xbar ?? 0) - (sg[i - 1].xbar ?? 0)))
+      const xs = mr.filter((v: number | null): v is number => v != null)
+      if (!xs.length) return
+      const mrBar = xs.reduce((a, b) => a + b, 0) / xs.length
+      drawLineChart(chart, mr, lim(mrBar * 3.267, mrBar, 0), alertIdx, [], false)
+      break
+    }
+    case 'P': case 'NP': case 'C': case 'U': {
+      const cs = d?.countSeries?.find((s: any) => s.chartType === card.kind)
+      if (!cs) { chart.setOption({ title: { text: '无计数数据', left: 'center', top: 'center', textStyle: { color: '#9e9e9e', fontSize: 12 } } }); return }
+      drawCountChart(chart, cs)
+      break
+    }
+  }
 }
 
 function drawHist() {
@@ -243,7 +502,7 @@ function drawHist() {
     xAxis: { type: 'category', data: h.bins.map(b => b.toFixed(2)), axisLabel: { color: '#9e9e9e', fontSize: 9 } },
     yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f1ee' } }, axisLabel: { color: '#9e9e9e', fontSize: 9 } },
     series: [
-      { name: '频次', type: 'bar', data: h.freq, itemStyle: { color: '#0047ab', borderRadius: [2, 2, 0, 0] }, markLine: { symbol: 'none', data: ml } },
+      { name: '频次', type: 'bar', data: h.freq, itemStyle: { color: '#0047ab', borderRadius: [2, 2, 0, 0] }, markLine: { symbol: ['none', 'none'], data: ml } },
       { name: '正态拟合', type: 'line', data: h.normalFreq || [], smooth: true, symbol: 'none', lineStyle: { color: '#e03616', width: 2 } },
     ]
   })
@@ -262,7 +521,7 @@ function drawTrend() {
     series: [{
       type: 'line', data: t.map(c => c.cpk), smooth: true, symbolSize: 6,
       lineStyle: { color: '#0047ab', width: 2 }, itemStyle: { color: '#0047ab' },
-      markLine: { symbol: 'none', data: [
+      markLine: { symbol: ['none', 'none'], data: [
         { yAxis: 1.33, lineStyle: { color: '#2e9e5b', type: 'dashed' }, label: { formatter: '1.33', color: '#2e9e5b', fontSize: 9 } },
         { yAxis: 1.0, lineStyle: { color: '#e03616', type: 'dashed' }, label: { formatter: '1.0', color: '#e03616', fontSize: 9 } },
       ] },
@@ -272,6 +531,11 @@ function drawTrend() {
 
 async function openManual() {
   if (!paramId.value) { ElMessage.warning('请先选择 SPC 参数'); return }
+  // 含计数型图(P/NP/C/U)时,控制限由系统按近期数据自动计算,不支持人工覆盖
+  if (hasCountChart.value) {
+    ElMessage.info('该参数含计数型控制图(P/NP/C/U),控制限由系统按近期数据自动计算,暂不支持人工覆盖')
+    return
+  }
   manual.value = {}
   autoRef.value = null
   try {
@@ -279,12 +543,13 @@ async function openManual() {
     // 参考值优先取最近一条自动基线;当前值优先回显激活基线
     autoRef.value = listRes?.find(l => !l.manual) || null
     const active = listRes?.find(l => l.isActive) || listRes?.[0]
-    if (active) manual.value = { xbarUcl: active.xbarUcl, xbarCl: active.xbarCl, xbarLcl: active.xbarLcl, rUcl: active.rUcl, rCl: active.rCl, rLcl: active.rLcl }
+    if (active) manual.value = { xbarUcl: active.xbarUcl, xbarCl: active.xbarCl, xbarLcl: active.xbarLcl, rucl: active.rucl, rcl: active.rcl, rlcl: active.rlcl }
   } catch (e) { /* 无基线则留空 */ }
   manualVisible.value = true
 }
 
 async function saveManual() {
+  if (hasCountChart.value) return
   const m = manual.value
   if (m.xbarUcl == null || m.xbarCl == null || m.xbarLcl == null) {
     ElMessage.warning('请完整填写 Xbar 图 UCL / CL / LCL')
@@ -294,7 +559,7 @@ async function saveManual() {
     ElMessage.error('控制限必须满足 UCL > CL > LCL')
     return
   }
-  if (m.rUcl != null && m.rLcl != null && m.rUcl < m.rLcl) {
+  if (m.rucl != null && m.rlcl != null && m.rucl < m.rlcl) {
     ElMessage.error('R 图控制限必须满足 UCL ≥ LCL')
     return
   }
@@ -312,10 +577,16 @@ async function saveManual() {
 }
 
 onMounted(async () => { params.value = await spcParamApi.list(); if (paramId.value) loadChart() })
-onUnmounted(() => { xbarChart?.dispose(); rChart?.dispose(); histChart?.dispose(); trendChart?.dispose() })
+onUnmounted(() => { cardCharts.value.forEach(c => c?.dispose()); histChart?.dispose(); trendChart?.dispose() })
 </script>
 
 <style lang="scss" scoped>
+.mode-tag { margin-left: 10px; font-size: 12px; font-weight: 500; color: $cobalt; background: $cobalt-dim; border: 1px solid $cobalt; border-radius: 20px; padding: 2px 10px; vertical-align: middle; }
+.stage-hint { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: $ink-soft; }
+.stage-hint .dot { width: 7px; height: 7px; border-radius: 50%; }
+.stage-hint .dot.first { background: $cobalt; }
+.stage-hint .dot.routine { background: #2e9e5b; }
+.stage-hint .dot.all { background: $ink-faint; }
 .grid-b { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
 .left-b { display: flex; flex-direction: column; gap: 16px; }
 .chart { height: 300px; }
@@ -338,6 +609,7 @@ onUnmounted(() => { xbarChart?.dispose(); rChart?.dispose(); histChart?.dispose(
 .p-run { background: #e8f0fe; color: #0047ab; } .p-run .d { background: #0047ab; }
 .p-wait { background: #fff3e0; color: #a05a00; } .p-wait .d { background: #f5a623; }
 .p-sign { background: #f3e8fd; color: #6a1fb0; } .p-sign .d { background: #8a3ff2; }
+.p-lock { background: #fdecec; color: #b3261e; } .p-lock .d { background: #e03616; }
 
 /* 人工覆盖弹窗 */
 .m-help { background: $paper; border: 1px solid $hairline; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 12px; line-height: 1.7; color: $ink-soft; }
@@ -348,4 +620,12 @@ onUnmounted(() => { xbarChart?.dispose(); rChart?.dispose(); histChart?.dispose(
 .m-ref__head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: $cobalt; }
 .m-ref__grid { display: flex; flex-direction: column; gap: 2px; font-size: 12px; margin-top: 4px; }
 .m-warn { margin-top: 4px; padding: 8px 10px; border-radius: 6px; font-size: 12px; background: #fff7e6; border: 1px solid #ffe1a8; color: #a05a00; }
+
+/* 子组数据列表 */
+.sg-card { margin-top: 16px; }
+.sg-card .el-table { font-size: 13px; }
+.src-tag { font-size: 11px; color: $ink-faint; padding: 1px 7px; border: 1px solid $hairline; border-radius: 4px; }
+.rule-tag { display: inline-block; margin-left: 6px; font-size: 10px; color: $signal-red; font-family: 'IBM Plex Mono', monospace; }
+.sg-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+.empty-tip { margin: 8px 0 14px; font-size: 13px; color: $ink-faint; }
 </style>

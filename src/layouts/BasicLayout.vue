@@ -1,6 +1,6 @@
 <template>
   <div class="layout">
-    <!-- ════ 一级顶栏 + Mega 下拉 ════ -->
+    <!-- ════ 一级顶栏 + Mega 下拉(由菜单权限动态生成) ════ -->
     <header class="topbar">
       <div class="topbar-left">
         <div class="logo-b">
@@ -9,106 +9,32 @@
         </div>
 
         <nav class="nav-b">
-          <!-- 工作台 -->
-          <div class="nav-item" :class="{ on: isMod('/dashboard') }">
-            <RouterLink to="/dashboard">工作台</RouterLink>
-          </div>
-
-          <!-- 首件检验 FIA -->
-          <div class="nav-item" :class="{ on: isMod('/fia') }">
-            <RouterLink to="/fia/tasks">首件检验<span class="car">▾</span></RouterLink>
-            <div class="mega" style="width:300px">
-              <div class="mega-head"><span class="code">FIA</span><span class="nm">首件检验</span><span class="en">First Article</span></div>
-              <div class="mega-body" style="grid-template-columns:1fr 1fr">
-                <div class="mega-col">
-                  <div class="g-title">检验操作</div>
-                  <RouterLink to="/fia/tasks" class="dd"><span class="idx">01</span><span>任务列表</span></RouterLink>
-                  <RouterLink to="/fia/tasks/create" class="dd"><span class="idx">02</span><span>新建任务</span></RouterLink>
+          <template v-for="mod in menuStore.topModules" :key="mod.id">
+            <!-- 含子页签的模块:Mega 下拉 -->
+            <div class="nav-item" :class="{ on: isMod(mod.path) }" v-if="mod.children && mod.children.length">
+              <RouterLink :to="mod.path || '/'">{{ mod.menuName }}<span class="car">▾</span></RouterLink>
+              <div class="mega" :style="{ width: megaWidth(mod) }">
+                <div class="mega-head">
+                  <span class="code">{{ (mod.menuCode || '').toUpperCase() }}</span>
+                  <span class="nm">{{ mod.menuName }}</span>
                 </div>
-                <div class="mega-col">
-                  <div class="g-title">配置管理</div>
-                  <RouterLink to="/fia/stds" class="dd"><span class="idx">03</span><span>检验标准</span></RouterLink>
-                  <RouterLink to="/fia/triggers" class="dd"><span class="idx">04</span><span>触发类型</span></RouterLink>
-                  <RouterLink to="/fia/approvals" class="dd"><span class="idx">05</span><span>审批单</span></RouterLink>
+                <div class="mega-cols">
+                  <RouterLink v-for="c in mod.children" :key="c.id" :to="c.path || '/'" class="dd">
+                    <span class="idx">{{ pad(c.sortOrder) }}</span><span>{{ c.menuName }}</span>
+                  </RouterLink>
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- SPC 监控 -->
-          <div class="nav-item" :class="{ on: isMod('/spc') }">
-            <RouterLink to="/spc/params">SPC 监控<span class="car">▾</span></RouterLink>
-            <div class="mega" style="width:240px">
-              <div class="mega-head"><span class="code">SPC</span><span class="nm">过程控制</span><span class="en">Statistical</span></div>
-              <div class="mega-body" style="grid-template-columns:1fr">
-                <div class="mega-col">
-                  <RouterLink to="/spc/params" class="dd"><span class="idx">01</span><span>控制图 / 参数</span></RouterLink>
-                  <RouterLink to="/spc/collect" class="dd"><span class="idx">02</span><span>数据采集</span></RouterLink>
-                  <RouterLink to="/spc/alarms" class="dd"><span class="idx">03</span><span>告警列表</span></RouterLink>
-                </div>
-              </div>
+            <!-- 无子页签(如工作台):普通链接 -->
+            <div class="nav-item" :class="{ on: isMod(mod.path) }" v-else>
+              <RouterLink :to="mod.path || '/'">{{ mod.menuName }}</RouterLink>
             </div>
-          </div>
-
-          <!-- 不良管理 NCM -->
-          <div class="nav-item" :class="{ on: isMod('/ncm') }">
-            <RouterLink to="/ncm">不良管理<span class="car">▾</span></RouterLink>
-            <div class="mega" style="width:300px">
-              <div class="mega-head"><span class="code">NCM</span><span class="nm">不良管理</span><span class="en">Nonconformity</span></div>
-              <div class="mega-body" style="grid-template-columns:1fr 1fr">
-                <div class="mega-col">
-                  <div class="g-title">数据管理</div>
-                  <RouterLink to="/ncm/defect-dicts" class="dd"><span class="idx">01</span><span>不良字典</span></RouterLink>
-                  <RouterLink to="/ncm/defect-records" class="dd"><span class="idx">02</span><span>不良记录</span></RouterLink>
-                  <RouterLink to="/ncm/trend-reports" class="dd"><span class="idx">03</span><span>趋势报表</span></RouterLink>
-                </div>
-                <div class="mega-col">
-                  <div class="g-title">整改流程</div>
-                  <RouterLink to="/ncm/8d-reports" class="dd"><span class="idx">04</span><span>8D 报告</span></RouterLink>
-                  <RouterLink to="/ncm/capas" class="dd disabled"><span class="idx">05</span><span>CAPA</span></RouterLink>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 供应商 SQM -->
-          <div class="nav-item" :class="{ on: isMod('/sqm') }">
-            <RouterLink to="/sqm">供应商<span class="car">▾</span></RouterLink>
-            <div class="mega" style="width:320px">
-              <div class="mega-head"><span class="code">SQM</span><span class="nm">供应商质量</span><span class="en">Supplier QM</span></div>
-              <div class="mega-body" style="grid-template-columns:1fr 1fr">
-                <div class="mega-col">
-                  <div class="g-title">核心业务</div>
-                  <RouterLink to="/sqm/suppliers" class="dd"><span class="idx">01</span><span>供应商档案</span></RouterLink>
-                  <RouterLink to="/sqm/abnormals" class="dd"><span class="idx">02</span><span>来料异常</span></RouterLink>
-                  <RouterLink to="/sqm/audits" class="dd"><span class="idx">03</span><span>供应商审核</span></RouterLink>
-                </div>
-                <div class="mega-col">
-                  <div class="g-title">其他</div>
-                  <RouterLink to="/sqm/changes" class="dd"><span class="idx">04</span><span>物料变更</span></RouterLink>
-                  <RouterLink to="/sqm/trace" class="dd"><span class="idx">05</span><span>物料追溯</span></RouterLink>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 巡检 -->
-          <div class="nav-item" :class="{ on: isMod('/patrol') }">
-            <RouterLink to="/patrol">巡检</RouterLink>
-          </div>
-
-          <!-- 归档 -->
-          <div class="nav-item" :class="{ on: isMod('/archive') }">
-            <RouterLink to="/archive">归档</RouterLink>
-          </div>
-
-          <!-- 系统 -->
-          <div class="nav-item" :class="{ on: isMod('/system') }">
-            <RouterLink to="/system">系统</RouterLink>
-          </div>
+          </template>
         </nav>
       </div>
       <div class="topbar-right">
+        <OrgSwitch v-if="auth.canSwitchOrg" />
+        <RouterLink v-if="auth.canSwitchOrg" to="/kpi/compare" class="kpi-link">KPI 对比</RouterLink>
         <div class="date-chip">{{ clock }}</div>
 
         <!-- 站内消息铃铛 -->
@@ -150,13 +76,13 @@
       </div>
     </header>
 
-    <!-- ════ 二级 subnav Tab 栏(常驻) ════ -->
-    <div class="subnav" v-if="subTabs.length">
+    <!-- ════ 二级 subnav Tab 栏(常驻,按当前模块动态) ════ -->
+    <div class="subnav" v-if="activeModule && activeModule.children && activeModule.children.length">
       <div class="subnav-inner">
-        <span class="mod-chip">{{ modLabel }}</span>
+        <span class="mod-chip">{{ (activeModule.menuCode || '').toUpperCase() }}</span>
         <div class="tabs" ref="tabsRef">
-          <RouterLink v-for="t in subTabs" :key="t.to" :to="t.to" class="tab-link" :class="{ active: route.path.startsWith(t.to) }">
-            {{ t.label }}
+          <RouterLink v-for="t in activeModule.children" :key="t.id" :to="t.path || '/'" class="tab-link" :class="{ active: !!t.path && route.path.startsWith(t.path) }">
+            {{ t.menuName }}
           </RouterLink>
           <span class="tab-ink" ref="inkRef"></span>
         </div>
@@ -167,7 +93,7 @@
     <main class="main-b">
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
-          <component :is="Component" />
+          <component :is="Component" :key="auth.currentOrgId" />
         </Transition>
       </RouterView>
     </main>
@@ -178,12 +104,16 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 import { useNotifications } from '@/hooks/useNotifications'
+import OrgSwitch from '@/components/OrgSwitch.vue'
 import type { SysNotification } from '@/api/types/notify'
+import type { SysMenu } from '@/api/types/uop'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const menuStore = useMenuStore()
 const clock = ref('')
 let timer = 0
 
@@ -198,14 +128,16 @@ onMounted(() => { tick(); timer = window.setInterval(tick, 1000) })
 onUnmounted(() => clearInterval(timer))
 const avatarText = computed(() => auth.user?.username?.[0]?.toUpperCase() || 'U')
 
-// 站内消息铃铛(统一封装: 列表/未读/已读/30s 轮询)
-const { notices, unread, fmtTime, loadNotices, markRead, markAll, startPolling } = useNotifications()
+// 站内消息铃铛(统一封装: 列表/未读/已读/30s轮询降级)
+const { notices, unread, fmtTime, loadNotices, markRead, markAll, startPolling, stopPolling } = useNotifications()
+// 登录后常驻轮询未读数,保证徽标实时可见(与消息中心共享同一 unread 单例)
+onMounted(() => { startPolling(30000) })
+onUnmounted(() => { stopPolling() })
 
 function clickNotice(n: SysNotification) {
   markRead(n)
   if (n.link) router.push(n.link.replace('/sqm/change', '/sqm/changes'))
 }
-onMounted(startPolling)
 
 // ── 二级导航滑动指示线 ──
 const tabsRef = ref<HTMLElement>()
@@ -224,46 +156,50 @@ function onResize() { positionInk() }
 onMounted(() => { nextTick(positionInk); window.addEventListener('resize', onResize) })
 onUnmounted(() => window.removeEventListener('resize', onResize))
 
-// 模块匹配
-const MOD_KEYS = ['/fia', '/spc', '/ncm', '/sqm', '/patrol', '/archive', '/system', '/dashboard']
-function isMod(key: string) { return route.path.startsWith(key) }
+// 当前激活模块(用于二级页签)。
+// 匹配规则:route 以模块 path 为前缀,或命中模块下任一子页签 path(含其详情/新建子路径),
+// 保证停留在同模块的任意子页(如 /dashboard 与 /workbench/tasks)时二级 tab 栏始终常驻。
+const activeModule = computed<SysMenu | null>(() => {
+  const matchByPath = (m: SysMenu): boolean => {
+    if (m.path && route.path.startsWith(m.path)) return true
+    return (m.children || []).some(
+      (c) => !!c.path && (route.path === c.path || route.path.startsWith(c.path + '/') || route.path.startsWith(c.path)),
+    )
+  }
+  return menuStore.topModules.find((m) => m.path && matchByPath(m)) || null
+})
 
-// 子导航配置
-const SUB: Record<string, { label: string; tabs: { label: string; to: string }[] }> = {
-  '/fia':    { label: 'FIA', tabs: [{label:'任务列表',to:'/fia/tasks'},{label:'新建任务',to:'/fia/tasks/create'},{label:'检验标准',to:'/fia/stds'},{label:'触发类型',to:'/fia/triggers'},{label:'审批单',to:'/fia/approvals'}] },
-  '/spc':    { label: 'SPC', tabs: [{label:'控制图/参数',to:'/spc/params'},{label:'数据采集',to:'/spc/collect'},{label:'告警',to:'/spc/alarms'}] },
-  '/ncm':    { label: 'NCM', tabs: [{label:'不良字典',to:'/ncm/defect-dicts'},{label:'不良记录',to:'/ncm/defect-records'},{label:'8D 报告',to:'/ncm/8d-reports'},{label:'CAPA',to:'/ncm/capas'}] },
-  '/sqm':    { label: 'SQM', tabs: [{label:'供应商',to:'/sqm/suppliers'},{label:'异常',to:'/sqm/abnormals'},{label:'审核',to:'/sqm/audits'},{label:'变更',to:'/sqm/changes'},{label:'物料追溯',to:'/sqm/trace'}] },
-  '/patrol': { label: 'PATL', tabs: [{label:'路线',to:'/patrol/routes'},{label:'任务',to:'/patrol/tasks'}] },
-  '/archive':{ label: 'ARCH', tabs: [{label:'归档查询',to:'/archive/list'}] },
-  '/system': { label: 'SYS',  tabs: [{label:'用户',to:'/system/users'},{label:'角色',to:'/system/roles'},{label:'组织',to:'/system/orgs'},{label:'菜单',to:'/system/menus'},{label:'审核配置',to:'/system/audit-config'}] },
-  '/dashboard':{label:'DASH', tabs:[]},
+// 模块高亮
+function isMod(key?: string) {
+  return !!key && route.path.startsWith(key)
 }
-const modLabel = computed(() => {
-  for (const k of MOD_KEYS) { if (route.path.startsWith(k)) return SUB[k]?.label || '' }
-  return ''
-})
-const subTabs = computed(() => {
-  for (const k of MOD_KEYS) { if (route.path.startsWith(k)) return SUB[k]?.tabs || [] }
-  return []
-})
+// Mega 下拉宽度(按子页签数量自适应)
+function megaWidth(mod: SysMenu): string {
+  const n = mod.children?.length || 0
+  return Math.min(460, Math.max(240, n * 132)) + 'px'
+}
+// 序号补零
+function pad(n?: number): string {
+  return String(n == null ? 0 : n).padStart(2, '0')
+}
 </script>
 
 <style lang="scss" scoped>
 .layout { display: flex; flex-direction: column; min-height: 100vh; background: $paper; }
 
 /* ════ topbar ════ */
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 60px; background: $white; border-bottom: 1px solid $hairline; position: sticky; top: 0; z-index: 30; }
-.topbar-left { display: flex; align-items: center; gap: 28px; }
-.logo-b { display: flex; align-items: center; gap: 10px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 60px; background: $white; border-bottom: 1px solid $hairline; position: sticky; top: 0; z-index: 30; }
+.topbar-left { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1 1 auto; }
+.logo-b { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .logo-b .mark { width: 28px; height: 28px; background: $cobalt; display: flex; align-items: center; justify-content: center; }
 .logo-b .mark span { color: #fff; font-family: $font-display; font-weight: 800; font-size: 11px; }
 .logo-b .name { font-family: $font-display; font-size: 13px; font-weight: 700; letter-spacing: 3px; }
 
 /* ════ 一级 nav + Mega ════ */
-.nav-b { display: flex; gap: 2px; }
-.nav-item { position: relative; height: 60px; display: flex; align-items: center; }
-.nav-item > a { display: flex; align-items: center; gap: 6px; font-size: 13px; color: $ink-soft; text-decoration: none; padding: 8px 14px; border-radius: 6px; transition: all .15s; font-weight: 400; }
+.nav-b { display: flex; gap: 2px; min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
+.nav-b::-webkit-scrollbar { display: none; }
+.nav-item { position: relative; height: 60px; display: flex; align-items: center; flex-shrink: 0; }
+.nav-item > a { display: flex; align-items: center; gap: 3px; font-size: 13px; color: $ink-soft; text-decoration: none; padding: 8px 8px; border-radius: 6px; transition: all .15s; font-weight: 400; white-space: nowrap; }
 .nav-item > a:hover { color: $ink; background: $paper; }
 .nav-item.on > a { color: $cobalt; background: $cobalt-dim; font-weight: 500; }
 .nav-item > a .car { font-size: 8px; color: $ink-faint; transition: transform .2s, color .2s; }
@@ -275,9 +211,7 @@ const subTabs = computed(() => {
 .mega-head { display: flex; align-items: center; gap: 10px; padding: 0 4px 12px; border-bottom: 1px solid $hairline; margin-bottom: 12px; }
 .mega-head .code { font-family: $font-mono; font-size: 11px; font-weight: 500; color: $cobalt; background: $cobalt-dim; padding: 3px 8px; border-radius: 4px; letter-spacing: 1px; }
 .mega-head .nm { font-size: 14px; font-weight: 600; }
-.mega-head .en { font-family: $font-mono; font-size: 10px; color: $ink-faint; letter-spacing: 1.5px; margin-left: auto; }
-.mega-body { display: grid; gap: 6px 26px; }
-.mega-col .g-title { font-size: 11px; font-weight: 500; color: $ink-faint; letter-spacing: 2px; padding: 2px 10px 8px; }
+.mega-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; }
 .dd { display: flex; gap: 10px; padding: 8px 10px; border-radius: 8px; text-decoration: none; color: inherit; transition: background .12s; }
 .dd:hover { background: $paper; }
 .dd .idx { font-family: $font-mono; font-size: 11px; color: $cobalt; opacity: .65; padding-top: 2px; flex-shrink: 0; }
@@ -286,8 +220,12 @@ const subTabs = computed(() => {
 .dd.router-link-active { color: $cobalt; font-weight: 500; }
 .dd.disabled { opacity: .4; pointer-events: none; }
 
-.topbar-right { display: flex; align-items: center; gap: 18px; }
+.topbar-right { display: flex; align-items: center; gap: 18px; flex-shrink: 0; margin-left: auto; }
 .date-chip { font-family: $font-mono; font-size: 11px; color: $ink-faint; }
+
+/* ════ 组织切换 + KPI 对比入口 ════ */
+.kpi-link { font-size: 12px; font-weight: 500; color: $cobalt; background: $cobalt-dim; padding: 6px 14px; border-radius: 7px; text-decoration: none; transition: all .15s; white-space: nowrap; }
+.kpi-link:hover { background: $cobalt; color: #fff; }
 
 /* ════ 消息铃铛 ════ */
 .bell-b { position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: $ink-soft; cursor: pointer; transition: all .15s; }
@@ -323,4 +261,24 @@ const subTabs = computed(() => {
 
 /* ════ main ════ */
 .main-b { flex: 1; max-width: 1360px; width: 100%; margin: 0 auto; padding: 32px 40px; }
+
+/* ════ 响应式:窄屏顶栏 ════ */
+/* 窄屏下一级菜单改为横向滚动,不再裁切/挤压;右侧收起次要元素 */
+@media (max-width: 1100px) {
+  .topbar { padding: 0 14px; }
+  .topbar-left { gap: 10px; }
+  .logo-b .name { display: none; }
+  .nav-b { overflow-x: auto; overflow-y: hidden; flex: 1 1 auto; scrollbar-width: none; }
+  .nav-b::-webkit-scrollbar { display: none; }
+  .nav-item > a { padding: 8px 6px; }
+  .topbar-right { gap: 12px; }
+  .date-chip { display: none; }
+  /* 顶栏右上角的 KPI 对比与导航内重复,窄屏收起 */
+  .topbar-right .kpi-link { display: none; }
+}
+@media (max-width: 640px) {
+  .topbar { padding: 0 10px; height: 54px; }
+  .nav-item { height: 54px; }
+  .topbar-right .org-switch { display: none; }
+}
 </style>

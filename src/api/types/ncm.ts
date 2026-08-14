@@ -19,6 +19,7 @@ export interface NcmDefectRecord {
   processCode?: string
   defectDictCode?: string
   severity?: string
+  stage?: string
   defectCount: number
   batchTotal?: number
   defectRate?: number
@@ -32,6 +33,24 @@ export interface NcmDefectRecord {
   remark?: string
   disposition?: string
   createdAt?: string
+  /** 关联 8D 报告单号,已发起则有值 */
+  d8No?: string
+  /** 关联 CAPA 单号,已发起则有值 */
+  capaNo?: string
+  /** 关联 CA 纠正措施单号,已发起则有值 */
+  caNo?: string
+  /** 8D 报告 id(UUID),用于跳转详情页 */
+  d8Id?: string
+  /** CAPA id(UUID),用于跳转详情页 */
+  capaId?: string
+  /** CA id(UUID),用于跳转详情页 */
+  caId?: string
+  /** 8D 报告状态(进行中/已闭环),列表查询时后端回填 */
+  d8Status?: string
+  /** CAPA 状态(待启动/分析中/待审批/实施中/已验证/已关闭),列表查询时后端回填 */
+  capaStatus?: string
+  /** CA 状态(待启动/进行中/已完成/已关闭),列表查询时后端回填 */
+  caStatus?: string
 }
 
 // ── 8D 报告 ──
@@ -59,8 +78,14 @@ export interface Qms8dReport {
   status: string // 进行中/已闭环
   currentStage?: D8Stage
   capaTriggered?: boolean
+  /** 关联 CAPA 主键(双向追溯)。 */
+  capaId?: string
   closeDate?: string
   createdAt?: string
+  /** 责任人用户 id(列表级改派写入) */
+  ownerUserId?: string
+  /** 责任人姓名(后端由 owner_user_id 关联 sys_user 解析) */
+  ownerUserName?: string
 }
 
 export interface Qms8dStageDetail {
@@ -69,6 +94,7 @@ export interface Qms8dStageDetail {
   orgId?: string
   stageCode: D8Stage
   content?: string
+  teamMembers?: string // D1 团队组建阶段:负责人自建团队成员名单
   owner?: string
   approvalStatus?: string // 待审批/已通过/已驳回
   approvalComment?: string
@@ -78,19 +104,22 @@ export interface Qms8dStageDetail {
 export interface EightDVo {
   report: Qms8dReport
   stages: Qms8dStageDetail[]
+  /** 关联 CAPA(CAPA↔8D 互锁门禁提示与跳转)。 */
+  capa?: QmsCapa | null
 }
 
 export interface AdvanceStageRequest {
   stageCode: string
   content: string
   owner: string
+  teamMembers?: string // D1 团队组建阶段:团队成员名单
 }
 
 export interface StageApproveDTO {
   stageCode: string
   approved: boolean
   comment: string
-  approver: string
+  password?: string // 电子签名口令(后端按当前登录用户校验)
 }
 
 // ── CAPA ──
@@ -110,9 +139,13 @@ export interface QmsCapa {
   triggerCondition?: string
   capaType?: string
   owner?: string
+  /** 责任人用户 id(列表级改派写入) */
+  ownerUserId?: string
+  /** 责任人姓名(后端由 owner_user_id 关联 sys_user 解析) */
+  ownerUserName?: string
   dueDate?: string
   progress?: number
-  status: string // 待启动/分析中/待审批/实施中/已验证/已关闭
+  status: string // 待立项审批/分析中/待审批/实施中/已验证/已关闭/已驳回
   createdAt?: string
 }
 
@@ -131,23 +164,43 @@ export interface QmsCapaAction {
   status?: string
 }
 
-// ── 鱼骨图 ──
+// ── 鱼骨图(5M1E) ──
 export interface Qms8dFishbone {
   id: string
   d8Id: string
-  branch?: string
-  content?: string
+  orgId?: string
+  problem?: string
+  /** 5M1E 类别:人/机/料/法/环/测 */
+  category: string
+  causeText: string
   sortOrder?: number
 }
 
-// ── 纠止措施 ──
+// ── 5Why 根因追问(序列化进 D4 阶段明细 content) ──
+export interface Qms8dWhyItem {
+  why: string
+  answer: string
+}
+
+// ── 纠正措施(轻量,区别于 CAPA;可关联不良记录 defectNo) ──
 export interface NcmCorrectiveAction {
   id: string
   caNo?: string
   orgId?: string
-  title?: string
-  progress?: number
+  /** 关联不良单号(外键 ncm_defect_record.defect_no),可空。 */
+  defectNo?: string
+  /** 问题描述。 */
+  issue?: string
+  /** 责任人(存储为 sys_user.id)。 */
+  owner?: string
+  /** 责任人姓名(后端由 owner 关联 sys_user 解析,可能为空)。 */
+  ownerName?: string
+  /** 期限(LocalDate)。 */
+  dueDate?: string
+  /** 状态:待启动 / 已完成 / 已关闭。 */
   status: string
+  /** 进度 0-100,=100 时后端自动置状态为已完成。 */
+  progress?: number
 }
 
 // ── 告警升级配置 ──

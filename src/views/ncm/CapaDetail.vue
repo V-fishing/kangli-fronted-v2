@@ -1,6 +1,6 @@
 <template>
   <div class="capa-detail">
-    <div class="head-b"><div class="crumb">NCM / 不良管理</div><h1>CAPA 详情 <span class="mono no">{{ vo?.capa?.capaNo }}</span></h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>CAPA 详情 <span class="mono no">{{ vo?.capa?.capaNo }}</span></h1></div>
     <div v-if="vo" class="detail-body">
       <!-- 头 -->
       <div class="task-card">
@@ -63,6 +63,7 @@
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { ncmCapaApi } from '@/api/modules/ncm/capas'
 import type { CapaVo } from '@/api/types/ncm'

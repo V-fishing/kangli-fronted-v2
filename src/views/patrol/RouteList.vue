@@ -1,6 +1,6 @@
 <template>
   <div class="route-list">
-    <div class="head-b"><div class="crumb">PATROL / 巡检管理</div><h1>巡检路线</h1></div>
+    <div class="head-b"><AppBreadcrumb /><h1>巡检路线</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建路线</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
@@ -29,6 +29,7 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
 import { patlRouteApi } from '@/api/modules/patrol/routes'
 import type { PatlRoute } from '@/api/types/patrol'
