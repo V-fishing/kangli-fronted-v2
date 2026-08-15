@@ -31,9 +31,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
     <el-dialog v-model="dialogVisible" :title="isEdit?'编辑供应商':'新建供应商'" width="480px" append-to-body>
@@ -105,6 +104,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, reactive, onMounted, watch } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -121,7 +121,7 @@ const auth = useAuthStore()
 const list = ref<SqmSupplier[]>([])
 const loading = ref(false)
 const filterName = ref(''), filterLevel = ref(''), filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const dialogVisible = ref(false), isEdit = ref(false)
 const form = reactive<Partial<SqmSupplier>>({ name: '', status: '启用' })
 

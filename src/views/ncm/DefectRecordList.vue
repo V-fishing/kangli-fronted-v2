@@ -175,6 +175,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -194,7 +195,7 @@ const stages = ['来料不良', '半成品不良', '成品不良', '首件不良
 const dialogVisible = ref(false), moreVisible = ref(false)
 const filter = reactive({ defectDictCode: '', woNo: '', severity: '', stage: '', source: '' })
 const page = ref(1)
-const pageSize = ref(20)
+const pageSize = usePageSize()
 const total = ref(0)
 // orgId / operatorId / defectNo 由后端自动处理,前端不传
 const form = reactive({

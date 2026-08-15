@@ -78,9 +78,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
@@ -187,9 +186,8 @@
       </el-table>
       <div class="pager" v-if="rankTotal > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="rankTotal"
-          :page-sizes="[10, 20, 50, 100]" :current-page="rankPage" :page-size="rankSize"
-          @current-change="(p: number) => { rankPage = p; loadRank() }"
-          @size-change="(s: number) => { rankSize = s; rankPage = 1; loadRank() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="rankPage" v-model:page-size="rankSize"
+          @current-change="loadRank" @size-change="loadRank" />
       </div>
     </el-card>
 
@@ -261,9 +259,8 @@
         </table>
         <div class="pager" v-if="reportTotal > 0">
           <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="reportTotal"
-            :page-sizes="[10, 20, 50, 100]" :current-page="reportPage" :page-size="reportSize"
-            @current-change="(p: number) => { reportPage = p; loadReport() }"
-            @size-change="(s: number) => { reportSize = s; reportPage = 1; loadReport() }" />
+            :page-sizes="[10, 20, 50, 100]" v-model:current-page="reportPage" v-model:page-size="reportSize"
+            @current-change="loadReport" @size-change="loadReport" />
         </div>
       </div>
       <el-empty v-else description="暂无数据" />
@@ -273,6 +270,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
@@ -309,7 +307,7 @@ const loading = ref(false)
 const list = ref<PerfRow[]>([])
 const filterSupplierId = ref('')
 const filterPeriod = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 function getSupplierName(id: string) {
   return supplierOptions.value.find(s => s.id === id)?.name || id
@@ -468,7 +466,7 @@ const rankPeriod = ref(periodOptions.value[0] || new Date().toISOString().slice(
 const rankCategory = ref('')
 const rankLoading = ref(false)
 const rankList = ref<PerfRankRow[]>([])
-const rankPage = ref(1), rankSize = ref(20), rankTotal = ref(0)
+const rankPage = ref(1), rankSize = usePageSize(), rankTotal = ref(0)
 async function loadRank() {
   if (!rankPeriod.value) return
   rankLoading.value = true
@@ -582,7 +580,7 @@ function renderPareto(rows: PerfParetoRow[]) {
 // ── 评审报告 ──
 const reportPeriod = ref(periodOptions.value[0] || new Date().toISOString().slice(0, 7))
 const reportRows = ref<PerfRankRow[]>([])
-const reportPage = ref(1), reportSize = ref(20), reportTotal = ref(0)
+const reportPage = ref(1), reportSize = usePageSize(), reportTotal = ref(0)
 const reportGenAt = ref(new Date().toLocaleString('zh-CN'))
 async function loadReport() {
   if (!reportPeriod.value) return

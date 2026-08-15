@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { QmsInternalAudit, QmsAuditNc, QmsMgmtStats } from '@/api/types/qmsMgmt'
 import { qmsAuditApi } from '@/api/modules/qmsMgmt'
@@ -13,7 +14,7 @@ const list = ref<QmsInternalAudit[]>([])
 const loading = ref(false)
 const keyword = ref('')
 const filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const stats = ref<QmsMgmtStats>({})
 
 const statusPill = (s: string) => {
@@ -117,7 +118,7 @@ const ncAudit = ref<QmsInternalAudit | null>(null)
 const ncList = ref<QmsAuditNc[]>([])
 const ncLoading = ref(false)
 const ncStatusFilter = ref('')
-const ncPageNo = ref(1), ncSize = ref(20), ncTotal = ref(0)
+const ncPageNo = ref(1), ncSize = usePageSize(), ncTotal = ref(0)
 async function openNc(row: QmsInternalAudit) {
   ncAudit.value = row
   ncStatusFilter.value = ''

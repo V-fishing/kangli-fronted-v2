@@ -326,10 +326,10 @@ const normalizeLevel = (l: string | undefined | null): 'A' | 'B' | 'C' | 'NA' =>
   return 'NA'
 }
 
-const levelLabel = (l: string): string =>
+const levelLabel = (l: string | undefined | null): string =>
   ({ A: '充足', B: '尚可', C: '不足' } as Record<string, string>)[normalizeLevel(l)] || '数据不足'
 
-const levelPill = (l: string): string =>
+const levelPill = (l: string | undefined | null): string =>
   ({ A: 'pill p-done', B: 'pill p-run', C: 'pill p-lock' } as Record<string, string>)[normalizeLevel(l)] || 'pill p-mute'
 
 // ====== 数据加载 ======
@@ -354,6 +354,7 @@ const loadOverview = async () => {
       if (cap) {
         return {
           ...cap,
+          id: p.id,
           paramId: p.id,
           paramCode: p.paramName,     // 后端无 paramCode，用 paramName 代替
           paramName: p.paramName,
@@ -362,6 +363,7 @@ const loadOverview = async () => {
         } as MergedCapability
       }
       return {
+        id: p.id,
         paramId: p.id,
         paramCode: p.paramName,
         paramName: p.paramName,

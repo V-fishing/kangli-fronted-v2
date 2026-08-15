@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -16,7 +17,7 @@ const loading = ref(false)
 const keyword = ref('')
 const catTab = ref<'ALL' | 'TOOL' | 'GAUGE'>('ALL')
 const filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 // 工装「待首件」强提醒: toolId -> 是否存在待处理工装首件任务
 const pendingMap = ref<Record<string, boolean>>({})
 

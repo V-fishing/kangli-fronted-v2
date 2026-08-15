@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { CsFeedback } from '@/api/types/cs'
 import { csFeedbackApi } from '@/api/modules/cs/feedback'
@@ -13,7 +14,7 @@ const loading = ref(false)
 const keyword = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 const typeText = (t: string) => ({ COMPLAINT: '投诉', SUGGESTION: '建议', PRAISE: '表扬', INQUIRY: '咨询' }[t] || t)
 const statusPill = (s: string) => {

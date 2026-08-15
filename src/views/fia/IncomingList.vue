@@ -104,7 +104,7 @@
       <div v-if="batchResult" class="batch-result">
         <div class="br-head">
           <span>批次 <b class="mono">{{ batchResult.lotNo }}</b>（物料 {{ batchResult.partNo || '-' }}）</span>
-          <span>计划 {{ batchResult.plansFound }} · 建单 <b class="c-green">{{ batchResult.tasksCreated }}</b> · 失败 <b :class="{ 'c-red': batchResult.tasksFailed > 0 }">{{ batchResult.tasksFailed }}</b></span>
+          <span>计划 {{ batchResult.plansFound }} · 建单 <b class="c-green">{{ batchResult.tasksCreated }}</b> · 失败 <b :class="{ 'c-red': (batchResult.tasksFailed ?? 0) > 0 }">{{ batchResult.tasksFailed ?? 0 }}</b></span>
         </div>
         <el-table v-if="batchResult.tasks?.length" :data="batchResult.tasks" border size="small">
           <el-table-column label="任务单号" width="160">
@@ -174,8 +174,8 @@ async function submitBatch() {
       lotNo: batchLotNo.value.trim(),
       orgId: auth.user?.orgId || '',
     })
-    if (batchResult.value.tasksCreated > 0) {
-      ElMessage.success(`已生成 ${batchResult.value.tasksCreated} 张来料检验单`)
+    if ((batchResult.value.tasksCreated ?? 0) > 0) {
+      ElMessage.success(`已生成 ${batchResult.value.tasksCreated ?? 0} 张来料检验单`)
       fetchData()
     } else {
       ElMessage.warning('未生成检验单，请检查批次与检验计划配置')

@@ -41,9 +41,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
@@ -207,6 +206,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -225,7 +225,7 @@ const auditTypeKeys = Object.keys(AUDIT_TYPE_META)
 const list = ref<SqmAuditPlan[]>([])
 const loading = ref(false)
 const filterStatus = ref(''), filterType = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 // 从供应商详情跳转而来时按供应商过滤
 const filterSupplierId = ref((route.query.supplierId as string) || '')
 const filterSupplierName = ref((route.query.supplierName as string) || '')

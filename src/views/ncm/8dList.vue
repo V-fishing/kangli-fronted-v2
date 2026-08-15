@@ -38,9 +38,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
     <el-dialog v-model="dialogVisible" title="创建 8D" width="420px" append-to-body>
@@ -83,6 +82,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -97,7 +97,7 @@ const auth = useAuthStore()
 const list = ref<Qms8dReport[]>([])
 const loading = ref(false), dialogVisible = ref(false)
 const filter = reactive({ source: '', status: '' })
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const form = reactive({ orgId: auth.user?.orgId || '', flowType: '8D', severity: '高', source: '人工', sourceRefId: '', issue: '', team: '' })
 
 // ── 列表级改派责任人 ──

@@ -60,9 +60,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetchData() }"
-          @size-change="(s: number) => { size = s; page = 1; fetchData() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetchData" @size-change="fetchData" />
       </div>
     </el-card>
 
@@ -104,6 +103,7 @@
 <script setup lang="ts">
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
 import { ref, reactive, computed, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { spcCollectTaskApi } from '@/api/modules/spc/collect-tasks'
@@ -137,7 +137,7 @@ const scanning = ref(false)
 const filterMode = ref<SpcCollectMode | ''>('')
 const filterStatus = ref('')
 const filterParamName = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 const paramOptions = ref<{ label: string; value: string }[]>([])
 const paramNameMap = ref<Record<string, string>>({})

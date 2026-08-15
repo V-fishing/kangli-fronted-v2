@@ -80,7 +80,7 @@
           :total="total"
           :page-size="size"
           :current-page="page"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           @current-change="onPage"
           @size-change="onSize"
         />
@@ -123,6 +123,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { Refresh } from '@element-plus/icons-vue'
@@ -135,7 +136,7 @@ const router = useRouter()
 const rows = ref<SysNotification[]>([])
 const total = ref(0)
 const page = ref(1)
-const size = ref(20)
+const size = usePageSize()
 const keyword = ref('')
 const unreadOnly = ref(false)
 const bizType = ref('')

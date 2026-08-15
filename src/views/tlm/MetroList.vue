@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, computed, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -16,7 +17,7 @@ const list = ref<TlmTooling[]>([])
 const loading = ref(false)
 const keyword = ref('')
 const calibTab = ref<'ALL' | 'QUALIFIED' | 'LIMITED' | 'OVERDUE'>('ALL')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const dashboard = ref<{ total: number; qualified: number; limited: number; overdue: number }>({ total: 0, qualified: 0, limited: 0, overdue: 0 })
 
 async function loadDashboard() {

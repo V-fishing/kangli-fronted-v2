@@ -577,6 +577,8 @@ export interface QmsFmeaRisk {
   fmeaType?: string // PFMEA/DFMEA/SFMEA
   /** 工序/功能 */
   process?: string
+  /** 产品/项目 */
+  product?: string
   /** 潜在失效模式 */
   failureMode?: string
   /** 失效影响 */

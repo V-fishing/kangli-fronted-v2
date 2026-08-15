@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import type { TlmCalibPlan } from '@/api/types/tlm'
@@ -13,7 +14,7 @@ const list = ref<TlmCalibPlan[]>([])
 const loading = ref(false)
 const keyword = ref('')
 const statusTab = ref<'ALL' | 'PENDING' | 'DONE' | 'OVERDUE'>('ALL')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 const statusPill = (s: string) => {
   switch (s) {

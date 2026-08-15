@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TlmScrap } from '@/api/types/tlm'
@@ -14,7 +15,7 @@ const list = ref<TlmScrap[]>([])
 const loading = ref(false)
 const keyword = ref('')
 const filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 function goApprove() {
   router.push('/workbench/tasks')

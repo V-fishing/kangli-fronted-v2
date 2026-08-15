@@ -31,9 +31,7 @@
       </el-table>
       <div class="pager" v-if="filteredList.length > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="filteredList.length"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p }"
-          @size-change="(s: number) => { size = s; page = 1 }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size" />
       </div>
     </el-card>
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑标准线' : '新建标准线'" width="520px" append-to-body>
@@ -58,6 +56,7 @@
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
 import { ref, reactive, computed, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -82,8 +81,8 @@ const list = ref<SpcSpecStandard[]>([])
 const loading = ref(false)
 const filterMaterial = ref('')
 const filterProcName = ref<any>('')
-const page = ref(1), size = ref(20)
-const procOptions = computed(() => [...new Set(list.value.map(s => s.procName).filter(Boolean))].sort())
+const page = ref(1), size = usePageSize()
+const procOptions = computed<string[]>(() => [...new Set(list.value.map(s => s.procName).filter((x): x is string => Boolean(x)))] as string[])
 const filteredList = computed(() =>
   list.value.filter(s =>
     (!filterMaterial.value || s.material?.includes(filterMaterial.value)) &&
@@ -126,7 +125,7 @@ function openCreate() {
 }
 
 function openEdit(row: SpcSpecStandard) {
-  isEdit.value = true; editId.value = row.id
+  isEdit.value = true; editId.value = row.id || ''
   Object.assign(form, row)
   dialogVisible.value = true
 }
@@ -146,7 +145,7 @@ async function handleDelete(id: string) {
 
 function goChart(row: SpcSpecStandard) {
   // 找到关联的第一个 SPC 参数，跳转控制图；没有则仅提示
-  const params = linkedParamMap.value[row.id]
+  const params = linkedParamMap.value[row.id || '']
   if (!params) { ElMessage.info('该标准线暂无关联的 SPC 参数，请先在参数配置中关联'); return }
   // 简单跳转到第一个关联参数的控制图，后续可改为弹窗多选
   spcParamApi.list().then(all => {

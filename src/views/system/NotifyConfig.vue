@@ -217,7 +217,7 @@ const directChannels = computed(() => channelList.value.filter((c) => c.channelT
 const directVisible = ref(false)
 const directSaving = ref(false)
 const directTarget = ref<NotifyChannel | null>(null)
-const directForm = reactive<Record<string, unknown>>({})
+const directForm = reactive<Record<string, any>>({})
 
 /** 渠道名 -> configJson type */
 const DIRECT_TYPE_BY_NAME: Record<string, string> = {

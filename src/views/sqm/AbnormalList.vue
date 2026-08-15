@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { SqmIncomingAbnormal, CloseAbnormalRequest } from '@/api/types/sqm'
@@ -21,7 +22,7 @@ const filterStatus = ref('')
 // 从供应商详情跳转而来时按供应商过滤
 const filterSupplierId = ref((route.query.supplierId as string) || '')
 const filterSupplierName = ref((route.query.supplierName as string) || '')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 function clearSupplierFilter() {
   filterSupplierId.value = ''
@@ -272,9 +273,8 @@ onMounted(() => fetch())
 
     <div class="pager" v-if="total > 0">
       <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-        :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-        @current-change="(p: number) => { page = p; fetch() }"
-        @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+        :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+        @current-change="fetch" @size-change="fetch" />
     </div>
 
     <!-- 关闭 -->

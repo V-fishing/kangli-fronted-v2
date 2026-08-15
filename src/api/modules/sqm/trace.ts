@@ -118,7 +118,7 @@ export const sqmTraceApi = {
 
   // ── 方案 B: 源表分页(三源表路由) ──
   /** 源表分页: 按 type(material/semi/finished/all) 路由三源表, type=all 时返回各类型计数。plantCode 用于组织隔离。 */
-  sourcePage: (params: { type?: string; keyword?: string; plantCode?: string; page?: number; size?: number }) =>
+  sourcePage: (params: { type?: string; bizType?: string; keyword?: string; plantCode?: string; page?: number; size?: number }) =>
     request.get<PageResult<Record<string, any>>>('/v1/sqm/trace/source/page', { params }),
 
   // ── 方案 B: 基于 sqm_trace_relation + 三源表的 MES 追溯树 ──

@@ -29,9 +29,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(pg: number) => { page = pg; fetch() }"
-          @size-change="(sz: number) => { size = sz; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
     <el-dialog v-model="dialogVisible" :title="isEdit?'编辑标准':'新建标准'" width="560px">
@@ -71,6 +70,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -85,7 +85,7 @@ const loading = ref(false), procLoading = ref(false)
 // 工序下拉数据源改为权威的 spc_process 工序字典(与工序管理页同源),不再用标准库/参数文本去重
 const procOptions = ref<SpcProcess[]>([])
 const keyword = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const dialogVisible = ref(false), isEdit = ref(false), editId = ref('')
 const form = reactive({ code: '', material: '', partNo: '', procName: '', spcProcessId: '', aql: '', inspectLevel: '', samplePlan: '', ctqText: '', status: '草稿' })
 

@@ -158,6 +158,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import * as echarts from 'echarts'
@@ -215,7 +216,7 @@ function fmtTime(v: string | null | undefined): string {
 
 /** 子组数据列表:前端分页(controlChart 已全量返回 subgroups) */
 const subgroupPage = ref(1)
-const subgroupSize = ref(20)
+const subgroupSize = usePageSize()
 const pagedSubgroups = computed(() => {
   const all = chartData.value?.subgroups || []
   const start = (subgroupPage.value - 1) * subgroupSize.value

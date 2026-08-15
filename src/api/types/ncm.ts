@@ -86,6 +86,8 @@ export interface Qms8dReport {
   ownerUserId?: string
   /** 责任人姓名(后端由 owner_user_id 关联 sys_user 解析) */
   ownerUserName?: string
+  /** 责任人(兼容旧字段,实际以 ownerUserName 为准) */
+  owner?: string
 }
 
 export interface Qms8dStageDetail {

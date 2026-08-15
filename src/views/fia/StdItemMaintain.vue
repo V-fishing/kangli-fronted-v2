@@ -126,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -142,7 +143,7 @@ const stds = ref<FiaInspStd[]>([])
 const kw = ref('')
 const selectedId = ref('')
 const page = ref(1)
-const pageSize = ref(20)
+const pageSize = usePageSize()
 const listScroll = ref<HTMLElement | null>(null)
 const current = ref<FiaInspStd | null>(null)
 const items = ref<FiaStdItemRequest[]>([])

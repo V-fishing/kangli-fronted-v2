@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TraceNodeTreeVO } from '@/api/types/sqm'
-import { flattenTree, sC, CX, BW, BH, RW, RH, DX, LEFTM, COL_HEADERS } from './traceGraph'
+import { flattenTree, sC, CX, BW, BH, RW, RH, DX, LEFTM, COL_HEADERS, type GraphBatch, type GraphRow, type GraphEdge } from './traceGraph'
 
 // 共享追溯图谱组件：物料表(TraceView)与 MES 追溯页(MesTraceView)共用同一套 SVG 渲染、
 // 配色与样式，确保两处追溯树视觉完全一致。原 TraceTreeGraph.vue 已并入本组件。

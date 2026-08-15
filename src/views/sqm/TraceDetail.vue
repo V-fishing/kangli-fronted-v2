@@ -216,7 +216,7 @@ function collapseAll() { expandedSet.value.clear(); if (treeRoot.value) expanded
 // 方向追溯
 const traceDir = ref('')
 const dirNodes = ref<TraceDirectionNode[]>([])
-async function onDirChange(v: string) { if (!v) { dirNodes.value = []; return }; const nid = treeRoot.value?.id; if (!nid) { dirNodes.value = []; return }; try { dirNodes.value = await sqmTraceApi.traceDirection(nid, v) } catch { dirNodes.value = [] } }
+async function onDirChange(v: any) { if (!v) { dirNodes.value = []; return }; const nid = treeRoot.value?.id; if (!nid) { dirNodes.value = []; return }; try { dirNodes.value = await sqmTraceApi.traceDirection(nid, v) } catch { dirNodes.value = [] } }
 function resetDir() { traceDir.value = ''; dirNodes.value = [] }
 function focusNode(tn: TraceDirectionNode) { resetDir(); if (!tn.id || !treeRoot.value) return; const p: string[] = []; if (findPath(treeRoot.value, tn.id, p)) { p.forEach(id => expandedSet.value.add(id)); rebuild() } }
 function findPath(n: TraceNodeTreeVO, tid: string, path: string[]): boolean { if (n.id === tid) { path.push(n.id); return true }; for (const c of n.children || []) if (findPath(c, tid, path)) { path.push(n.id); return true }; return false }
@@ -241,7 +241,7 @@ async function loadTree() {
 // 详情
 const detailVis = ref(false)
 const curNode = ref<TraceNodeTreeVO | null>(null)
-const curDetail = ref<SqmTraceNode | null>(null)
+const curDetail = ref<any>(null)
 const rawDetail = ref<SqmTraceRawDetail | null>(null)
 const prodDetail = ref<SqmTraceProductDetail | null>(null)
 const keyParts = ref<SqmKeyPartSn[]>([])
@@ -268,7 +268,7 @@ async function submitChild() {
   childIng.value = true
   try {
     await sqmTraceApi.saveNode({
-      orgId: auth.user?.orgId,
+      orgId: auth.user?.orgId || undefined,
       parentNodeId: childParent.value?.id || undefined,
       rootLotId: childParent.value ? undefined : (rootLotId.value || undefined),
       nodeType: childForm.nodeType,

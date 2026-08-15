@@ -261,6 +261,24 @@ export interface FiaWoLock {
   traceTag?: string
   wipHold?: boolean
   createdAt?: string
+  /** 锁定时间 */
+  lockedAt?: string
+  /** 解锁时间 */
+  unlockedAt?: string
+  /** 触发首件任务单号 */
+  taskCode?: string
+}
+
+/** 工单锁告警(active 列表) */
+export interface FiaWoLockAlert {
+  id: string
+  woNo: string
+  lockStatus?: string
+  lockReason?: string
+  traceTag?: string
+  wipHold?: boolean
+  lockedAt?: string
+  [key: string]: unknown
 }
 
 // ── 看板 ──
@@ -275,7 +293,51 @@ export interface FiaDashboard {
   todayPassRate?: number
   overdueCount?: number
   statusDistribution?: Record<string, number>
+  /** 来料看板状态计数 */
+  statusCounts?: { status: string; count: number }[]
   recentTrend?: { date: string; count: number; passRate: number }[]
+}
+
+/** 来料看板(独立接口返回) */
+export interface IncomingDashboard {
+  /** 今日统计 */
+  today?: { total?: number; completed?: number; overdue?: number }
+  /** 批次覆盖率 */
+  lotCoverage?: number
+  /** 状态分布 */
+  statusCounts?: { status: string; cnt: number }[]
+  [key: string]: unknown
+}
+
+/** 产品料号模糊搜索结果 */
+export interface ProductSearchResult {
+  partNo?: string
+  productName?: string
+  category?: string
+  matchedSupplierId?: string
+  matchedSupplierName?: string
+}
+
+/** CTQ 检验项(供 SPC 参数关联选择) */
+export interface CtqItemVo {
+  id: string
+  stdId?: string
+  itemName?: string
+  isCtq?: boolean
+  stdValue?: string
+  tolerance?: string
+  unit?: string
+  [key: string]: unknown
+}
+
+/** 任务关联标准项 */
+export interface TaskStdItemVo {
+  id: string
+  stdId?: string
+  itemName?: string
+  isCtq?: boolean
+  chartTypes?: string
+  [key: string]: unknown
 }
 
 // ── 批量来料建单 ──
@@ -287,5 +349,13 @@ export interface BatchByLotRequest {
 export interface BatchByLotResult {
   matched: number
   missing: number
+  lotNo?: string
+  partNo?: string
+  /** 匹配的检验计划数 */
+  plansFound?: number
+  /** 已建单数量 */
+  tasksCreated?: number
+  /** 建单失败数量 */
+  tasksFailed?: number
   tasks?: FiaTask[]
 }

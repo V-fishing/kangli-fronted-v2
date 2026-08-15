@@ -153,7 +153,7 @@
         <el-form-item label="收货日期"><el-date-picker v-model="lotForm.incomingDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="检验结果"><el-select v-model="lotForm.inspectResult" style="width: 100%"><el-option label="合格" value="合格" /><el-option label="不合格" value="不合格" /><el-option label="待检" value="待检" /></el-select></el-form-item>
         <el-form-item label="是否关键件"><el-switch v-model="lotForm.isKeyPart" /></el-form-item>
-        <el-form-item label="备注"><el-input v-model="lotForm.remark" type="textarea" rows="2" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="lotForm.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="lotDialogVisible = false">取消</el-button><el-button type="primary" :loading="lotSubmitting" @click="submitLot">确认创建</el-button></template>
     </el-dialog>
@@ -171,6 +171,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
@@ -179,7 +180,7 @@ import SourceDetailDialog from '@/components/sqm/SourceDetailDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
-const pageSize = 20
+const pageSize = usePageSize()
 
 // 组织隔离: 当前选中的组织视图(非空且非 'ALL' 时透传给后端)
 const orgParam = computed(() => (auth.currentOrgId && auth.currentOrgId !== 'ALL' ? auth.currentOrgId : undefined))
@@ -222,7 +223,7 @@ const lotRules: FormRules = {
 }
 
 const typeLabel = (t: string) => ({ material: '物料', semi: '半成品', finished: '成品' }[t] || t)
-const typeTag = (t: string) => ({ material: '', semi: 'info', finished: 'info' }[t] || 'info')
+const typeTag = (t: string) => ({ material: 'info', semi: 'info', finished: 'info' }[t] || 'info') as 'info' | 'success' | 'warning' | 'danger' | 'primary'
 const resultTag = (r: string) => {
   if (!r) return 'info'
   if (r.includes('合格')) return 'success'
@@ -242,7 +243,7 @@ async function loadData(page = 1) {
       keyword: keyword.value || undefined,
       plantCode: orgParam.value,
       page,
-      size: pageSize,
+      size: pageSize.value,
     })
     rows.value = res?.records ?? []
     total.value = res?.total ?? rows.value.length

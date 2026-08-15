@@ -32,7 +32,7 @@
           <el-switch
             :model-value="rule.isEnabled"
             :loading="togglingRuleId === rule.id"
-            @change="(val: boolean) => handleToggleRule(rule, val)"
+            @change="(val: any) => handleToggleRule(rule, val)"
             size="default"
           />
         </div>
@@ -67,7 +67,7 @@
             <el-switch
               :model-value="ch.isEnabled"
               :loading="togglingChannelId === ch.id"
-              @change="(val: boolean) => handleToggleChannel(ch, val)"
+              @change="(val: any) => handleToggleChannel(ch, val)"
               size="small"
             />
           </div>
@@ -185,8 +185,8 @@ const renderTriggerChart = (triggerData: SpcRuleTriggerVo[]) => {
   if (!triggerChartRef.value || !triggerData.length) return
   if (!triggerChartInstance) triggerChartInstance = echarts.init(triggerChartRef.value)
 
-  const names = triggerData.map(t => t.name)
-  const counts = triggerData.map(t => t.cnt)
+  const names = triggerData.map(t => t.name ?? '')
+  const counts = triggerData.map(t => t.cnt ?? 0)
 
   triggerChartInstance.setOption({
     backgroundColor: 'transparent',

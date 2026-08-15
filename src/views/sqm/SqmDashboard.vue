@@ -116,7 +116,7 @@ import {
   VisualMapComponent, DataZoomComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { supplierBoardApi, type PassRateDistItem, type DeliveryVsPassItem } from '@/api/modules/sqm/supplierBoard'
+import { supplierBoardApi, type PassRateDistItem, type DeliveryVsPassItem, type InspectResultItem } from '@/api/modules/sqm/supplierBoard'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import type { SqmSupplier } from '@/api/types/sqm'
 

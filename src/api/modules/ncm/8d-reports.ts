@@ -18,7 +18,7 @@ export interface AuditLogItem {
 
 export const ncm8dApi = {
   list: () => request.get<Qms8dReport[]>('/v1/ncm/8d-reports'),
-  listPage: (params?: { keyword?: string; page?: number; size?: number }) =>
+  listPage: (params?: { keyword?: string; status?: string; source?: string; page?: number; size?: number }) =>
     request.get<PageResult<Qms8dReport>>('/v1/ncm/8d-reports/page', { params }),
   get: (id: string) => request.get<EightDVo>(`/v1/ncm/8d-reports/${id}`),
   create: (body: Partial<Qms8dReport>) => request.post<Qms8dReport>('/v1/ncm/8d-reports', body),

@@ -43,9 +43,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
@@ -154,6 +153,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -170,7 +170,7 @@ const auth = useAuthStore()
 const list = ref<SqmChangeOrderListVo[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 // 从供应商详情跳转而来时按供应商过滤
 const filterSupplierId = ref((route.query.supplierId as string) || '')
 const filterSupplierName = ref((route.query.supplierName as string) || '')
@@ -230,7 +230,7 @@ async function submitCreate() {
   fetch()
 }
 
-async function submit(r: SqmChangeOrderListVo) { await sqmChangeApi.submit(r.id); ElMessage.success('已提交,已通知采购/研发/质量三方'); fetch() }
+async function submit(r: any) { await sqmChangeApi.submit(r.id); ElMessage.success('已提交,已通知采购/研发/质量三方'); fetch() }
 
 // ── 审批(强制串行:采购→研发→质量) ──
 const approveVisible = ref(false)
@@ -241,7 +241,7 @@ const approveForm = reactive({ approvalRole: '', approved: true, opinion: '' })
 const currentNode = computed(() => approvals.value.find(a => a.status === 'pending') || null)
 const approveStep = computed(() => approvals.value.filter(a => a.status !== 'pending').length)
 
-async function openApprove(r: SqmChangeOrderListVo) {
+async function openApprove(r: any) {
   approveId.value = r.id
   approveForm.approved = true; approveForm.opinion = ''
   const vo = await sqmChangeApi.get(r.id)
@@ -258,8 +258,8 @@ async function submitApprove() {
   fetch()
 }
 
-async function closeChange(r: SqmChangeOrderListVo) { await sqmChangeApi.close(r.id); ElMessage.success('已关闭'); fetch() }
-async function rollback(r: SqmChangeOrderListVo) {
+async function closeChange(r: any) { await sqmChangeApi.close(r.id); ElMessage.success('已关闭'); fetch() }
+async function rollback(r: any) {
   const { value } = await ElMessageBox.prompt('请输入回滚原因', '回滚变更', { confirmButtonText: '确定', cancelButtonText: '取消' }).catch(() => ({ value: '' }))
   if (!value) return
   await sqmChangeApi.rollback(r.id, value)
@@ -275,7 +275,7 @@ const detailSupplier = ref<SqmSupplier | null>(null)
 const relatedAudits = ref<SqmAuditPlan[]>([])
 const sortedApprovals = computed(() => detail.value ? [...detail.value.approvals].sort((a, b) => (a.seqOrder || 99) - (b.seqOrder || 99)) : [])
 
-async function openDetail(r: SqmChangeOrderListVo) {
+async function openDetail(r: any) {
   detail.value = null; detailSupplier.value = null; relatedAudits.value = []
   detailVisible.value = true
   detail.value = await sqmChangeApi.get(r.id)
@@ -294,7 +294,7 @@ async function openDetail(r: SqmChangeOrderListVo) {
 
 // 双向追溯: 跳转到关联审核计划详情
 function goAudit(id: string) { router.push({ path: '/sqm/audits', query: { planId: id } }) }
-function planStatusType(s: string): '' | 'info' | 'success' | 'warning' | 'primary' {
+function planStatusType(s: string): 'info' | 'success' | 'warning' | 'primary' {
   if (s === '已完成') return 'success'
   if (s === '进行中') return 'warning'
   if (s === '待执行') return 'primary'

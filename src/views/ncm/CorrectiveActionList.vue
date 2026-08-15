@@ -66,9 +66,8 @@
       </el-table>
       <div class="pager" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
-          :page-sizes="[10, 20, 50, 100]" :current-page="page" :page-size="size"
-          @current-change="(p: number) => { page = p; fetch() }"
-          @size-change="(s: number) => { size = s; page = 1; fetch() }" />
+          :page-sizes="[10, 20, 50, 100]" v-model:current-page="page" v-model:page-size="size"
+          @current-change="fetch" @size-change="fetch" />
       </div>
       <el-empty v-if="!loading && !list.length" description="暂无纠正措施" />
     </el-card>
@@ -123,6 +122,7 @@
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ncmCorrectiveActionApi } from '@/api/modules/ncm/corrective-actions'
@@ -136,7 +136,7 @@ const list = ref<NcmCorrectiveAction[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
 const filterDefectNo = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 const defects = ref<{ id: string; defectNo: string }[]>([])
 
 const createVisible = ref(false)

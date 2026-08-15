@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, reactive } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { CsWorkOrder, CsWorkOrderDashboard } from '@/api/types/cs'
 import { csWorkOrderApi } from '@/api/modules/cs/workOrder'
@@ -15,7 +16,7 @@ const keyword = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
-const page = ref(1), size = ref(20), total = ref(0)
+const page = ref(1), size = usePageSize(), total = ref(0)
 
 const dashboard = ref<CsWorkOrderDashboard>({})
 

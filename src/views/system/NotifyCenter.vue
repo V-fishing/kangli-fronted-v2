@@ -115,6 +115,7 @@
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -130,7 +131,7 @@ const records = ref<NotifyMessage[]>([])
 const users = ref<UserSelectVo[]>([])
 const directChannels = ref<NotifyChannel[]>([])
 const allChannels = ref<string[]>([])
-const page = ref(1), pageSize = ref(20), total = ref(0)
+const page = ref(1), pageSize = usePageSize(), total = ref(0)
 const filter = reactive({ status: '', channel: '', keyword: '' })
 
 const sendVisible = ref(false)
@@ -193,7 +194,7 @@ async function doSend() {
   }
 }
 
-function statusTagType(status: string): '' | 'success' | 'danger' | 'primary' {
+function statusTagType(status: string): 'success' | 'danger' | 'primary' {
   if (status === '成功') return 'success'
   if (status === '失败') return 'danger'
   return 'primary' // 发送中

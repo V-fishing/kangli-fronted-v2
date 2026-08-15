@@ -46,7 +46,7 @@
       </el-table>
 
       <div class="page-b">
-        <el-pagination background layout="total, sizes, prev, pager, next" :total="total" :page-size="q.size" :current-page="q.page" :page-sizes="[20, 50, 100]" @current-change="onPage" @size-change="onSize" />
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="total" :page-size="q.size" :current-page="q.page" :page-sizes="[10, 20, 50, 100]" @current-change="onPage" @size-change="onSize" />
       </div>
     </div>
 
@@ -73,6 +73,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
+import { loadPageSize, savePageSize } from '@/composables/usePageSize'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { auditLogApi, type AuditLogVO, type AuditLogQuery } from '@/api/modules/system/audit-log'
 
@@ -84,7 +85,7 @@ const range = ref<string[]>([])
 
 const q = reactive<AuditLogQuery & { page: number; size: number }>({
   module: '', action: '', operator: '', recordId: '', status: '',
-  start: '', end: '', page: 1, size: 20,
+  start: '', end: '', page: 1, size: loadPageSize(),
 })
 
 const detailVisible = ref(false)
@@ -119,7 +120,7 @@ function reset() {
   fetchData()
 }
 function onPage(p: number) { q.page = p; fetchData() }
-function onSize(s: number) { q.size = s; q.page = 1; fetchData() }
+function onSize(s: number) { q.size = s; savePageSize(s); q.page = 1; fetchData() }
 function openDetail(row: AuditLogVO) { current.value = row; detailVisible.value = true }
 
 onMounted(() => { fetchModules(); fetchData() })

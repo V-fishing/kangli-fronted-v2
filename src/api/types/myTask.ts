@@ -14,6 +14,12 @@ export interface MyTask {
   status?: string
   /** 截止时间(ISO 字符串) */
   dueAt?: string
+  /** 是否逾期(前端派生/后端标记) */
+  overdue?: boolean
+  /** 指派时间(ISO 字符串) */
+  assignedAt?: string
+  /** 业务类型编码(与 taskType 互补,用于历史检索) */
+  bizType?: string
   /** 前端跳转路径 */
   url?: string
 }

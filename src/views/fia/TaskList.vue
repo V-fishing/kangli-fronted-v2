@@ -24,6 +24,11 @@
         <el-form-item label="工单号">
           <el-input v-model="filter.woNo" clearable placeholder="请输入" style="width:160px" />
         </el-form-item>
+        <el-form-item label="触发类型">
+          <el-select v-model="filter.triggerType" clearable placeholder="全部" style="width:160px">
+            <el-option v-for="t in triggerOptions" :key="t.name" :label="t.name" :value="t.name" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="fetchData">查询</el-button>
         </el-form-item>
@@ -36,6 +41,7 @@
         <el-table-column prop="woNo" label="工单号" width="150" />
         <el-table-column prop="productName" label="产品" min-width="140" />
         <el-table-column prop="procName" label="工序" width="90" />
+        <el-table-column prop="triggerType" label="触发类型" width="110" />
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <span class="pill" :class="statusClass(row.status)">
@@ -64,18 +70,27 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
-import type { FiaTask, FiaTaskStatus, ProductTreeNode } from '@/api/types/fia'
+import type { FiaTask, FiaTaskStatus, ProductTreeNode, FiaTriggerType } from '@/api/types/fia'
 
 const router = useRouter()
 const list = ref<FiaTask[]>([])
 const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
-const size = ref(20)
-const filter = reactive({ status: '', woNo: '', productName: '', procName: '' })
+const size = usePageSize()
+const filter = reactive({ status: '', woNo: '', productName: '', procName: '', triggerType: '' })
+
+// 触发类型下拉(从后端已配置触发类型读取)
+const triggerOptions = ref<FiaTriggerType[]>([])
+async function loadTriggerTypes() {
+  try {
+    triggerOptions.value = await fiaTaskApi.triggerTypes().catch(() => [] as FiaTriggerType[])
+  } catch { /* */ }
+}
 const statusOptions: FiaTaskStatus[] = ['待检', '进行中', '待复核', '待批准', '审批中', '已完成', '超时', '已作废', '已驳回']
 
 // 产品→工序 二级树(cascader)
@@ -88,11 +103,11 @@ async function loadProductTree() {
     productTreeOptions.value = (nodes || []).map(n => ({
       value: n.productName,
       label: n.productName,
-      children: (n.procNames || []).map(p => ({ value: p, label: p })),
+      children: (n.procNames || []).map((p: string) => ({ value: p, label: p })),
     }))
   } catch { /* */ }
 }
-function onProductProcChange(val: (string | null)[]) {
+function onProductProcChange(val: any) {
   // 选中二级节点 = [productName, procName];仅选一级节点 = [productName]
   const [productName, procName] = val || []
   filter.productName = productName || ''
@@ -122,6 +137,7 @@ async function fetchData() {
       woNo: filter.woNo || undefined,
       productName: filter.productName || undefined,
       procName: filter.procName || undefined,
+      triggerType: filter.triggerType || undefined,
     })
     list.value = res ?? []
     total.value = list.value.length
@@ -130,5 +146,5 @@ async function fetchData() {
   }
 }
 
-onMounted(() => { loadProductTree(); fetchData() })
+onMounted(() => { loadProductTree(); loadTriggerTypes(); fetchData() })
 </script>

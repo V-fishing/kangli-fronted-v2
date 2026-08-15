@@ -94,7 +94,7 @@ function openCreate() {
   dialogVisible.value = true
 }
 
-function openEdit(row: SpcProcess) {
+function openEdit(row: any) {
   isEdit.value = true; editId.value = row.id
   Object.assign(form, row)
   dialogVisible.value = true

@@ -198,17 +198,17 @@ function resetFilter() {
   fetchData()
 }
 
-function openRelease(row: FiaWoLock) {
+function openRelease(row: any) {
   releaseType.value = 'approve'
-  current.value = row
+  current.value = row as FiaWoLock
   releaseReason.value = ''
   traceTag.value = ''
   dialogVisible.value = true
 }
 
-function openEmergency(row: FiaWoLock) {
+function openEmergency(row: any) {
   releaseType.value = 'emergency'
-  current.value = row
+  current.value = row as FiaWoLock
   releaseReason.value = ''
   traceTag.value = ''
   dialogVisible.value = true
@@ -238,8 +238,8 @@ async function confirmRelease() {
   }
 }
 
-async function openDetail(row: FiaWoLock) {
-  detailRow.value = row
+async function openDetail(row: any) {
+  detailRow.value = row as FiaWoLock
   relatedTasks.value = []
   detailVisible.value = true
   try {
@@ -250,7 +250,7 @@ async function openDetail(row: FiaWoLock) {
   }
 }
 
-function goToTask(t: FiaTask) {
+function goToTask(t: any) {
   detailVisible.value = false
   router.push(`/fia/tasks/${t.id}`)
 }

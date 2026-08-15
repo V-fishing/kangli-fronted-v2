@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
@@ -69,7 +70,7 @@ const all = ref<SqmIncomingLot[]>([])
 const loading = ref(false)
 const keyword = ref('')
 const page = ref(1)
-const size = ref(20)
+const size = usePageSize()
 const total = ref(0)
 
 function reset() { page.value = 1 }
@@ -81,7 +82,7 @@ async function fetch() {
     total.value = res.total
   } finally { loading.value = false }
 }
-function goTrace(row: SqmIncomingLot) {
+function goTrace(row: any) {
   // 统一到方案 B: 以来料批次号定位源表条码集合, 在 MesTraceView 渲染 MES 追溯森林
   router.push({ path: '/sqm/trace/mes-view', query: { lotNo: row.lotNo } })
 }
@@ -89,7 +90,7 @@ function goTrace(row: SqmIncomingLot) {
 // 量产抽样 SPC 录入入口(ROUTINE):以来料批次号定位,带入料号;首件前置校验在弹窗内完成
 const routineVisible = ref(false)
 const routineCtx = ref<{ batchNo?: string; woNo?: string; partNo?: string; procName?: string; productName?: string }>({})
-function openRoutine(row: SqmIncomingLot) {
+function openRoutine(row: any) {
   routineCtx.value = {
     batchNo: row.lotNo,
     partNo: row.partNo,

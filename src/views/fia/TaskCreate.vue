@@ -42,7 +42,7 @@
           <el-select v-model="form.partNo" filterable remote clearable :remote-method="remoteSearchProduct"
             :loading="productLoading" placeholder="输入物料编码模糊搜索" style="width: 100%"
             @change="onProductPick">
-            <el-option v-for="p in productOptions" :key="p.partNo" :label="`${p.partNo} · ${p.productName}`" :value="p.partNo" />
+            <el-option v-for="p in productOptions" :key="p.partNo" :label="`${p.partNo} · ${p.productName}`" :value="p.partNo || ''" />
           </el-select>
           <div class="hint" v-if="form.productName">已带出: {{ form.productName }}
             <span class="tag-b" v-if="form.category">{{ categoryLabel }}</span>
@@ -216,7 +216,7 @@ async function loadRealOrg() {
   try {
     const tree = await orgApi.tree()
     const first = tree && tree[0]
-    const id = first?.org?.id || first?.id
+    const id = (first as any)?.org?.id || first?.id
     if (id) realOrgId.value = id
   } catch { /* */ }
 }
@@ -337,7 +337,7 @@ async function onToolPick(toolId: string) {
 
 // 选中产品料号: 自动带出 产品名/品类/供应商; 仅当选定了工序才匹配标准(SPC 参数随后联动)
 async function onProductPick(partNo: string) {
-  const hit = (productOptions.value || []).find(p => p.partNo === partNo)
+  const hit = (productOptions.value || []).find((p: ProductSearchResult) => p.partNo === partNo)
   spcParams.value = []
   selStdItemIds.value = []
   autoStd.value = ''
@@ -424,7 +424,7 @@ async function loadSuppliers() {
   try { const r = await sqmSupplierApi.page({ page: 1, size: 20 }); suppliers.value = r.records || [] }
   finally { supLoading.value = false }
 }
-function ensureOption(list: SqmSupplier[], item: SqmSupplier, id: string) {
+function ensureOption<T extends { id: string }>(list: T[], item: T, id: string) {
   if (!item) return
   if (!list.some(x => x.id === id)) list.push(item)
 }

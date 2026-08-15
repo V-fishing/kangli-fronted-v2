@@ -2,7 +2,7 @@
   <div class="tn-wrap">
     <div
       class="tree-node"
-      :class="[node.nodeType || 'raw', { current: node.id === focusId, onpath: pathSet.includes(node.id) }]"
+      :class="[node.nodeType || 'raw', { current: node.id === focusId, onpath: pathSet?.includes(node.id) }]"
       @click="select"
     >
       <span v-if="hasChildren" class="tree-toggle" @click.stop="toggle">{{ open ? '▼' : '▶' }}</span>

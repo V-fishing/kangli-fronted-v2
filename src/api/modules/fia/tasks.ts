@@ -16,6 +16,8 @@ import type {
   StdTraceResult,
   ProductSearchResult,
   TaskStdItemVo,
+  ProductTreeNode,
+  FiaTriggerType,
 } from '@/api/types/fia'
 import type { PageResult } from '@/api/types/common'
 
@@ -24,12 +26,16 @@ export const fiaTaskApi = {
   dashboard: () => request.get<FiaDashboard>('/v1/fia/tasks/dashboard'),
 
   /** GET /v1/fia/tasks */
-  list: (params?: { status?: string; woNo?: string; productName?: string; partNo?: string; procName?: string; page?: number; size?: number }) =>
+  list: (params?: { status?: string; woNo?: string; productName?: string; partNo?: string; procName?: string; triggerType?: string; page?: number; size?: number }) =>
     request.get<FiaTask[]>('/v1/fia/tasks', { params }),
 
   /** GET /v1/fia/tasks/page 分页列表 */
-  listPage: (params?: { status?: string; woNo?: string; productName?: string; partNo?: string; procName?: string; page?: number; size?: number }) =>
+  listPage: (params?: { status?: string; woNo?: string; productName?: string; partNo?: string; procName?: string; triggerType?: string; page?: number; size?: number }) =>
     request.get<PageResult<FiaTask>>('/v1/fia/tasks/page', { params }),
+
+  /** GET /v1/fia/triggers 触发类型列表(供筛选下拉) */
+  triggerTypes: () =>
+    request.get<FiaTriggerType[]>('/v1/fia/triggers'),
 
   /** GET /v1/fia/tasks/products 产品→工序 二级树 */
   productTree: () =>

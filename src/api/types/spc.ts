@@ -8,6 +8,10 @@ export interface SpcParam {
   processName?: string
   /** 是否可制图:数值型可制图,文本/枚举型不可制图 */
   chartable?: boolean
+  /** 关联 SPC 工序字典 id(参数归属工序分组) */
+  processId?: string
+  /** 关联 SPC 标准线 id(参数归属标准线规格) */
+  specStandardId?: string
   unit?: string
   specLower?: number
   specUpper?: number
@@ -39,6 +43,8 @@ export interface SpcSpecStandard {
   specLower?: number | null
   specUpper?: number | null
   targetValue?: number | null
+  /** 默认控制图类型(Xbar/R/S/I/MR/P/NP/C/U) */
+  chartType?: string
 }
 
 // ── SpcParamProduct(参数↔产品多对多) ──
@@ -212,12 +218,22 @@ export interface SpcRule {
   enabled: boolean
   description?: string
   triggerCount?: number
+  /** 兼容旧字段名(前端组件展示用) */
+  isEnabled?: boolean
+  /** 兼容旧字段名(前端组件展示用) */
+  level?: string
 }
 
 // ── SpcCapability ──
 export interface SpcCapability {
   id: string
   paramId: string
+  /** 参数名称(合并视图补全) */
+  paramName?: string
+  /** 参数代号(后端无独立 code,常以 paramName 代替) */
+  paramCode?: string
+  /** 工序显示名(合并视图补全) */
+  procName?: string
   cp?: number
   cpk?: number
   pp?: number
@@ -230,6 +246,12 @@ export interface SpcCapability {
   periodType?: string
   periodValue?: string
   calcAt?: string
+  /** 规格上限(合并视图/详情补全) */
+  usl?: number
+  /** 规格下限(合并视图/详情补全) */
+  lsl?: number
+  /** 计算时间(趋势序列) */
+  calcTime?: string
 }
 
 export interface SpcSupplierCpkVo {
@@ -237,6 +259,12 @@ export interface SpcSupplierCpkVo {
   paramName: string
   cpk?: number
   level?: string
+  /** 物料(供应商对比行) */
+  mat?: string
+  /** 供应商(供应商对比行) */
+  sup?: string
+  /** 等级(供应商对比行) */
+  lvl?: string
 }
 
 // ── 控制图/直方图/看板 ──
@@ -289,6 +317,14 @@ export interface SpcNotifyChannel {
   channelType: string
   configJson?: string
   enabled: boolean
+  /** 兼容旧字段名(前端组件展示用) */
+  channel?: string
+  /** 启用状态(兼容旧字段名) */
+  isEnabled?: boolean
+  /** 预警级别(CRITICAL/WARN/INFO) */
+  alertLevel?: string
+  /** 抑制时长(分钟) */
+  supressMinutes?: number
 }
 
 // ── 全局配置 ──
