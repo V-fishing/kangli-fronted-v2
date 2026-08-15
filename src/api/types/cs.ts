@@ -50,8 +50,20 @@ export interface CsFeedback {
   satisfaction?: number
   cause?: 'RESPONSE_SLOW' | 'REPAIR_INCOMPLETE' | 'ATTITUDE' | 'OTHER' // 低分诱因维度
   relatedNcmId?: string // 联动 NCM 8D/CAPA 纠正措施 ID
+  related8dId?: string // 触发的 8D 报告 ID
+  relatedCapaId?: string // 触发的 CAPA ID
+  relatedCaId?: string // 触发的 CA 纠正措施 ID
   createdAt?: string
   updatedAt?: string
+}
+
+// 客户反馈触发质量改进纠正措施(8D/CAPA/CA)请求
+export interface TriggerNcmRequest {
+  type: '8D' | 'CAPA' | 'CA'
+  issue?: string
+  ownerUserId?: string
+  ownerName?: string
+  dueDate?: string
 }
 
 // 满意度统计(基于已闭环工单评分 + 客户反馈评分)

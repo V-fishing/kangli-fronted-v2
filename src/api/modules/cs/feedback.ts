@@ -1,5 +1,5 @@
 import { request } from '@/api/client'
-import type { CsFeedback } from '@/api/types/cs'
+import type { CsFeedback, TriggerNcmRequest } from '@/api/types/cs'
 import type { PageResult } from '@/api/types/common'
 
 export const csFeedbackApi = {
@@ -19,4 +19,6 @@ export const csFeedbackApi = {
     request.post(`/v1/cs/feedbacks/${id}/handling`, null, { params: { ownerName } }),
   linkNcm: (id: string, ncmId: string) =>
     request.post(`/v1/cs/feedbacks/${id}/link-ncm`, null, { params: { ncmId } }),
+  triggerNcm: (id: string, data: TriggerNcmRequest) =>
+    request.post<CsFeedback>(`/v1/cs/feedbacks/${id}/trigger-ncm`, data),
 }

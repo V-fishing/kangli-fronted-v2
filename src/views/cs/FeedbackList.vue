@@ -3,8 +3,10 @@
 import { ref, onMounted, reactive } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { CsFeedback } from '@/api/types/cs'
+import type { CsFeedback, TriggerNcmRequest } from '@/api/types/cs'
 import { csFeedbackApi } from '@/api/modules/cs/feedback'
+import { csWorkOrderApi } from '@/api/modules/cs/workOrder'
+import type { UserSelectVo } from '@/api/types/uop'
 import { usePermissionStore } from '@/stores/permission'
 
 const perm = usePermissionStore()
@@ -142,27 +144,41 @@ async function doDelete(row: CsFeedback) {
   }
 }
 
-// ===== 联动质量改进(8D/CAPA) =====
+// ===== 触发质量改进(8D/CAPA/CA) —— 直接创建纠正措施并关联, 而非手动填 ID =====
 const linkDialog = ref(false)
 const linkRow = ref<CsFeedback | null>(null)
-const linkNcmId = ref('')
+const triggerType = ref<'8D' | 'CAPA' | 'CA'>('8D')
+const triggerIssue = ref('')
+const triggerOwnerId = ref('')
+const triggerDueDate = ref('')
+const users = ref<UserSelectVo[]>([])
 const linkLoading = ref(false)
 function openLink(row: CsFeedback) {
   linkRow.value = row
-  linkNcmId.value = row.relatedNcmId || ''
+  triggerType.value = '8D'
+  triggerIssue.value = row.content || ''
+  triggerOwnerId.value = row.relatedNcmId ? '' : ''
+  triggerDueDate.value = ''
   linkDialog.value = true
+  csWorkOrderApi.assignableUsers().then(r => { users.value = r }).catch(() => { users.value = [] })
 }
 async function submitLink() {
   if (!linkRow.value?.id) return
-  if (!linkNcmId.value || !linkNcmId.value.trim()) { ElMessage.warning('请填写纠正措施 ID'); return }
+  if (!triggerIssue.value || !triggerIssue.value.trim()) { ElMessage.warning('请填写问题描述'); return }
+  const payload: TriggerNcmRequest = {
+    type: triggerType.value,
+    issue: triggerIssue.value.trim(),
+    ownerUserId: triggerOwnerId.value || undefined,
+    dueDate: triggerDueDate.value || undefined,
+  }
   linkLoading.value = true
   try {
-    await csFeedbackApi.linkNcm(linkRow.value.id, linkNcmId.value.trim())
-    ElMessage.success('已联动质量改进')
+    await csFeedbackApi.triggerNcm(linkRow.value.id, payload)
+    ElMessage.success(`已触发 ${triggerType.value} 纠正措施并关联`)
     linkDialog.value = false
     fetch()
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || e?.message || '联动失败')
+    ElMessage.error(e?.response?.data?.message || e?.message || '触发失败')
   } finally {
     linkLoading.value = false
   }
@@ -230,6 +246,14 @@ onMounted(fetch)
           <template #default="{ row }">
             <span v-if="row.cause" class="mono hl-red">{{ causeText(row.cause) }}</span>
             <span v-else class="mute">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="已触发改进" min-width="160">
+          <template #default="{ row }">
+            <span v-if="row.related8dId"><el-link type="primary" :href="'/#/ncm/8d-reports/' + row.related8dId" target="_blank">8D</el-link></span>
+            <span v-if="row.relatedCapaId"><span v-if="row.related8dId"> </span><el-link type="primary" :href="'/#/ncm/capas/' + row.relatedCapaId" target="_blank">CAPA</el-link></span>
+            <span v-if="row.relatedCaId"><span v-if="row.related8dId || row.relatedCapaId"> </span><el-link type="primary" :href="'/#/ncm/corrective-actions/' + row.relatedCaId" target="_blank">CA</el-link></span>
+            <span v-if="!row.related8dId && !row.relatedCapaId && !row.relatedCaId" class="mute">—</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -302,22 +326,34 @@ onMounted(fetch)
       </template>
     </el-dialog>
 
-    <!-- 联动质量改进弹窗 -->
-    <el-dialog v-model="linkDialog" title="联动质量改进（8D/CAPA）" width="520px" append-to-body>
+    <!-- 触发质量改进弹窗(直接创建 8D/CAPA/CA 并关联) -->
+    <el-dialog v-model="linkDialog" title="触发质量改进（8D / CAPA / CA）" width="560px" append-to-body>
       <div v-if="linkRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         客户：<span class="mono c-cobalt">{{ linkRow.customerName }}</span> · {{ typeText(linkRow.fbType) }}
       </div>
-      <el-form label-width="96px">
-        <el-form-item label="纠正措施 ID">
-          <el-input v-model="linkNcmId" placeholder="填写关联 NCM 8D/CAPA 纠正措施 ID" />
+      <el-form label-width="92px">
+        <el-form-item label="纠正措施类型">
+          <el-radio-group v-model="triggerType">
+            <el-radio-button value="8D">8D 报告</el-radio-button>
+            <el-radio-button value="CAPA">CAPA</el-radio-button>
+            <el-radio-button value="CA">CA 纠正措施</el-radio-button>
+          </el-radio-group>
         </el-form-item>
-        <el-form-item label="当前状态">
-          <span class="mono">{{ linkRow.relatedNcmId ? '已联动: ' + linkRow.relatedNcmId : '未联动' }}</span>
+        <el-form-item label="问题描述">
+          <el-input v-model="triggerIssue" type="textarea" :rows="3" placeholder="问题描述（默认带反馈内容）" />
+        </el-form-item>
+        <el-form-item label="负责人">
+          <el-select v-model="triggerOwnerId" filterable clearable placeholder="选择负责人（可选）" style="width:100%">
+            <el-option v-for="u in users" :key="u.id" :label="u.realName || u.username" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="期限" v-if="triggerType !== '8D'">
+          <el-date-picker v-model="triggerDueDate" type="date" value-format="YYYY-MM-DD" placeholder="限期完成日期" style="width:100%" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="linkDialog = false">取消</el-button>
-        <el-button type="primary" :disabled="linkLoading" @click="submitLink">{{ linkLoading ? '提交中' : '确认联动' }}</el-button>
+        <el-button type="primary" :disabled="linkLoading" @click="submitLink">{{ linkLoading ? '提交中' : '确认触发' }}</el-button>
       </template>
     </el-dialog>
   </div>
