@@ -16,7 +16,7 @@
         </el-table-column>
       </el-table>
     </el-card>
-    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑用户':'新建用户'" width="420px">
+    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑用户':'新建用户'" width="420px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="用户名" required><el-input v-model="form.username" /></el-form-item>
         <el-form-item label="姓名" required><el-input v-model="form.realName" /></el-form-item>
@@ -25,7 +25,7 @@
       </el-form>
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="handleSubmit">确定</el-button></template>
     </el-dialog>
-    <el-dialog v-model="pwdVisible" title="重置密码" width="320px">
+    <el-dialog v-model="pwdVisible" title="重置密码" width="320px" append-to-body>
       <el-form-item label="新密码"><el-input v-model="newPwd" type="password" /></el-form-item>
       <template #footer><el-button @click="pwdVisible=false">取消</el-button><el-button type="primary" @click="submitResetPwd">确定</el-button></template>
     </el-dialog>

@@ -36,7 +36,7 @@
           @size-change="(s: number) => { size = s; page = 1; fetch() }" />
       </div>
     </el-card>
-    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑供应商':'新建供应商'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑供应商':'新建供应商'" width="480px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="编号"><el-input v-model="form.supplierNo" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.name" /></el-form-item>
@@ -51,7 +51,7 @@
     </el-dialog>
 
     <!-- 供应商详情 -->
-    <el-dialog v-model="detailVisible" title="供应商详情" width="680px">
+    <el-dialog v-model="detailVisible" title="供应商详情" width="680px" append-to-body>
       <template v-if="detailRow">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="编号">{{ detailRow.supplierNo || '—' }}</el-descriptions-item>

@@ -113,7 +113,7 @@
 
     <el-empty v-if="!loading && !record" description="未找到该不良记录" />
 
-    <el-dialog v-model="assignVisible" :title="`发起${assignType} · ${assignType === '8D' ? '指定负责人' : '指派处理人'}`" width="560px">
+    <el-dialog v-model="assignVisible" :title="`发起${assignType} · ${assignType === '8D' ? '指定负责人' : '指派处理人'}`" width="560px" append-to-body>
       <el-alert v-if="assignDefectNo" :title="assignType === '8D'
         ? `不良记录 ${assignDefectNo}:请指定负责人(单选),负责人将在 D1 阶段自行组建团队,由质量部门审核后进入 D2。`
         : `不良记录 ${assignDefectNo}:请指派处理人并选择通知方式,确认后将创建${assignType}报告并通知被指派人。`"

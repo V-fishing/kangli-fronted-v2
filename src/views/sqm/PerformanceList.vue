@@ -85,7 +85,7 @@
     </el-card>
 
     <!-- 手工录入弹窗 -->
-    <el-dialog v-model="createVisible" title="手工录入绩效" width="480px">
+    <el-dialog v-model="createVisible" title="手工录入绩效" width="480px" append-to-body>
       <el-form :model="createForm" label-width="100px">
         <el-form-item label="供应商" required>
           <el-select v-model="createForm.supplierId" filterable placeholder="选择供应商" style="width:100%">
@@ -109,7 +109,7 @@
     </el-dialog>
 
     <!-- 自动计算弹窗 -->
-    <el-dialog v-model="calcVisible" title="自动计算绩效" width="420px">
+    <el-dialog v-model="calcVisible" title="自动计算绩效" width="420px" append-to-body>
       <p style="color:#666;margin-bottom:16px">基于来料批次数据自动采集指定供应商的绩效指标。</p>
       <el-form :model="calcForm" label-width="80px">
         <el-form-item label="供应商" required>
@@ -125,7 +125,7 @@
     </el-dialog>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="绩效详情" width="580px">
+    <el-dialog v-model="detailVisible" title="绩效详情" width="580px" append-to-body>
       <template v-if="detailRow">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="供应商">{{ detailRow.supplierName || '—' }}</el-descriptions-item>
@@ -147,7 +147,7 @@
     </el-dialog>
 
     <!-- 审核频次建议弹窗 -->
-    <el-dialog v-model="freqVisible" title="审核频次建议" width="400px">
+    <el-dialog v-model="freqVisible" title="审核频次建议" width="400px" append-to-body>
       <template v-if="freqResult">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="供应商等级"><span class="pill" :class="levelClass(freqResult.level)">{{ freqResult.level }}</span></el-descriptions-item>

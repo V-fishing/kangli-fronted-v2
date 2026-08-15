@@ -55,7 +55,8 @@
         </el-table-column>
       </el-table>
       <div style="padding:16px; text-align:right">
-        <el-pagination v-model:current-page="page" :total="total" :page-size="20" layout="total,prev,next" @change="fetchData" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" @current-change="fetchData" @size-change="fetchData" />
       </div>
     </div>
   </div>
@@ -73,6 +74,7 @@ const list = ref<FiaTask[]>([])
 const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
+const size = ref(20)
 const filter = reactive({ status: '', woNo: '', productName: '', procName: '' })
 const statusOptions: FiaTaskStatus[] = ['待检', '进行中', '待复核', '待批准', '审批中', '已完成', '超时', '已作废', '已驳回']
 
@@ -115,7 +117,7 @@ async function fetchData() {
   loading.value = true
   try {
     const res = await fiaTaskApi.list({
-      page: page.value, size: 20,
+      page: page.value, size: size.value,
       status: filter.status || undefined,
       woNo: filter.woNo || undefined,
       productName: filter.productName || undefined,

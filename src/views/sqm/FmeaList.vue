@@ -75,7 +75,7 @@
     </el-card>
 
     <!-- 新建/编辑弹窗 -->
-    <el-dialog v-model="editVisible" :title="editId ? '编辑风险项' : '新建风险项'" width="720px" @open="onEditOpen">
+    <el-dialog v-model="editVisible" :title="editId ? '编辑风险项' : '新建风险项'" width="720px" @open="onEditOpen" append-to-body>
       <el-form :model="editForm" label-width="110px">
         <el-row :gutter="16">
           <el-col :span="12">
@@ -160,7 +160,7 @@
     </el-dialog>
 
     <!-- 闭环弹窗 -->
-    <el-dialog v-model="closeVisible" title="闭环风险项" width="540px">
+    <el-dialog v-model="closeVisible" title="闭环风险项" width="540px" append-to-body>
       <el-alert v-if="closeRow && closeRow.highRiskFlag" type="warning" :closable="false" style="margin-bottom:14px">
         高风险项：闭环前须勾选“已验证三个月无复发”，并提交闭环证据。
       </el-alert>
@@ -180,7 +180,7 @@
     </el-dialog>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="风险项详情" width="720px">
+    <el-dialog v-model="detailVisible" title="风险项详情" width="720px" append-to-body>
       <el-descriptions v-if="detail" :column="2" border size="small">
         <el-descriptions-item label="风险编号">{{ detail.riskNo || '—' }}</el-descriptions-item>
         <el-descriptions-item label="类型">{{ detail.fmeaType || '—' }}</el-descriptions-item>

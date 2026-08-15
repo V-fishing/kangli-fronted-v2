@@ -200,12 +200,13 @@ onMounted(() => { fetch(); loadStats() })
         </el-table-column>
       </el-table>
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
-    <el-dialog v-model="formDialog" :title="editingId ? '编辑目标' : '新建目标'" width="560px">
+    <el-dialog v-model="formDialog" :title="editingId ? '编辑目标' : '新建目标'" width="560px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="目标名称 *"><el-input v-model="form.goalName" placeholder="如 出厂合格率" /></el-form-item>
         <el-form-item label="类型">

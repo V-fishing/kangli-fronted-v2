@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <el-dialog v-model="detailVisible" title="审计详情" width="560px">
+    <el-dialog v-model="detailVisible" title="审计详情" width="560px" append-to-body>
       <el-descriptions :column="1" border size="small" v-if="current">
         <el-descriptions-item label="时间"><span class="mono">{{ fmt(current.createdAt) }}</span></el-descriptions-item>
         <el-descriptions-item label="模块">{{ current.module }}</el-descriptions-item>

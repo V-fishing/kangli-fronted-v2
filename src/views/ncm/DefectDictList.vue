@@ -26,7 +26,7 @@
         </el-table-column>
       </el-table>
     </el-card>
-    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑字典':'新建字典'" width="420px">
+    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑字典':'新建字典'" width="420px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="编码" required><el-input v-model="form.code" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.name" /></el-form-item>

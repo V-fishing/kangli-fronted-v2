@@ -215,13 +215,14 @@ onMounted(fetch)
       </el-table>
 
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
     <!-- 登记 / 编辑弹窗 -->
-    <el-dialog v-model="formDialog" :title="editingId ? '编辑反馈' : '登记反馈'" width="560px">
+    <el-dialog v-model="formDialog" :title="editingId ? '编辑反馈' : '登记反馈'" width="560px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="客户名称 *"><el-input v-model="form.customerName" placeholder="客户名称" /></el-form-item>
         <el-form-item label="联系方式"><el-input v-model="form.customerContact" placeholder="联系电话/邮箱" /></el-form-item>
@@ -244,7 +245,7 @@ onMounted(fetch)
     </el-dialog>
 
     <!-- 处理弹窗 -->
-    <el-dialog v-model="handleDialog" title="处理反馈" width="520px">
+    <el-dialog v-model="handleDialog" title="处理反馈" width="520px" append-to-body>
       <div v-if="handleRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         客户：<span class="mono c-cobalt">{{ handleRow.customerName }}</span> · {{ typeText(handleRow.fbType) }}
       </div>

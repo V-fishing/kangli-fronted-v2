@@ -67,7 +67,7 @@
     </el-card>
 
     <!-- 新建/编辑 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑采集任务' : '新建采集任务'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑采集任务' : '新建采集任务'" width="480px" append-to-body>
       <el-form :model="form" label-width="100px">
         <el-form-item label="参数" required>
           <el-select v-model="form.paramId" filterable placeholder="选择 SPC 参数" style="width:100%">
@@ -91,7 +91,7 @@
     </el-dialog>
 
     <!-- 标记计划停机 -->
-    <el-dialog v-model="downtimeVisible" title="标记计划停机" width="440px">
+    <el-dialog v-model="downtimeVisible" title="标记计划停机" width="440px" append-to-body>
       <el-form label-width="100px">
         <el-form-item label="计划停机"><el-switch v-model="downtimeForm.isPlannedDowntime" /></el-form-item>
         <el-form-item label="原因"><el-input v-model="downtimeForm.reason" type="textarea" :rows="3" placeholder="选填,便于追溯" /></el-form-item>

@@ -131,16 +131,18 @@
       <div class="tl-pager">
         <el-pagination
           v-model:current-page="pageNo"
-          :page-size="pageSize"
+          v-model:page-size="pageSize"
           :total="total"
-          layout="total, prev, pager, next"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadData"
+          @size-change="loadData"
         />
       </div>
     </div>
 
     <!-- 新建来料批次弹窗 -->
-    <el-dialog v-model="lotDialogVisible" title="新建来料批次" width="560px" :close-on-click-modal="false" @closed="resetLotForm">
+    <el-dialog v-model="lotDialogVisible" title="新建来料批次" width="560px" :close-on-click-modal="false" @closed="resetLotForm" append-to-body>
       <el-form :model="lotForm" :rules="lotRules" ref="lotFormRef" label-width="100px">
         <el-form-item label="批次号" prop="lotNo"><el-input v-model="lotForm.lotNo" placeholder="请输入批次号" /></el-form-item>
         <el-form-item label="物料编码" prop="partNo"><el-input v-model="lotForm.partNo" placeholder="请输入物料编码" /></el-form-item>

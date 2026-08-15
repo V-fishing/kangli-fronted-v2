@@ -84,7 +84,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" title="录入不良记录" width="520px">
+    <el-dialog v-model="dialogVisible" title="录入不良记录" width="520px" append-to-body>
       <el-form :model="form" label-width="80px">
         <!-- ══ 必填 ══ -->
         <el-form-item label="缺陷编码" required>
@@ -127,7 +127,7 @@
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="handleSubmit">保存</el-button></template>
     </el-dialog>
 
-    <el-dialog v-model="assignVisible" :title="`发起${assignType} · ${assignType === '8D' ? '指定负责人' : '指派处理人'}`" width="560px">
+    <el-dialog v-model="assignVisible" :title="`发起${assignType} · ${assignType === '8D' ? '指定负责人' : '指派处理人'}`" width="560px" append-to-body>
       <el-alert v-if="assignDefectNo" :title="assignType === '8D'
         ? `不良记录 ${assignDefectNo}:请指定负责人(单选),负责人将在 D1 阶段自行组建团队,由质量部门审核后进入 D2。`
         : `不良记录 ${assignDefectNo}:请指派处理人并选择通知方式,确认后将创建${assignType}报告并通知被指派人。`"

@@ -36,7 +36,7 @@
           @size-change="(s: number) => { size = s; page = 1 }" />
       </div>
     </el-card>
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑标准线' : '新建标准线'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑标准线' : '新建标准线'" width="520px" append-to-body>
       <el-form :model="form" label-width="90px">
         <el-form-item label="物料" required><el-input v-model="form.material" placeholder="物料名称" /></el-form-item>
         <el-form-item label="工序" required><el-input v-model="form.procName" placeholder="工序名称" /></el-form-item>

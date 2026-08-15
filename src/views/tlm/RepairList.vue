@@ -163,13 +163,14 @@ onMounted(fetch)
       </el-table>
 
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
     <!-- 填写维修措施弹窗 -->
-    <el-dialog v-model="fillDialog" title="填写维修措施" width="520px" :modal="false">
+    <el-dialog v-model="fillDialog" title="填写维修措施" width="520px" :modal="false" append-to-body>
       <div v-if="fillRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         工装：<span class="mono c-cobalt">{{ fillRow.toolNo }}</span> {{ fillRow.toolName }}
       </div>

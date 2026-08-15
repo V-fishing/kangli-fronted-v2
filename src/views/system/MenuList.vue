@@ -12,7 +12,7 @@
         <el-table-column label="操作" width="80" fixed="right"><template #default="{row}"><el-button link type="danger" size="small" v-permission="'system.menu.delete'" @click="handleDelete((row as SysMenu).id)">删除</el-button></template></el-table-column>
       </el-table>
     </el-card>
-    <el-dialog v-model="dialogVisible" title="新建菜单" width="420px">
+    <el-dialog v-model="dialogVisible" title="新建菜单" width="420px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="编码" required><el-input v-model="form.menuCode" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.menuName" /></el-form-item>

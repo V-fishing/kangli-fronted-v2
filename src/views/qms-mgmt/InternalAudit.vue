@@ -274,13 +274,14 @@ onMounted(() => { fetch(); loadStats() })
         </el-table-column>
       </el-table>
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
     <!-- 创建 / 编辑内审 -->
-    <el-dialog v-model="formDialog" :title="editingId ? '编辑内审' : '新建内审'" width="560px">
+    <el-dialog v-model="formDialog" :title="editingId ? '编辑内审' : '新建内审'" width="560px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="内审主题 *"><el-input v-model="form.auditName" placeholder="内审主题 / 名称" /></el-form-item>
         <el-form-item label="审核范围"><el-input v-model="form.auditScope" type="textarea" :rows="2" placeholder="审核范围" /></el-form-item>
@@ -303,7 +304,7 @@ onMounted(() => { fetch(); loadStats() })
     </el-dialog>
 
     <!-- 不符合项维护 -->
-    <el-dialog v-model="ncDialog" :title="'不符合项 · ' + (ncAudit?.auditNo || '')" width="900px">
+    <el-dialog v-model="ncDialog" :title="'不符合项 · ' + (ncAudit?.auditNo || '')" width="900px" append-to-body>
       <div style="display:flex;justify-content:flex-end;margin-bottom:12px;" v-if="perm.has('qms-mgmt.audit.nc')">
         <el-button type="primary" @click="openNcCreate">新增不符合项</el-button>
       </div>
@@ -322,12 +323,13 @@ onMounted(() => { fetch(); loadStats() })
         </el-table-column>
       </el-table>
       <div style="padding:14px 0;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="ncPageNo" :page-size="ncSize" :total="ncTotal" layout="total, prev, pager, next" small
-          @current-change="(p:number)=>{ncPageNo=p;loadNc()}" />
+        <el-pagination v-model:current-page="ncPageNo" v-model:page-size="ncSize" :total="ncTotal" small
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadNc" @size-change="loadNc" />
       </div>
     </el-dialog>
 
-    <el-dialog v-model="ncFormDialog" :title="editingNcId ? '编辑不符合项' : '新增不符合项'" width="600px">
+    <el-dialog v-model="ncFormDialog" :title="editingNcId ? '编辑不符合项' : '新增不符合项'" width="600px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="编号"><span class="mono c-cobalt">{{ ncForm.ncNo || '系统生成' }}</span></el-form-item>
         <el-form-item label="不符合描述 *"><el-input v-model="ncForm.ncDesc" type="textarea" :rows="3" placeholder="不符合描述" /></el-form-item>

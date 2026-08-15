@@ -147,7 +147,7 @@ onMounted(async () => { await loadTools(); await fetch() })
     </el-card>
 
     <!-- 保养计划弹窗 -->
-    <el-dialog v-model="planDialog" :title="editingPlanId ? '编辑计划' : '新建保养计划'" width="520px" :modal="false">
+    <el-dialog v-model="planDialog" :title="editingPlanId ? '编辑计划' : '新建保养计划'" width="520px" :modal="false" append-to-body>
       <div style="display:grid;gap:16px">
         <div><label class="l">工装 *</label>
           <el-select v-model="planForm.toolId" filterable clearable placeholder="选择工装" style="width:100%">
@@ -170,7 +170,7 @@ onMounted(async () => { await loadTools(); await fetch() })
     </el-dialog>
 
     <!-- 保养记录弹窗 -->
-    <el-dialog v-model="recDialog" title="登记保养记录" width="520px" :modal="false">
+    <el-dialog v-model="recDialog" title="登记保养记录" width="520px" :modal="false" append-to-body>
       <div style="display:grid;gap:16px">
         <div><label class="l">工装 *</label>
           <el-select v-model="recForm.toolId" filterable clearable placeholder="选择工装" style="width:100%">

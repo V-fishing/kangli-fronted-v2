@@ -7,6 +7,7 @@
     destroy-on-close
     :close-on-click-modal="false"
     @closed="onClosed"
+    append-to-body
   >
     <SourceDetailContent :source-type="sourceType" :biz-key="bizKey" />
     <template #footer>

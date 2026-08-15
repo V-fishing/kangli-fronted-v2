@@ -80,7 +80,7 @@
     </el-card>
 
     <!-- 发起通知弹窗 -->
-    <el-dialog v-model="sendVisible" title="发起通知" width="560px">
+    <el-dialog v-model="sendVisible" title="发起通知" width="560px" append-to-body>
       <el-alert type="info" :closable="false" show-icon style="margin-bottom:14px"
         title="选择接收人与渠道后发送,发送记录将在此页面可追溯;外部渠道失败不影响站内信与其他渠道" />
       <el-form :model="sendForm" label-width="80px">

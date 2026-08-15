@@ -49,7 +49,7 @@
     </div>
 
     <!-- 审批弹窗 -->
-    <el-dialog v-model="approveVisible" title="审批 CAPA" width="400px">
+    <el-dialog v-model="approveVisible" title="审批 CAPA" width="400px" append-to-body>
       <el-form :model="approveForm" label-width="80px">
         <el-form-item label="决议" required><el-select v-model="approveForm.approved" style="width:100%"><el-option label="通过" :value="true" /><el-option label="驳回" :value="false" /></el-select></el-form-item>
         <el-form-item label="意见" required><el-input v-model="approveForm.comment" type="textarea" :rows="3" /></el-form-item>

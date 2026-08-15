@@ -18,7 +18,7 @@
         </template>
       </el-tree>
     </el-card>
-    <el-dialog v-model="dialogVisible" title="新建组织" width="400px">
+    <el-dialog v-model="dialogVisible" title="新建组织" width="400px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="编码" required><el-input v-model="form.orgCode" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.orgName" /></el-form-item>

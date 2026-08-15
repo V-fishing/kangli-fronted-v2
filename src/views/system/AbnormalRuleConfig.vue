@@ -33,7 +33,7 @@
     </div>
 
     <!-- 新建/编辑弹窗 -->
-    <el-dialog v-model="visible" :title="editId ? '编辑规则' : '新建规则'" width="540px">
+    <el-dialog v-model="visible" :title="editId ? '编辑规则' : '新建规则'" width="540px" append-to-body>
       <el-form :model="form" label-width="130px">
         <el-form-item label="严重判定阈值" required>
           <el-input-number v-model="form.severeMinQty" :min="1" :max="999" class="rule-num" />

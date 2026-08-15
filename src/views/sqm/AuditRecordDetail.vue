@@ -144,7 +144,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="approveVisible" title="审核会签" width="420px">
+    <el-dialog v-model="approveVisible" title="审核会签" width="420px" append-to-body>
       <el-form label-width="72px">
         <el-form-item label="会签角色">
           <el-tag>{{ approveTarget?.roleLabel }}</el-tag>

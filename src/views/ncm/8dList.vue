@@ -43,7 +43,7 @@
           @size-change="(s: number) => { size = s; page = 1; fetch() }" />
       </div>
     </el-card>
-    <el-dialog v-model="dialogVisible" title="创建 8D" width="420px">
+    <el-dialog v-model="dialogVisible" title="创建 8D" width="420px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-input v-model="form.orgId" type="hidden" />
         <el-form-item label="类型"><el-select v-model="form.flowType" style="width:100%"><el-option value="8D" /><el-option value="简易" /></el-select></el-form-item>

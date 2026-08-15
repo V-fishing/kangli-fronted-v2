@@ -111,7 +111,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑参数' : '新建参数'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑参数' : '新建参数'" width="480px" append-to-body>
       <el-form :model="form" label-width="100px">
         <el-form-item label="参数名" required><el-input v-model="form.paramName" /></el-form-item>
         <el-form-item label="工序"><el-input v-model="form.procName" /></el-form-item>

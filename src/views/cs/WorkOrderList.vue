@@ -297,13 +297,14 @@ onMounted(() => { fetch(); loadDashboard() })
       </el-table>
 
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
     <!-- 创建 / 编辑弹窗 -->
-    <el-dialog v-model="formDialog" :title="editingId ? '编辑工单' : '新建工单'" width="560px">
+    <el-dialog v-model="formDialog" :title="editingId ? '编辑工单' : '新建工单'" width="560px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="工单号" v-if="editingId"><span class="mono c-cobalt">{{ form.orderNo }}</span></el-form-item>
         <el-form-item label="客户名称 *"><el-input v-model="form.customerName" placeholder="客户名称" /></el-form-item>
@@ -333,7 +334,7 @@ onMounted(() => { fetch(); loadDashboard() })
     </el-dialog>
 
     <!-- 派单弹窗 -->
-    <el-dialog v-model="assignDialog" title="工单派单" width="480px">
+    <el-dialog v-model="assignDialog" title="工单派单" width="480px" append-to-body>
       <div v-if="assignRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         工单：<span class="mono c-cobalt">{{ assignRow.orderNo }}</span> {{ assignRow.customerName }}
       </div>
@@ -351,7 +352,7 @@ onMounted(() => { fetch(); loadDashboard() })
     </el-dialog>
 
     <!-- 完成弹窗 -->
-    <el-dialog v-model="doneDialog" title="标记完成" width="520px">
+    <el-dialog v-model="doneDialog" title="标记完成" width="520px" append-to-body>
       <div v-if="doneRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         工单：<span class="mono c-cobalt">{{ doneRow.orderNo }}</span> 负责人：{{ doneRow.ownerName || '—' }}
       </div>
@@ -365,7 +366,7 @@ onMounted(() => { fetch(); loadDashboard() })
     </el-dialog>
 
     <!-- 评价闭环弹窗 -->
-    <el-dialog v-model="closeDialog" title="评价闭环" width="480px">
+    <el-dialog v-model="closeDialog" title="评价闭环" width="480px" append-to-body>
       <div v-if="closeRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
         工单：<span class="mono c-cobalt">{{ closeRow.orderNo }}</span> {{ closeRow.customerName }}
       </div>

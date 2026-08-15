@@ -13,7 +13,7 @@
         </el-table-column>
       </el-table>
     </el-card>
-    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑角色':'新建角色'" width="400px">
+    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑角色':'新建角色'" width="400px" append-to-body>
       <el-form :model="form" label-width="80px">
         <el-form-item label="编码" required><el-input v-model="form.roleCode" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.roleName" /></el-form-item>

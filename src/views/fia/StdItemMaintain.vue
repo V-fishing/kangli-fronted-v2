@@ -34,11 +34,13 @@
           v-if="filteredStds.length"
           class="std-pager"
           background
-          layout="total, prev, pager, next"
+          layout="total, sizes, prev, pager, next, jumper"
           :total="filteredStds.length"
-          :page-size="pageSize"
-          :current-page="page"
-          @current-change="(pg: number) => { page = pg; scrollTop() }"
+          :page-sizes="[10, 20, 50, 100]"
+          v-model:page-size="pageSize"
+          v-model:current-page="page"
+          @current-change="scrollTop"
+          @size-change="() => { page = 1; scrollTop() }"
         />
       </el-card>
 

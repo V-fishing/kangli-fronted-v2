@@ -33,7 +33,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑工序' : '新建工序'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑工序' : '新建工序'" width="520px" append-to-body>
       <el-form :model="form" label-width="90px">
         <el-form-item label="工序名称" required><el-input v-model="form.processName" placeholder="如 装配 / 焊接 / 检测 / 系统" /></el-form-item>
         <el-form-item label="编码"><el-input v-model="form.processCode" placeholder="业务编码(可选)" /></el-form-item>

@@ -200,12 +200,13 @@ onMounted(() => { fetch(); loadStats() })
         </el-table-column>
       </el-table>
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
-    <el-dialog v-model="formDialog" :title="editingId ? '编辑事件' : '登记事件'" width="600px">
+    <el-dialog v-model="formDialog" :title="editingId ? '编辑事件' : '登记事件'" width="600px" append-to-body>
       <el-form label-width="92px">
         <el-form-item label="事件类型 *"><el-input v-model="form.eventType" placeholder="如 投诉 / 器械故障" /></el-form-item>
         <el-form-item label="发生环节">

@@ -50,7 +50,7 @@
     </el-card>
 
     <!-- 审批弹窗(采购→研发→质量 依次签字) -->
-    <el-dialog v-model="approveVisible" title="依次签字审批" width="520px">
+    <el-dialog v-model="approveVisible" title="依次签字审批" width="520px" append-to-body>
       <el-steps :active="approveStep" align-center style="margin-bottom:18px">
         <el-step v-for="a in approvals" :key="a.id" :title="a.roleLabel || a.approvalRole"
           :status="a.status==='done' ? 'success' : a.status==='rejected' ? 'error' : (currentNode && a.id===currentNode.id ? 'process' : 'wait')"
@@ -67,7 +67,7 @@
     </el-dialog>
 
     <!-- 新建弹窗 -->
-    <el-dialog v-model="createVisible" title="新建变更单" width="560px">
+    <el-dialog v-model="createVisible" title="新建变更单" width="560px" append-to-body>
       <el-form :model="createForm" label-width="90px">
         <el-form-item label="标题" required><el-input v-model="createForm.title" /></el-form-item>
         <el-form-item label="供应商" required><el-select v-model="createForm.supplierId" filterable clearable placeholder="选择供应商" style="width:100%"><el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item>
@@ -92,7 +92,7 @@
     </el-dialog>
 
     <!-- 详情弹窗(含供应商反查 + 会签进度) -->
-    <el-dialog v-model="detailVisible" title="变更单详情" width="640px">
+    <el-dialog v-model="detailVisible" title="变更单详情" width="640px" append-to-body>
       <el-descriptions v-if="detail" :column="2" border size="small">
         <el-descriptions-item label="变更编号">{{ detail.order.changeNo }}</el-descriptions-item>
         <el-descriptions-item label="标题">{{ detail.order.title }}</el-descriptions-item>

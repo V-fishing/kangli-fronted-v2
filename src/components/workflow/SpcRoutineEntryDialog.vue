@@ -5,6 +5,7 @@
     width="620px"
     :close-on-click-modal="false"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
+    append-to-body
   >
     <template #header>
       <div class="dlg-head">

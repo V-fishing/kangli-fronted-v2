@@ -33,14 +33,14 @@
         </el-table-column>
       </el-table>
     </el-card>
-    <el-dialog v-model="closeVisible" title="关闭告警" width="380px">
+    <el-dialog v-model="closeVisible" title="关闭告警" width="380px" append-to-body>
       <el-form :model="closeForm" label-width="80px">
         <el-form-item label="关闭原因" required><el-input v-model="closeForm.closeReason" /></el-form-item>
         <el-form-item label="处置措施" required><el-input v-model="closeForm.disposition" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="closeVisible=false">取消</el-button><el-button type="primary" @click="submitClose">确认关闭</el-button></template>
     </el-dialog>
-    <el-dialog v-model="detailVisible" title="告警详情" width="560px" destroy-on-close>
+    <el-dialog v-model="detailVisible" title="告警详情" width="560px" destroy-on-close append-to-body>
       <div v-if="detailAlarm" v-loading="detailLoading" class="alarm-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="告警编号">{{ detailAlarm.code }}</el-descriptions-item>

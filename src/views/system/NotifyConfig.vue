@@ -157,7 +157,7 @@
     </div>
 
     <!-- 点对点渠道配置弹窗 -->
-    <el-dialog v-model="directVisible" :title="`配置渠道 · ${directTarget?.channel || ''}`" width="520px">
+    <el-dialog v-model="directVisible" :title="`配置渠道 · ${directTarget?.channel || ''}`" width="520px" append-to-body>
       <el-alert type="info" :closable="false" show-icon style="margin-bottom:14px"
         title="凭据保存后用于点对点发送;secret 类字段回显 ****,留空不修改" />
       <el-form v-if="directTarget" label-width="110px" style="margin-top:4px">

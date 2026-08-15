@@ -142,7 +142,7 @@
       <div v-if="!logs.length" class="empty-hint">暂无轨迹</div>
     </el-card>
 
-    <el-dialog v-model="ncVisible" title="新增不符合项" width="520px">
+    <el-dialog v-model="ncVisible" title="新增不符合项" width="520px" append-to-body>
       <el-form :model="ncForm" label-width="80px">
         <el-form-item label="等级">
           <el-select v-model="ncForm.level" style="width:100%">

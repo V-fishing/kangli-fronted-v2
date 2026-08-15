@@ -47,7 +47,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="detailVisible" title="审核详情" width="760px">
+    <el-dialog v-model="detailVisible" title="审核详情" width="760px" append-to-body>
       <template v-if="detailRow">
         <el-descriptions :column="2" border size="small" class="mb">
           <el-descriptions-item label="计划编号">{{ detailRow.planNo }}</el-descriptions-item>
@@ -145,7 +145,7 @@
     </el-dialog>
 
     <!-- 新建审核计划 -->
-    <el-dialog v-model="createVisible" title="新建审核计划" width="560px" @open="onCreateOpen">
+    <el-dialog v-model="createVisible" title="新建审核计划" width="560px" @open="onCreateOpen" append-to-body>
       <el-form :model="createForm" label-width="92px">
         <el-form-item label="供应商" required>
           <el-select v-model="createForm.supplierId" filterable clearable placeholder="选择供应商" style="width:100%">

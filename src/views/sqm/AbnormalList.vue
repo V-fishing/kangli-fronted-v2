@@ -278,7 +278,7 @@ onMounted(() => fetch())
     </div>
 
     <!-- 关闭 -->
-    <el-dialog v-model="closeVisible" title="关闭来料异常" width="420px">
+    <el-dialog v-model="closeVisible" title="关闭来料异常" width="420px" append-to-body>
       <el-form :model="closeForm" label-width="80px">
         <el-form-item label="处置方式" required>
           <el-select v-model="closeForm.disposal" placeholder="请选择">
@@ -299,7 +299,7 @@ onMounted(() => fetch())
     </el-dialog>
 
     <!-- 详情 / 发起整改 -->
-    <el-dialog v-model="detailVisible" title="来料异常详情" width="560px">
+    <el-dialog v-model="detailVisible" title="来料异常详情" width="560px" append-to-body>
       <el-descriptions v-if="detailRow" :column="2" border>
         <el-descriptions-item label="异常单号">{{ detailRow.abnormalNo }}</el-descriptions-item>
         <el-descriptions-item label="供应商">{{ detailRow.supplierName }}</el-descriptions-item>
@@ -353,7 +353,7 @@ onMounted(() => fetch())
     </el-dialog>
 
     <!-- 发起前指定负责人(复用不良管理指派流程,样式与不良管理保持一致) -->
-    <el-dialog v-model="assignVisible" :title="`发起${pendingLaunch?.type === '8D' ? '8D · 指定负责人' : 'CAPA · 指定负责人'}`" width="560px">
+    <el-dialog v-model="assignVisible" :title="`发起${pendingLaunch?.type === '8D' ? '8D · 指定负责人' : 'CAPA · 指定负责人'}`" width="560px" append-to-body>
       <el-alert v-if="pendingLaunch" :title="pendingLaunch.type === '8D'
         ? `来料异常 ${detailRow?.abnormalNo}:请指定负责人(单选),负责人将在 D1 阶段自行组建团队,由质量部门审核后进入 D2。`
         : `来料异常 ${detailRow?.abnormalNo}:请指定负责人(单选),确认后将创建${pendingLaunch.type}报告并通知负责人。`"

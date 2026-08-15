@@ -44,13 +44,21 @@ async function fetch() {
     })
     list.value = res.records
     total.value = res.total
-    // 逐行查「待首件」状态(轻量并发,失败时静默忽略)
-    const entries = await Promise.all((list.value || []).map(async (t) => {
-      if (!t.id) return null
-      const r = await tlmToolingApi.pendingFirst(t.id).catch(() => null)
-      return [t.id, !!(r && r.pending)] as [string, boolean]
-    }))
-    pendingMap.value = Object.fromEntries(entries.filter(Boolean) as [string, boolean][])
+    // 「待首件」强提醒: 缺产品编码/工序的工装由 isPendingFirst 本地兜底判定(无需请求);
+    // 仅对已完整建档(双字段都有)的工装才查后端是否存在待处理首件任务,避免对每条都发无用请求导致卡顿
+    const needCheck = (list.value || []).filter((t) => t.id && t.productCode && t.procName)
+    const ids = needCheck.map((t) => t.id as string)
+    const entries: [string, boolean][] = []
+    const BATCH = 6
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const slice = ids.slice(i, i + BATCH)
+      const resBatch = await Promise.all(slice.map(async (id) => {
+        const r = await tlmToolingApi.pendingFirst(id).catch(() => null)
+        return [id, !!(r && r.pending)] as [string, boolean]
+      }))
+      entries.push(...resBatch)
+    }
+    pendingMap.value = Object.fromEntries(entries)
   } finally {
     loading.value = false
   }
@@ -286,13 +294,14 @@ onMounted(fetch)
       </el-table>
 
       <div style="padding:14px 22px;display:flex;justify-content:flex-end;">
-        <el-pagination :current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next"
-          @current-change="(p:number)=>{page=p;fetch()}" />
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetch" @size-change="fetch" />
       </div>
     </el-card>
 
     <!-- 新建/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑工装' : '新增工装'" width="640px">
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑工装' : '新增工装'" width="640px" append-to-body>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div><label class="l">编号 *</label><el-input v-model="form.toolNo" style="width:100%" /></div>
         <div><label class="l">名称 *</label><el-input v-model="form.toolName" style="width:100%" /></div>

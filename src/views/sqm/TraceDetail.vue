@@ -76,7 +76,7 @@
     </div>
 
     <!-- 节点详情 Dialog -->
-    <el-dialog v-model="detailVis" title="节点详情" width="660px" destroy-on-close>
+    <el-dialog v-model="detailVis" title="节点详情" width="660px" destroy-on-close append-to-body>
       <template v-if="curDetail">
         <el-descriptions :column="3" border size="small" title="基本信息">
           <el-descriptions-item label="名称">{{ curDetail.nodeName||'—' }}</el-descriptions-item>
@@ -132,7 +132,7 @@
     </el-dialog>
 
     <!-- 新建子节点 Dialog -->
-    <el-dialog v-model="childVis" :title="childParent?'添加子节点':'新建节点'" width="540px" destroy-on-close>
+    <el-dialog v-model="childVis" :title="childParent?'添加子节点':'新建节点'" width="540px" destroy-on-close append-to-body>
       <el-form :model="childForm" label-width="80px">
         <el-form-item label="类型" required><el-select v-model="childForm.nodeType" style="width:100%"><el-option v-for="o in NODE_OPTS" :key="o.v" :label="o.l" :value="o.v" /></el-select></el-form-item>
         <el-form-item label="名称" required><el-input v-model="childForm.nodeName" /></el-form-item>
@@ -148,7 +148,7 @@
     </el-dialog>
 
     <!-- 挂载组成 Dialog -->
-    <el-dialog v-model="attachVis" title="挂载组成" width="500px" destroy-on-close>
+    <el-dialog v-model="attachVis" title="挂载组成" width="500px" destroy-on-close append-to-body>
       <el-form :model="attachForm" label-width="90px">
         <el-form-item label="挂载方式">
           <el-radio-group v-model="attachMode" size="small">

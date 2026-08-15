@@ -94,9 +94,10 @@
       <div class="sg-foot">
         <el-pagination
           v-model:current-page="subgroupPage"
-          :page-size="subgroupSize"
+          v-model:page-size="subgroupSize"
           :total="chartData.subgroups.length"
-          layout="total, prev, pager, next"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
           background
           @current-change="onSubgroupPage" />
       </div>
