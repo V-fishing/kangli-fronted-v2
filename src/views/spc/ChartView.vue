@@ -9,6 +9,11 @@
         </el-form-item>
         <el-form-item label="时间范围"><el-date-picker v-model="timeRange" type="datetimerange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width:360px" @change="loadChart" /></el-form-item>
         <el-form-item><el-button type="primary" plain :disabled="hasCountChart" @click="openManual">设置控制限</el-button></el-form-item>
+        <el-form-item>
+          <el-button type="primary" :disabled="!paramId" @click="goCollect">
+            <span style="display:inline-flex;align-items:center;gap:4px">去采集<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="13" height="13"><path fill="currentColor" d="M339.2 768a32 32 0 0 1 0-45.2L626.8 435.2H416a32 32 0 0 1 0-64h288a32 32 0 0 1 32 32v288a32 32 0 0 1-64 0V435.2L384.4 722.8A32 32 0 0 1 339.2 768"/></svg></span>
+          </el-button>
+        </el-form-item>
       </el-form>
     </el-card>
 
@@ -186,7 +191,7 @@
 // @ts-nocheck
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
@@ -198,6 +203,7 @@ import { spcControlLimitApi } from '@/api/modules/spc/control-limits'
 import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit, SpcSubgroup, CountCapabilityVo } from '@/api/types/spc'
 
 const route = useRoute()
+const router = useRouter()
 const params = ref<SpcParam[]>([])
 const paramId = ref((route.params.id as string) || '')
 const param = computed(() => params.value.find(p => p.id === paramId.value))
@@ -579,6 +585,21 @@ function drawTrend() {
   })
 }
 
+/** 双向通道①:控制图页 → 采集页(预选当前参数 + 来源单号/批号,便于回看)。 */
+function goCollect() {
+  if (!paramId.value) { ElMessage.warning('请先选择 SPC 参数'); return }
+  const p = param.value
+  router.push({
+    path: '/spc/collect',
+    query: {
+      paramId: paramId.value,
+      woNo: p?.srcWoNo || '',
+      batchNo: p?.srcBatchNo || '',
+      from: 'chart',
+    },
+  })
+}
+
 async function openManual() {
   if (!paramId.value) { ElMessage.warning('请先选择 SPC 参数'); return }
   // 含计数型图(P/NP/C/U)时,控制限由系统按近期数据自动计算,不支持人工覆盖
@@ -626,7 +647,14 @@ async function saveManual() {
   }
 }
 
-onMounted(async () => { params.value = await spcParamApi.list(); if (paramId.value) loadChart() })
+onMounted(async () => {
+  params.value = await spcParamApi.list()
+  if (paramId.value) loadChart()
+  // 从采集页"查看参数图"返回时(from=collect)刷新一次, 让刚提交的子组立即可见
+  if (route.query.from === 'collect') {
+    setTimeout(() => { if (paramId.value) loadChart() }, 0)
+  }
+})
 onUnmounted(() => { cardCharts.value.forEach(c => c?.dispose()); histChart?.dispose(); trendChart?.dispose() })
 </script>
 

@@ -212,7 +212,7 @@ async function load() {
     records.value = await tlmMaintApi.records(id)
     versions.value = await tlmToolingApi.versions(id)
     products.value = await tlmToolingApi.products(id)
-    repairOrders.value = await tlmRepairApi.page({ toolId: id, size: 50 })
+    repairOrders.value = (await tlmRepairApi.page({ toolId: id, size: 50 })).records || []
     if (canTrace.value) {
       binds.value = await metroApi.bindRecords(id)
       // 校准记录: 按器具编号过滤校准计划单(含已完成录入的历史校准)

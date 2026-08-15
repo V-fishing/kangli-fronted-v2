@@ -61,6 +61,7 @@
           <el-form-item>
             <el-button type="primary" :loading="submitting" @click="submit">提交子组</el-button>
             <el-button @click="reset">重置</el-button>
+            <el-button v-if="paramId" type="primary" plain @click="goChart">查看控制图</el-button>
             <span class="hint" v-if="countMode && (countChart === 'P' || countChart === 'NP')">P/NP 图:录入该子组不合格数与检验总数</span>
             <span class="hint" v-else-if="countMode">C/U 图:录入该子组缺陷数与检验单位数</span>
             <span class="hint" v-else>共 {{ form.values.length }} 个测量值</span>
@@ -74,7 +75,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
@@ -83,6 +84,9 @@ import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import type { SpcParam } from '@/api/types/spc'
 
 const route = useRoute()
+const router = useRouter()
+/** 最近一次成功提交的参数 id,用于"查看参数图"回看刚录入的 SPC 控制图 */
+const lastParamId = ref('')
 
 // ── 首件 ──
 const params = ref<SpcParam[]>([])
@@ -167,6 +171,7 @@ async function submit() {
     }
     await spcSubgroupApi.create(body as never)
     ElMessage.success('首件子组已提交')
+    lastParamId.value = paramId.value
     resetFormValues()
   } finally { submitting.value = false }
 }
@@ -180,6 +185,13 @@ function reset() {
     inspectN: null,
     defectCount: null,
   }
+}
+
+/** 双向通道②:采集页 → 控制图页(回看当前选中参数的 SPC 控制图,from=collect 触发自动刷新)。 */
+function goChart() {
+  const id = lastParamId.value || paramId.value
+  if (!id) { ElMessage.warning('请先选择参数'); return }
+  router.push({ path: `/spc/params/${id}`, query: { from: 'collect' } })
 }
 
 async function applyFromTask(taskId: string) {
@@ -201,14 +213,20 @@ onMounted(async () => {
     await applyFromTask(taskId)
     return
   }
-  params.value = await spcParamApi.list()
-  // 详情弹窗"去采集"带 paramId 预选对应首件参数,并自动带入来源单号/批号
+  // 详情弹窗"去采集"带 woNo 时,按工单号匹配该产品的同源参数(工装/产线首件均带 srcWoNo);
+  // 无工单号则回退全量参数列表,保证下拉框始终可用。
+  const woNo = (route.query.woNo as string) || ''
+  params.value = woNo
+    ? await spcParamApi.list({ srcWoNo: woNo }).catch(() => [])
+    : await spcParamApi.list()
+  if (!params.value.length) params.value = await spcParamApi.list()
+  // 预选对应首件参数,并自动带入来源单号/批号
   const pid = route.query.paramId as string | undefined
   if (pid && params.value.some(p => p.id === pid)) {
     paramId.value = pid
     onParamChange(pid)
     const p = params.value.find(x => x.id === pid)
-    const wo = (route.query.woNo as string) || p?.srcWoNo || ''
+    const wo = woNo || p?.srcWoNo || ''
     const bn = (route.query.batchNo as string) || p?.srcBatchNo || ''
     if (wo) form.value.woNo = wo
     if (bn) form.value.batchNo = bn

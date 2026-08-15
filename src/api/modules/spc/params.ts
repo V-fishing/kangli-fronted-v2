@@ -3,12 +3,13 @@ import type { SpcParam } from '@/api/types/spc'
 import type { PageResult } from '@/api/types/common'
 
 export const spcParamApi = {
-  // productName / procName / paramSource 可选:三者可独立或组合过滤
-  list: (params?: { productName?: string; procName?: string; paramSource?: string }) => {
+  // productName / procName / paramSource / srcWoNo 可选:四者可独立或组合过滤
+  list: (params?: { productName?: string; procName?: string; paramSource?: string; srcWoNo?: string }) => {
     const q: Record<string, string> = {}
     if (params?.productName) q.productName = params.productName
     if (params?.procName) q.procName = params.procName
     if (params?.paramSource) q.paramSource = params.paramSource
+    if (params?.srcWoNo) q.srcWoNo = params.srcWoNo
     return request.get<SpcParam[]>('/v1/spc/params', { params: q })
   },
   listPage: (params?: { productName?: string; procName?: string; paramSource?: string; keyword?: string; page?: number; size?: number }) =>

@@ -38,6 +38,11 @@
 
         <!-- 参数规格只读 -->
         <div class="param-meta">
+          <el-form-item label="参数" class="param-select">
+            <el-select v-model="paramId" @change="onParamChange" placeholder="选择该工单参数" style="width:240px">
+              <el-option v-for="p in params" :key="p.id" :label="`${p.paramName} · ${p.procName || ''}`" :value="p.id" />
+            </el-select>
+          </el-form-item>
           <span class="mono">参数 {{ param.paramName }}</span>
           <span class="mono">子组大小 n = {{ param.subgroupSize }}</span>
           <span class="mono" v-if="param.specLower != null || param.specUpper != null">
@@ -127,6 +132,8 @@ const taskId = route.params.taskId as string
 
 const task = ref<SpcSampleTask | null>(null)
 const param = ref<SpcParam | null>(null)
+const params = ref<SpcParam[]>([])
+const paramId = ref('')
 const loading = ref(true)
 const batchNo = ref('')
 const values = ref<(number | null)[]>([])
@@ -159,12 +166,27 @@ async function loadTask() {
     const t = await spcSampleTaskApi.get(taskId)
     task.value = t
     param.value = await spcParamApi.get(t.paramId).catch(() => null)
+    paramId.value = t.paramId
+    // 按工单号匹配该产品的同源抽样参数(抽样参数均带 srcWoNo,与首件口径一致),
+    // 下拉框默认选中当前任务参数,可切换录入同一工单下其他抽样参数。
+    const wo = t.woNo
+    const list = wo
+      ? await spcParamApi.list({ srcWoNo: wo, paramSource: 'SAMPLE' }).catch(() => [])
+      : await spcParamApi.list({ paramSource: 'SAMPLE' }).catch(() => [])
+    params.value = (list && list.length) ? list : (param.value ? [param.value] : [])
     resetEntryValues()
   } catch {
     task.value = null
   } finally {
     loading.value = false
   }
+}
+
+/** 切换同源抽样参数:更新当前参数对象并重置录入框 */
+function onParamChange(id: string) {
+  const p = params.value.find(x => x.id === id) || null
+  param.value = p
+  resetEntryValues()
 }
 
 /** 根据参数类型重置录入框(计量型 n 个测量值;计数型清空不合格数/缺陷数/样本量) */
@@ -179,9 +201,9 @@ function resetEntryValues() {
 async function submit() {
   if (!batchNo.value.trim()) { ElMessage.warning('请录入批次号'); return }
   if (!task.value || !param.value) return
-  // 组装请求体(计数型不传 values,计量型不传计数字段)
+  // 组装请求体(计数型不传 values,计量型不传计数字段);paramId 取当前下拉选中的同源参数
   const body: Record<string, unknown> = {
-    paramId: task.value.paramId,
+    paramId: paramId.value || task.value.paramId,
     subgroupTime: new Date().toISOString().slice(0, 19),
     woNo: task.value.woNo,
     batchNo: batchNo.value.trim(),
@@ -245,8 +267,11 @@ onMounted(loadTask)
 .progress-row .lbl { font-size: 12px; color: $ink-faint; }
 .progress-row .prog { font-family: $font-mono; font-size: 18px; font-weight: 700; color: $ink; }
 .progress-row .done-tip { font-family: $font-mono; font-size: 12px; color: $green; }
-.param-meta { display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 14px; background: $paper; border-radius: 8px; font-size: 12px; color: $ink-soft; }
+.param-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 14px; background: $paper; border-radius: 8px; font-size: 12px; color: $ink-soft; }
 .param-meta .mono { font-family: $font-mono; }
+.param-meta .param-select { margin: 0; }
+.param-meta .param-select :deep(.el-form-item__label) { font-size: 12px; color: $ink-faint; padding-right: 8px; }
+.param-meta .param-select :deep(.el-form-item__content) { line-height: normal; }
 .block-title { font-family: $font-display; font-size: 15px; font-weight: 700; margin-bottom: 14px; color: $ink; }
 .vals { display: flex; flex-wrap: wrap; gap: 12px; }
 .val-cell { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid $hairline; border-radius: 8px; background: $white; }
