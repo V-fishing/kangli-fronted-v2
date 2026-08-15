@@ -23,8 +23,6 @@ export interface TlmTooling {
   remark?: string      // 备注(工装夹具台账/设备总表)
   status: 'IN_USE' | 'DISABLED' | 'REPAIRING' | 'SCRAPPED'
   location?: string
-  ownerId?: string
-  adminId?: string // 设备管理员(GAUGE)
   softwareVer?: string
   precisionVal?: string
   measurePoint?: string
@@ -135,5 +133,19 @@ export interface TlmRepair {
   status: 'PENDING' | 'REPAIRING' | 'DONE' | 'VERIFYING' | 'VERIFIED'
   approverId?: string
   verifyTaskId?: string
+  createdAt?: string
+}
+
+export interface TlmCalibPlan {
+  id?: string
+  orgId?: string
+  toolId?: string
+  toolNo?: string
+  toolName?: string
+  planCycle?: number
+  planDueDate?: string
+  status: 'PENDING' | 'DONE' | 'OVERDUE'
+  ownerId?: string
+  source?: 'AUTO' | 'MANUAL'
   createdAt?: string
 }

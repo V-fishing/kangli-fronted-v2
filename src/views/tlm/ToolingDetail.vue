@@ -7,6 +7,7 @@ import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, T
 import { tlmToolingApi } from '@/api/modules/tlm/tooling'
 import { tlmMaintApi } from '@/api/modules/tlm/maint'
 import { tlmRepairApi } from '@/api/modules/tlm/repair'
+import { metroApi } from '@/api/modules/tlm/metro'
 import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
@@ -18,7 +19,14 @@ const records = ref<any[]>([])
 const versions = ref<TlmToolVersion[]>([])
 const products = ref<TlmToolProduct[]>([])
 const repairOrders = ref<any[]>([])
-const activeTab = ref<'maint' | 'product' | 'version' | 'repair'>('maint')
+const binds = ref<any[]>([])
+const activeTab = ref<'maint' | 'product' | 'version' | 'repair' | 'bind'>('maint')
+
+// 计量追溯: GAUGE 绑定记录展示当时校准状态快照(需求2-2 反查)
+const canTrace = computed(() => tool.value?.toolCategory === 'GAUGE')
+function hasToolPerm(code: string) {
+  return perm.hasAny([code, 'tlm.metro.' + code.split('.').pop()])
+}
 
 // 最新一条维修工单(按创建时间倒序), 用于详情页驱动当前维修步骤
 const latestRepair = computed(() => {
@@ -204,6 +212,7 @@ async function load() {
     versions.value = await tlmToolingApi.versions(id)
     products.value = await tlmToolingApi.products(id)
     repairOrders.value = await tlmRepairApi.page({ toolId: id, size: 50 })
+    if (canTrace.value) binds.value = await metroApi.bindRecords(id)
   } finally { loading.value = false }
 }
 onMounted(load)
@@ -218,13 +227,13 @@ onMounted(load)
       </div>
       <span class="pill" :class="statusPill(tool.status)"><span class="d"></span>{{ statusText(tool.status) }}</span>
       <span v-if="!tool.productCode || !tool.procName" class="pill p-wait"><span class="d"></span>待首件</span>
-      <template v-if="tool.status === 'REPAIRING' && perm.has('tlm.tooling.repair')">
+      <template v-if="tool.status === 'REPAIRING' && hasToolPerm('tlm.tooling.repair')">
         <el-button v-if="latestRepair && latestRepair.status !== 'DONE' && latestRepair.status !== 'VERIFIED'" type="primary" size="small" @click="openFillRepair">填写措施</el-button>
         <el-button v-if="latestRepair && latestRepair.status === 'REPAIRING'" type="primary" size="small" @click="doRepairDone">完成维修</el-button>
         <el-button v-if="latestRepair && latestRepair.status === 'DONE'" type="primary" size="small" @click="doRepairComplete">验证通过</el-button>
       </template>
-      <el-button v-if="perm.has('tlm.tooling.first')" type="primary" size="small" @click="createFirst">创建首件</el-button>
-      <el-button v-if="perm.has('tlm.tooling.bind')" size="small" @click="openBind">派工</el-button>
+      <el-button v-if="hasToolPerm('tlm.tooling.first')" type="primary" size="small" @click="createFirst">创建首件</el-button>
+      <el-button v-if="hasToolPerm('tlm.tooling.bind')" size="small" @click="openBind">派工</el-button>
     </div>
 
     <div class="grid-b" v-if="tool">
@@ -296,6 +305,7 @@ onMounted(load)
               <el-radio-button value="product">产品关联</el-radio-button>
               <el-radio-button value="version">版本变更</el-radio-button>
               <el-radio-button value="repair">维修历史</el-radio-button>
+              <el-radio-button v-if="canTrace" value="bind">绑定记录</el-radio-button>
             </el-radio-group>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'version'" type="primary" size="small" @click="openAddVersion">+ 新增版本记录</el-button>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'product'" type="primary" size="small" @click="openRelate">+ 关联产品</el-button>
@@ -328,13 +338,27 @@ onMounted(load)
               <el-table-column label="变更日期" width="130"><template #default="{ row }"><span class="mono">{{ row.changedAt || '—' }}</span></template></el-table-column>
             </el-table>
           </template>
-          <template v-else>
+          <template v-else-if="activeTab === 'repair'">
             <el-table :data="repairOrders" style="width:100%" empty-text="暂无维修记录">
               <el-table-column label="维修单号" width="200"><template #default="{ row }"><span class="mono c-cobalt">{{ row.repairNo || '—' }}</span></template></el-table-column>
               <el-table-column label="故障现象" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.faultDesc || '—' }}</template></el-table-column>
               <el-table-column label="维修措施" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.measure || '—' }}</template></el-table-column>
               <el-table-column label="状态" width="110"><template #default="{ row }"><span class="pill" :class="repairPill(row.status)"><span class="d"></span>{{ repairText(row.status) }}</span></template></el-table-column>
               <el-table-column label="创建时间" width="170"><template #default="{ row }"><span class="mono">{{ row.createdAt || '—' }}</span></template></el-table-column>
+            </el-table>
+          </template>
+          <template v-else-if="activeTab === 'bind'">
+            <div class="trace-note mute" style="padding:14px 22px 0;font-size:12px;">计量器具每次派工绑定工单时记录当时校准状态，可追溯该批次产品所用计量器具是否在合格有效期内。</div>
+            <el-table :data="binds" style="width:100%" empty-text="暂无绑定记录">
+              <el-table-column label="工单号" width="180"><template #default="{ row }"><span class="mono c-cobalt">{{ row.woNo || '—' }}</span></template></el-table-column>
+              <el-table-column label="绑定时间" width="170"><template #default="{ row }"><span class="mono">{{ (row.boundAt || '').slice(0, 19) }}</span></template></el-table-column>
+              <el-table-column label="校准编号" width="160"><template #default="{ row }"><span class="mono">{{ row.calibNo || '—' }}</span></template></el-table-column>
+              <el-table-column label="当时校准日期" width="130"><template #default="{ row }"><span class="mono">{{ row.calibDate || '—' }}</span></template></el-table-column>
+              <el-table-column label="当时下次校准" width="130"><template #default="{ row }"><span class="mono" :class="row.calibDueDate && new Date(row.calibDueDate) < new Date() ? 'c-red' : 'c-green'">{{ row.calibDueDate || '—' }}</span></template></el-table-column>
+              <el-table-column label="追溯判定" min-width="120"><template #default="{ row }">
+                <span v-if="row.calibDueDate" :class="new Date(row.calibDueDate) >= new Date(row.boundAt) ? 'c-green' : 'c-red'">{{ new Date(row.calibDueDate) >= new Date(row.boundAt) ? '合格期内' : '超期使用' }}</span>
+                <span v-else class="mute">未校准</span>
+              </template></el-table-column>
             </el-table>
           </template>
         </el-card>
