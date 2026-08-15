@@ -44,6 +44,7 @@
                 <span class="prod-name">{{ row.productName }}</span>
                 <span class="prod-part mono" v-if="row.partNo">{{ row.partNo }}</span>
                 <span class="prod-kind" v-if="row.kind">{{ kindLabel(row.kind) }}</span>
+                <span class="prod-src" v-if="row.srcLabel">{{ row.srcLabel }}</span>
                 <span class="prod-count">{{ row.count }} 个参数</span>
               </div>
             </template>
@@ -223,7 +224,7 @@ const editId = ref('')
 const form = reactive<Partial<SpcParam>>({ paramName: '', subgroupSize: 5, isActive: true })
 
 // ── 分组结构(两种视图均为:产品为父 → 参数为子) ──
-interface GroupNode { isGroup: true; gkey: string; productName: string; partNo?: string; kind?: string; count: number }
+interface GroupNode { isGroup: true; gkey: string; productName: string; partNo?: string; kind?: string; count: number; srcLabel?: string }
 // 抽样视图的参数行挂载关联的抽样任务(_task)
 type ParamRow = SpcParam & { _task?: SpcSampleTask }
 type Row = ParamRow | GroupNode
@@ -275,11 +276,16 @@ const renderRows = computed<Row[]>(() => {
   }
 
   if (viewMode.value === 'first') {
-    // 首件视图:仅展示来源为 首件标准库(FIA_FIRST) 或 手动新建(MANUAL) 的参数;
-    // 抽样流程派生的参数(paramSource=SAMPLE)严格隔离在"产品抽样 SPC"视图,不污染首件视图
+    // 首件视图:展示首件派生的参数(FIA_FIRST / MANUAL / 工装 TOOLING 一并归入);
+    // 工装通过"工装首件任务"这一条渠道进入 SPC,本质是首件视图的一部分,不再单独拆分。
+    // 抽样流程派生的参数(paramSource=SAMPLE)严格隔离在"产品抽样 SPC"视图,不污染首件视图。
     const sampledParamIds = new Set(sampleTasks.value.map(t => t.paramId))
     paramList.value
-      .filter(p => (p.paramSource === 'FIA_FIRST' || p.paramSource === 'MANUAL' || !p.paramSource) && !sampledParamIds.has(p.id))
+      .filter(p => {
+        if (sampledParamIds.has(p.id)) return false
+        const src = p.paramSource || 'FIA_FIRST'
+        return src === 'FIA_FIRST' || src === 'MANUAL' || src === 'TOOLING'
+      })
       .forEach(addFirstParam)
   } else {
     // 抽样视图:仅展示"有抽样任务引用"的参数(任务 paramId 集合为唯一判定,与首件视图隔离)
@@ -325,6 +331,8 @@ async function fetchData() {
   loading.value = true
   try {
     // 两种视图都需要参数全量(用于分组与回填)
+    // 首件视图不再做来源筛选(工装参数经"工装首件任务"渠道并入首件视图,统一展示);
+    // 抽样流程派生的参数靠 renderRows 的 in-memory 过滤与抽样视图隔离。
     const all = await spcParamApi.list({
       productName: filterProduct.value || undefined,
       procName: filterProcName.value || undefined,
