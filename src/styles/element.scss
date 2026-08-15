@@ -87,19 +87,48 @@ body .el-input__wrapper:hover { box-shadow: 0 0 0 1px #c9c6bf inset; }
 body .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px $cobalt inset; }
 body .el-select .el-input.is-focus .el-input__wrapper { box-shadow: 0 0 0 1px $cobalt inset; }
 
-/* ── 弹窗 ── */
+/* ── 弹窗 ──
+   问题:换肤版 EP 的 .el-overlay-dialog 不是全屏 flex 居中,dialog 在视口内不
+   居中且内容超高时整体溢出(footer 跑出屏幕)。此处强制遮罩全屏 + 垂直水平
+   居中,并约束 dialog 最高 90vh、body 内部滚动,header/footer 固定可见。 */
+body .el-overlay,
+body .el-overlay-dialog {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body .el-overlay-dialog {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
 body .el-dialog {
   border: 1px solid $hairline;
   box-shadow: $shadow-md;
+  margin: 0 auto;          /* 水平居中兜底 */
+  max-height: 90vh;        /* 约束整体不溢出视口 */
+  display: flex;
+  flex-direction: column;
 }
 body .el-dialog__header {
   border-bottom: 1px solid $hairline;
   padding: 16px 20px;
   margin-right: 0;
+  flex: 0 0 auto;
 }
 body .el-dialog__title { font-weight: 600; font-size: 15px; }
-body .el-dialog__body { padding: 20px; }
-body .el-dialog__footer { border-top: 1px solid $hairline-soft; padding: 12px 20px; }
+body .el-dialog__body {
+  padding: 20px;
+  flex: 1 1 auto;
+  min-height: 0;          /* flex 子项允许收缩,否则内容撑破容器 */
+  overflow-y: auto;
+}
+body .el-dialog__footer {
+  border-top: 1px solid $hairline-soft;
+  padding: 12px 20px;
+  flex: 0 0 auto;
+}
 
 /* ── 消息 / 确认框 ── */
 body .el-message { border-radius: 8px; border-color: $hairline; box-shadow: $shadow-md; }
