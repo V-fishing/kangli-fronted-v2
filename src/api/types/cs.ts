@@ -31,6 +31,7 @@ export interface CsWorkOrderDashboard {
   closed?: number
   urgentPending?: number
   total?: number
+  monthly?: Array<{ month: string; created: number; closed: number }>
 }
 
 // 客户反馈(投诉/建议/表扬/咨询)
@@ -47,14 +48,19 @@ export interface CsFeedback {
   handleAt?: string
   ownerName?: string
   satisfaction?: number
+  cause?: 'RESPONSE_SLOW' | 'REPAIR_INCOMPLETE' | 'ATTITUDE' | 'OTHER' // 低分诱因维度
+  relatedNcmId?: string // 联动 NCM 8D/CAPA 纠正措施 ID
   createdAt?: string
   updatedAt?: string
 }
 
-// 满意度统计(基于已闭环工单评分)
+// 满意度统计(基于已闭环工单评分 + 客户反馈评分)
 export interface SatisfactionStats {
   avgScore?: number
   rated?: number
   distribution?: Record<string, number> // score(1~5) -> count
   monthly?: Array<{ month: string; avgScore: number; cnt: number }>
+  fbAvgScore?: number // 客户反馈评分均值
+  fbRated?: number // 客户反馈已评分数
+  causeDist?: Record<string, number> // 低分诱因维度分布
 }

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, nextTick } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { CsWorkOrder, CsWorkOrderDashboard } from '@/api/types/cs'
 import { csWorkOrderApi } from '@/api/modules/cs/workOrder'
 import type { UserSelectVo } from '@/api/types/uop'
 import { usePermissionStore } from '@/stores/permission'
+import * as echarts from 'echarts/core'
+import { BarChart, LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 
 const perm = usePermissionStore()
 
@@ -55,8 +59,36 @@ async function fetch() {
   }
 }
 async function loadDashboard() {
-  try { dashboard.value = await csWorkOrderApi.dashboard() } catch (e) { /* 忽略 */ }
+  try {
+    dashboard.value = await csWorkOrderApi.dashboard()
+    await nextTick()
+    renderTrend()
+  } catch (e) { /* 忽略 */ }
 }
+
+// ===== 工单趋势分析(需求 2.4.1.3: 服务记录统计与趋势分析) =====
+echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
+const trendRef = ref<HTMLElement | null>(null)
+let trendChart: echarts.ECharts | null = null
+function renderTrend() {
+  if (!trendRef.value) return
+  if (!trendChart) trendChart = echarts.init(trendRef.value)
+  const monthly = dashboard.value.monthly || []
+  trendChart.setOption({
+    title: { text: '工单月度趋势（新建 / 已闭环）', left: 0, textStyle: { fontSize: 14, fontWeight: 600, color: '#141414' } },
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0 },
+    grid: { left: 40, right: 20, top: 40, bottom: 50 },
+    xAxis: { type: 'category', data: monthly.map(m => m.month), axisLabel: { fontFamily: 'IBM Plex Mono', fontSize: 11 } },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [
+      { name: '新建', type: 'bar', data: monthly.map(m => m.created), itemStyle: { color: '#0047ab' }, barWidth: '30%' },
+      { name: '已闭环', type: 'line', smooth: true, data: monthly.map(m => m.closed), itemStyle: { color: '#e4e2dd' }, lineStyle: { color: '#0047ab' } },
+    ],
+  })
+}
+function onResize() { trendChart?.resize() }
+window.addEventListener('resize', onResize)
 function onSearch() { page.value = 1; fetch() }
 
 // ===== 创建 / 编辑 =====
@@ -220,6 +252,10 @@ onMounted(() => { fetch(); loadDashboard() })
       <div class="stat-card"><div class="stat-num mono p-done-t">{{ dashboard.closed || 0 }}</div><div class="stat-lbl">已闭环</div></div>
       <div class="stat-card warn"><div class="stat-num mono hl-red">{{ dashboard.urgentPending || 0 }}</div><div class="stat-lbl">紧急待派单</div></div>
     </div>
+
+    <el-card class="card-b" :body-style="{ padding: '16px 22px' }" style="margin-bottom:16px;">
+      <div ref="trendRef" class="chart"></div>
+    </el-card>
 
     <el-card class="card-b filter-bar" :body-style="{ padding: '16px 22px' }">
       <el-form :inline="true" @submit.prevent="onSearch">
@@ -409,6 +445,7 @@ onMounted(() => { fetch(); loadDashboard() })
 .page-wrap :deep(.p-mute .d) { background: $ink-faint; }
 
 .stat-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+.chart { width: 100%; height: 320px; }
 .stat-card {
   background: #fff; border: 1px solid $hairline; border-radius: 8px; padding: 14px 16px;
 }

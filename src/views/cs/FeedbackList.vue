@@ -52,18 +52,19 @@ const formDialog = ref(false)
 const editingId = ref('')
 const submitting = ref(false)
 const form = reactive<CsFeedback>({
-  customerName: '', customerContact: '', fbType: 'COMPLAINT', content: '', relatedWoNo: '', satisfaction: undefined,
+  customerName: '', customerContact: '', fbType: 'COMPLAINT', content: '', relatedWoNo: '', satisfaction: undefined, cause: undefined,
 })
+const causeText = (c?: string) => ({ RESPONSE_SLOW: '响应慢', REPAIR_INCOMPLETE: '维修不彻底', ATTITUDE: '服务态度', OTHER: '其他' }[c || ''] || c || '—')
 function openCreate() {
   editingId.value = ''
-  Object.assign(form, { customerName: '', customerContact: '', fbType: 'COMPLAINT', content: '', relatedWoNo: '', satisfaction: undefined })
+  Object.assign(form, { customerName: '', customerContact: '', fbType: 'COMPLAINT', content: '', relatedWoNo: '', satisfaction: undefined, cause: undefined })
   formDialog.value = true
 }
 function openEdit(row: CsFeedback) {
   editingId.value = row.id as string
   Object.assign(form, {
     customerName: row.customerName, customerContact: row.customerContact, fbType: row.fbType,
-    content: row.content, relatedWoNo: row.relatedWoNo, satisfaction: row.satisfaction,
+    content: row.content, relatedWoNo: row.relatedWoNo, satisfaction: row.satisfaction, cause: row.cause,
   })
   formDialog.value = true
 }
@@ -141,6 +142,32 @@ async function doDelete(row: CsFeedback) {
   }
 }
 
+// ===== 联动质量改进(8D/CAPA) =====
+const linkDialog = ref(false)
+const linkRow = ref<CsFeedback | null>(null)
+const linkNcmId = ref('')
+const linkLoading = ref(false)
+function openLink(row: CsFeedback) {
+  linkRow.value = row
+  linkNcmId.value = row.relatedNcmId || ''
+  linkDialog.value = true
+}
+async function submitLink() {
+  if (!linkRow.value?.id) return
+  if (!linkNcmId.value || !linkNcmId.value.trim()) { ElMessage.warning('请填写纠正措施 ID'); return }
+  linkLoading.value = true
+  try {
+    await csFeedbackApi.linkNcm(linkRow.value.id, linkNcmId.value.trim())
+    ElMessage.success('已联动质量改进')
+    linkDialog.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '联动失败')
+  } finally {
+    linkLoading.value = false
+  }
+}
+
 onMounted(fetch)
 </script>
 
@@ -199,17 +226,24 @@ onMounted(fetch)
             <span v-else class="mute">—</span>
           </template>
         </el-table-column>
+        <el-table-column label="低分诱因" width="100">
+          <template #default="{ row }">
+            <span v-if="row.cause" class="mono hl-red">{{ causeText(row.cause) }}</span>
+            <span v-else class="mute">—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }"><span class="pill" :class="statusPill(row.status)"><span class="d"></span>{{ statusText(row.status) }}</span></template>
         </el-table-column>
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }"><span class="mono">{{ row.createdAt || '—' }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)" v-if="perm.has('cs.feedback.edit') && row.status !== 'DONE'">编辑</el-button>
             <el-button link type="primary" size="small" @click="doHandling(row)" v-if="perm.has('cs.feedback.handle') && row.status === 'OPEN'">处理中</el-button>
             <el-button link type="primary" size="small" @click="openHandle(row)" v-if="perm.has('cs.feedback.handle') && row.status !== 'DONE'">处理</el-button>
+            <el-button link type="primary" size="small" @click="openLink(row)" v-if="perm.has('cs.feedback.link')">联动</el-button>
             <el-button link type="danger" size="small" @click="doDelete(row)" v-if="perm.has('cs.feedback.delete')">删除</el-button>
           </template>
         </el-table-column>
@@ -238,6 +272,14 @@ onMounted(fetch)
         <el-form-item label="反馈内容 *"><el-input v-model="form.content" type="textarea" :rows="3" placeholder="反馈内容" /></el-form-item>
         <el-form-item label="关联工单"><el-input v-model="form.relatedWoNo" placeholder="关联售后工单号（可选）" /></el-form-item>
         <el-form-item label="满意度"><el-rate v-model="form.satisfaction" :max="5" /></el-form-item>
+        <el-form-item label="低分诱因" v-if="form.satisfaction != null && form.satisfaction <= 2">
+          <el-select v-model="form.cause" clearable placeholder="选择诱因维度" style="width:200px">
+            <el-option label="响应慢" value="RESPONSE_SLOW" />
+            <el-option label="维修不彻底" value="REPAIR_INCOMPLETE" />
+            <el-option label="服务态度" value="ATTITUDE" />
+            <el-option label="其他" value="OTHER" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="formDialog = false">取消</el-button>
@@ -257,6 +299,25 @@ onMounted(fetch)
       <template #footer>
         <el-button @click="handleDialog = false">取消</el-button>
         <el-button type="primary" :disabled="handleLoading" @click="submitHandle">{{ handleLoading ? '提交中' : '确认处理' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 联动质量改进弹窗 -->
+    <el-dialog v-model="linkDialog" title="联动质量改进（8D/CAPA）" width="520px" append-to-body>
+      <div v-if="linkRow" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
+        客户：<span class="mono c-cobalt">{{ linkRow.customerName }}</span> · {{ typeText(linkRow.fbType) }}
+      </div>
+      <el-form label-width="96px">
+        <el-form-item label="纠正措施 ID">
+          <el-input v-model="linkNcmId" placeholder="填写关联 NCM 8D/CAPA 纠正措施 ID" />
+        </el-form-item>
+        <el-form-item label="当前状态">
+          <span class="mono">{{ linkRow.relatedNcmId ? '已联动: ' + linkRow.relatedNcmId : '未联动' }}</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="linkDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="linkLoading" @click="submitLink">{{ linkLoading ? '提交中' : '确认联动' }}</el-button>
       </template>
     </el-dialog>
   </div>

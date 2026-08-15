@@ -17,4 +17,6 @@ export const csFeedbackApi = {
     request.post(`/v1/cs/feedbacks/${id}/handle`, null, { params: { handleDetail, ownerName } }),
   markHandling: (id: string, ownerName?: string) =>
     request.post(`/v1/cs/feedbacks/${id}/handling`, null, { params: { ownerName } }),
+  linkNcm: (id: string, ncmId: string) =>
+    request.post(`/v1/cs/feedbacks/${id}/link-ncm`, null, { params: { ncmId } }),
 }

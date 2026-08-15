@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
@@ -8,6 +8,9 @@ import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from
 import { CanvasRenderer } from 'echarts/renderers'
 import { csWorkOrderApi } from '@/api/modules/cs/workOrder'
 import type { SatisfactionStats } from '@/api/types/cs'
+
+const causeText = (c?: string) => ({ RESPONSE_SLOW: '响应慢', REPAIR_INCOMPLETE: '维修不彻底', ATTITUDE: '服务态度', OTHER: '其他' }[c || ''] || c || '—')
+const causeEntries = computed(() => Object.entries(stats.value.causeDist || {}).map(([k, v]) => ({ key: k, val: v as number })))
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 
@@ -81,11 +84,19 @@ onMounted(load)
     <div class="stat-row">
       <div class="stat-card">
         <div class="stat-num mono c-cobalt">{{ stats.avgScore != null ? stats.avgScore : '—' }}</div>
-        <div class="stat-lbl">平均满意度（满分 5）</div>
+        <div class="stat-lbl">工单平均满意度（满分 5）</div>
       </div>
       <div class="stat-card">
         <div class="stat-num mono p-done-t">{{ stats.rated || 0 }}</div>
         <div class="stat-lbl">已评价工单</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num mono c-cobalt">{{ stats.fbAvgScore != null ? stats.fbAvgScore : '—' }}</div>
+        <div class="stat-lbl">反馈平均评分（满分 5）</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num mono p-done-t">{{ stats.fbRated || 0 }}</div>
+        <div class="stat-lbl">已评价反馈</div>
       </div>
     </div>
 
@@ -97,14 +108,28 @@ onMounted(load)
         <div ref="trendRef" class="chart"></div>
       </el-card>
     </div>
+
+    <el-card class="card-b" :body-style="{ padding: '16px 22px' }" style="margin-top:14px;" v-if="causeEntries.length">
+      <div class="card-head" style="padding:0 0 12px;"><h2>低分诱因维度分布</h2></div>
+      <div class="cause-row">
+        <div class="cause-item" v-for="c in causeEntries" :key="c.key">
+          <div class="cause-num mono hl-red">{{ c.val }}</div>
+          <div class="cause-lbl">{{ causeText(c.key) }}</div>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <style scoped>
-.stat-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
 .stat-card { background: #fff; border: 1px solid $hairline; border-radius: 8px; padding: 14px 16px; }
 .stat-num { font-size: 28px; font-weight: 700; line-height: 1.1; }
 .stat-lbl { font-size: 12px; color: $ink-faint; margin-top: 4px; }
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .chart { width: 100%; height: 320px; }
+.cause-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.cause-item { background: #fff; border: 1px solid $hairline; border-radius: 8px; padding: 14px 16px; text-align: center; }
+.cause-num { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.cause-lbl { font-size: 12px; color: $ink-faint; margin-top: 4px; }
 </style>

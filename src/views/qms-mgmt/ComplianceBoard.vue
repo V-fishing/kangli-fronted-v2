@@ -36,6 +36,16 @@ onMounted(() => { if (perm.has('qms-mgmt.dashboard.list')) load() })
     </div>
 
     <div v-loading="loading">
+      <!-- 0. 体系健康度综合评分 -->
+      <el-card class="card-b" :body-style="{ padding: '22px' }">
+        <div class="card-head" style="padding:0 0 12px;"><h2>体系健康度综合评分</h2></div>
+        <StatCards :cards="[
+          { num: (board.healthScore || 0) + '', label: '健康度得分', tone: (board.healthLevel === '预警') ? 'red' : 'cobalt', warn: board.healthLevel === '预警' },
+          { num: board.healthLevel || '—', label: '健康等级', tone: (board.healthLevel === '预警') ? 'red' : 'done' },
+        ]" />
+        <div class="health-formula mute">综合得分 = 目标达成率×25% + 内审NC关闭率×25% + 不良事件处理率×20% + 反馈处理率×15% + 满意度达标率×15%（低于 80 触发预警）</div>
+      </el-card>
+
       <!-- 1. 质量目标达成率 -->
       <el-card class="card-b" :body-style="{ padding: '22px' }">
         <div class="card-head" style="padding:0 0 12px;"><h2>质量目标达成率</h2></div>
@@ -77,6 +87,7 @@ onMounted(() => { if (perm.has('qms-mgmt.dashboard.list')) load() })
           { num: board.feedback?.total || 0, label: '反馈总数', tone: 'cobalt' },
           { num: board.feedback?.done || 0, label: '已处理', tone: 'done' },
           { num: (board.feedback?.handleRate || 0) + '%', label: '处理率', tone: 'run' },
+          { num: (board.feedback?.satisfactionReachRate || 0) + '%', label: '满意度达标率', tone: 'done' },
           { num: board.feedback?.avgScore || 0, label: '平均满意度', tone: 'red', warn: true },
         ]" />
       </el-card>
@@ -86,4 +97,5 @@ onMounted(() => { if (perm.has('qms-mgmt.dashboard.list')) load() })
 
 <style scoped>
 .card-b { margin-bottom: 16px; }
+.health-formula { font-size: 12px; margin-top: 12px; line-height: 1.6; }
 </style>
