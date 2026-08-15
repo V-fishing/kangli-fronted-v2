@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -77,8 +77,20 @@ async function doRepair(row: TlmTooling) {
   ElMessage.success('已送修')
   fetch()
 }
-function openScrap(row: TlmTooling) {
-  ElMessage.info('请在工装台账或详情页发起报废流程')
+async function doScrap(row: TlmTooling) {
+  try {
+    await ElMessageBox.confirm(`确认对计量器具 ${row.toolNo}（${row.toolName}）发起报废？`, '计量报废', {
+      type: 'warning', confirmButtonText: '确认报废', cancelButtonText: '取消',
+    })
+  } catch { return }
+  const { value } = await ElMessageBox.prompt('报废原因', '计量报废', { inputType: 'textarea' }).catch(() => ({ value: '' }))
+  try {
+    await tlmToolingApi.scrap(row.id, { scrapMethod: '报废', reason: value || '' })
+    ElMessage.success('已发起报废，等待审批')
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '报废失败')
+  }
 }
 async function doLock(row: TlmTooling) {
   await tlmToolingApi.lock(row.id, !row.locked)
@@ -87,13 +99,49 @@ async function doLock(row: TlmTooling) {
 }
 
 function hasRowActions(row: TlmTooling) {
-  return perm.has('tlm.metro.repair') || perm.has('tlm.metro.scrap') || perm.has('tlm.metro.lock')
+  return perm.has('tlm.tooling.edit') || perm.has('tlm.metro.repair') || perm.has('tlm.metro.scrap') || perm.has('tlm.metro.lock')
 }
 function onRowCommand(c: { cmd: string, row: TlmTooling }) {
   switch (c.cmd) {
+    case 'edit': return openEdit(c.row)
     case 'repair': return doRepair(c.row)
-    case 'scrap': return openScrap(c.row)
+    case 'scrap': return doScrap(c.row)
     case 'lock': return doLock(c.row)
+  }
+}
+
+// ---------------- 新增 / 编辑计量器具(GAUGE) ----------------
+const createDialog = ref(false)
+const editingId = ref<string | null>(null)
+const saving = ref(false)
+const form = reactive<Partial<TlmTooling>>({})
+function openCreate() {
+  editingId.value = null
+  Object.assign(form, { toolCategory: 'GAUGE', status: 'IN_USE', bindCount: 0, locked: false, designLife: null })
+  createDialog.value = true
+}
+function openEdit(row: TlmTooling) {
+  editingId.value = row.id || null
+  Object.assign(form, JSON.parse(JSON.stringify(row)))
+  createDialog.value = true
+}
+async function submitCreate() {
+  if (!form.toolNo || !form.toolName) { ElMessage.warning('请填写编号与名称'); return }
+  saving.value = true
+  try {
+    if (editingId.value) {
+      await tlmToolingApi.update({ ...form, id: editingId.value })
+      ElMessage.success('已保存计量器具')
+    } else {
+      await tlmToolingApi.create(form)
+      ElMessage.success('已创建计量器具')
+    }
+    createDialog.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '保存失败')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -108,6 +156,7 @@ onMounted(() => { loadDashboard(); fetch() })
         <h1>计量管理<span class="no mono">METROLOGY</span></h1>
       </div>
       <div class="head-actions">
+        <el-button v-if="perm.has('tlm.tooling.create')" type="primary" @click="openCreate">+ 新增计量器具</el-button>
         <el-button @click="router.push('/tlm/metro/plans')">校准计划</el-button>
       </div>
     </div>
@@ -188,6 +237,7 @@ onMounted(() => { loadDashboard(); fetch() })
                 <el-button link type="primary" size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item v-if="perm.has('tlm.tooling.edit')" :command="{ cmd: 'edit', row }">编辑</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.metro.repair')" :command="{ cmd: 'repair', row }">送修</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.metro.scrap')" :command="{ cmd: 'scrap', row }">报废</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has('tlm.metro.lock')" :command="{ cmd: 'lock', row }">{{ row.locked ? '解锁' : '锁定' }}</el-dropdown-item>
@@ -204,5 +254,36 @@ onMounted(() => { loadDashboard(); fetch() })
           @current-change="(p:number)=>{page=p;fetch()}" />
       </div>
     </el-card>
+
+    <!-- 新增计量器具弹窗(GAUGE 预置为测量设备) -->
+    <el-dialog v-model="createDialog" :title="editingId ? '编辑计量器具' : '新增计量器具'" width="640px" append-to-body>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div><label class="l">编号 *</label><el-input v-model="form.toolNo" style="width:100%" placeholder="如：A241101-597" /></div>
+        <div><label class="l">名称 *</label><el-input v-model="form.toolName" style="width:100%" /></div>
+        <div><label class="l">状态</label>
+          <el-select v-model="form.status" style="width:100%">
+            <el-option label="在用" value="IN_USE" />
+            <el-option label="停用" value="DISABLED" />
+          </el-select>
+        </div>
+        <div><label class="l">工装类型</label><el-input v-model="form.toolType" style="width:100%" placeholder="如：安全阀类" /></div>
+        <div><label class="l">精度</label><el-input v-model="form.precisionVal" style="width:100%" placeholder="如：0.25MPa" /></div>
+        <div><label class="l">计量点位</label><el-input v-model="form.measurePoint" style="width:100%" /></div>
+        <div><label class="l">软件版本</label><el-input v-model="form.softwareVer" style="width:100%" /></div>
+        <div><label class="l">校准日期</label><el-date-picker v-model="form.calibDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
+        <div><label class="l">下次校准日期</label><el-date-picker v-model="form.calibDueDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></div>
+        <div><label class="l">校准周期(月)</label><el-input-number v-model="form.calibCycle" :min="0" controls-position="right" style="width:100%" /></div>
+        <div><label class="l">保养周期(月)</label><el-input-number v-model="form.maintCycle" :min="0" controls-position="right" style="width:100%" /></div>
+        <div><label class="l">存放地点</label><el-input v-model="form.location" style="width:100%" /></div>
+        <div><label class="l">设备管理员</label><el-input v-model="form.adminName" style="width:100%" /></div>
+        <div><label class="l">供应商/厂家</label><el-input v-model="form.supplierName" style="width:100%" /></div>
+        <div><label class="l">规格</label><el-input v-model="form.spec" style="width:100%" /></div>
+        <div style="grid-column:1 / -1"><label class="l">备注</label><el-input v-model="form.remark" type="textarea" :rows="2" placeholder="备注信息" /></div>
+      </div>
+      <template #footer>
+        <el-button @click="createDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="saving" @click="submitCreate">{{ saving ? '保存中' : '保存' }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

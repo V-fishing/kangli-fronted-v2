@@ -78,7 +78,7 @@ function onTab(c: string) { statusTab.value = c as any; page.value = 1; fetch() 
 const calibDialog = ref(false)
 const saving = ref(false)
 const calibRow = ref<TlmCalibPlan | null>(null)
-const calibForm = ref({ calibDate: '', calibDueDate: '', calibCycle: 12, upperLimit: '', result: '合格', remark: '' })
+const calibForm = ref({ calibDate: '', calibDueDate: '', calibCycle: 12, upperLimit: '', result: '合格', remark: '', certNo: '' })
 
 function openCalib(row: TlmCalibPlan) {
   calibRow.value = row
@@ -89,6 +89,7 @@ function openCalib(row: TlmCalibPlan) {
     upperLimit: '',
     result: '合格',
     remark: '',
+    certNo: '',
   }
   calibDialog.value = true
 }
@@ -97,13 +98,14 @@ async function submitCalib() {
   if (!calibForm.value.calibDate) { ElMessage.warning('请填写校准日期'); return }
   saving.value = true
   try {
-    await metroApi.recordCalib(calibRow.value.id!, {
+      await metroApi.recordCalib(calibRow.value.id!, {
       calibDate: calibForm.value.calibDate,
       calibDueDate: calibForm.value.calibDueDate || undefined,
       calibCycle: calibForm.value.calibCycle,
       upperLimit: calibForm.value.upperLimit || undefined,
       result: calibForm.value.result,
       remark: calibForm.value.remark || undefined,
+      certNo: calibForm.value.certNo || undefined,
     })
     ElMessage.success('已录入校准结果，器具已解锁')
     calibDialog.value = false
@@ -190,6 +192,7 @@ onMounted(fetch)
         <div><label class="l">下次校准日期</label><el-date-picker v-model="calibForm.calibDueDate" type="date" value-format="YYYY-MM-DD" style="width:100%" /></div>
         <div><label class="l">校准周期(月)</label><el-input-number v-model="calibForm.calibCycle" :min="1" controls-position="right" style="width:100%" /></div>
         <div><label class="l">允许误差上限</label><el-input v-model="calibForm.upperLimit" style="width:100%" placeholder="如：±0.02mm" /></div>
+        <div><label class="l">证书编号</label><el-input v-model="calibForm.certNo" style="width:100%" placeholder="校准证书/报告编号" /></div>
         <div><label class="l">校准结果</label>
           <el-radio-group v-model="calibForm.result">
             <el-radio-button value="合格">合格</el-radio-button>

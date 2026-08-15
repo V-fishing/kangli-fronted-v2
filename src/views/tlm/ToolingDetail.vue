@@ -20,7 +20,8 @@ const versions = ref<TlmToolVersion[]>([])
 const products = ref<TlmToolProduct[]>([])
 const repairOrders = ref<any[]>([])
 const binds = ref<any[]>([])
-const activeTab = ref<'maint' | 'product' | 'version' | 'repair' | 'bind'>('maint')
+const calibs = ref<any[]>([])
+const activeTab = ref<'maint' | 'product' | 'version' | 'repair' | 'bind' | 'calib'>('maint')
 
 // 计量追溯: GAUGE 绑定记录展示当时校准状态快照(需求2-2 反查)
 const canTrace = computed(() => tool.value?.toolCategory === 'GAUGE')
@@ -212,7 +213,14 @@ async function load() {
     versions.value = await tlmToolingApi.versions(id)
     products.value = await tlmToolingApi.products(id)
     repairOrders.value = await tlmRepairApi.page({ toolId: id, size: 50 })
-    if (canTrace.value) binds.value = await metroApi.bindRecords(id)
+    if (canTrace.value) {
+      binds.value = await metroApi.bindRecords(id)
+      // 校准记录: 按器具编号过滤校准计划单(含已完成录入的历史校准)
+      try {
+        const cpr = await metroApi.planPage({ keyword: tool.value?.toolNo, size: 50 })
+        calibs.value = cpr.records || []
+      } catch { calibs.value = [] }
+    }
   } finally { loading.value = false }
 }
 onMounted(load)
@@ -306,6 +314,7 @@ onMounted(load)
               <el-radio-button value="version">版本变更</el-radio-button>
               <el-radio-button value="repair">维修历史</el-radio-button>
               <el-radio-button v-if="canTrace" value="bind">绑定记录</el-radio-button>
+              <el-radio-button v-if="canTrace" value="calib">校准记录</el-radio-button>
             </el-radio-group>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'version'" type="primary" size="small" @click="openAddVersion">+ 新增版本记录</el-button>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'product'" type="primary" size="small" @click="openRelate">+ 关联产品</el-button>
@@ -359,6 +368,23 @@ onMounted(load)
                 <span v-if="row.calibDueDate" :class="new Date(row.calibDueDate) >= new Date(row.boundAt) ? 'c-green' : 'c-red'">{{ new Date(row.calibDueDate) >= new Date(row.boundAt) ? '合格期内' : '超期使用' }}</span>
                 <span v-else class="mute">未校准</span>
               </template></el-table-column>
+            </el-table>
+          </template>
+          <template v-else-if="activeTab === 'calib'">
+            <div class="trace-note mute" style="padding:14px 22px 0;font-size:12px;">计量器具的校准计划与历史校准记录（含校准编号、结果、证书编号与有效期），用于计量履历追溯。</div>
+            <el-table :data="calibs" style="width:100%" empty-text="暂无校准记录">
+              <el-table-column label="校准编号" width="180"><template #default="{ row }"><span class="mono c-cobalt">{{ row.calibNo || '—' }}</span></template></el-table-column>
+              <el-table-column label="校准日期" width="130"><template #default="{ row }"><span class="mono">{{ row.calibDate || '—' }}</span></template></el-table-column>
+              <el-table-column label="下次校准" width="130"><template #default="{ row }"><span class="mono" :class="row.calibDueDate && new Date(row.calibDueDate) < new Date() ? 'c-red' : 'c-green'">{{ row.calibDueDate || '—' }}</span></template></el-table-column>
+              <el-table-column label="周期" width="90"><template #default="{ row }"><span class="mono">{{ row.calibCycle != null ? row.calibCycle + '月' : '—' }}</span></template></el-table-column>
+              <el-table-column label="允许误差" width="120"><template #default="{ row }"><span class="mono">{{ row.upperLimit || '—' }}</span></template></el-table-column>
+              <el-table-column label="结果" width="100"><template #default="{ row }">
+                <span v-if="row.result" :class="row.result === '合格' ? 'c-green' : (row.result === '不合格' ? 'c-red' : '')">{{ row.result }}</span>
+                <span v-else class="mute">待校准</span>
+              </template></el-table-column>
+              <el-table-column label="证书编号" width="160"><template #default="{ row }"><span class="mono">{{ row.certNo || '—' }}</span></template></el-table-column>
+              <el-table-column label="来源" width="90"><template #default="{ row }"><span class="tag-b">{{ row.source === 'AUTO' ? '自动' : '手动' }}</span></template></el-table-column>
+              <el-table-column label="状态" width="100"><template #default="{ row }"><span class="pill" :class="row.status === 'DONE' ? 'p-done' : (row.status === 'OVERDUE' ? 'p-lock' : 'p-wait')"><span class="d"></span>{{ row.status === 'DONE' ? '已完成' : (row.status === 'OVERDUE' ? '已超期' : '待校准') }}</span></template></el-table-column>
             </el-table>
           </template>
         </el-card>

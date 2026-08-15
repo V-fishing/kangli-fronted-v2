@@ -13,8 +13,8 @@ export const metroApi = {
     request.get<PageResult<TlmCalibPlan>>('/v1/tlm/calib-plans/page', { params }),
   // 校准状态看板(合格/限用/超期统计), 后端基于全量 GAUGE 计算
   dashboard: () => request.get<MetroDashboard>('/v1/tlm/tooling/metro/dashboard'),
-  // 校准结果录入(上限记录、合格判定,回写校准日期/到期)
-  recordCalib: (planId: string, body: { calibDate: string; calibDueDate?: string; calibCycle?: number; upperLimit?: string; result: string; remark?: string }) =>
+  // 校准结果录入(上限记录、合格判定、证书编号,回写校准日期/到期)
+  recordCalib: (planId: string, body: { calibDate: string; calibDueDate?: string; calibCycle?: number; upperLimit?: string; result: string; remark?: string; certNo?: string }) =>
     request.post<void>(`/v1/tlm/calib-plans/${planId}/record`, body),
   // 手动新建校准计划单
   createManual: (toolId: string, planCycle: number | undefined, planDueDate: string) =>
