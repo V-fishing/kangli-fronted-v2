@@ -3,11 +3,12 @@
     <div class="head-b"><AppBreadcrumb /><h1>SPC 参数</h1></div>
     <el-card shadow="never" class="card-b filter-bar">
       <el-form :inline="true">
-        <el-form-item label="视图">
-          <el-radio-group v-model="viewMode">
-            <el-radio-button value="first">首件 SPC</el-radio-button>
-            <el-radio-button value="sample">产品抽样 SPC</el-radio-button>
-          </el-radio-group>
+        <el-form-item label="来源">
+          <el-select v-model="filterSource" clearable placeholder="全部" style="width:160px">
+            <el-option label="产线首件" value="FIA" />
+            <el-option label="工装首件" value="TOOLING" />
+            <el-option label="产品抽样" value="SAMPLE" />
+          </el-select>
         </el-form-item>
         <el-form-item label="产品料号"><el-input v-model="filterProduct" clearable placeholder="搜索产品料号/名称" style="width:200px" @keyup.enter="fetchData" /></el-form-item>
         <el-form-item label="工序">
@@ -15,7 +16,7 @@
             <el-option v-for="p in procOptions" :key="p" :label="p" :value="p" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="viewMode === 'first'" label="参数名"><el-input v-model="filterParamName" clearable placeholder="搜索" style="width:180px" /></el-form-item>
+        <el-form-item label="参数名"><el-input v-model="filterParamName" clearable placeholder="搜索" style="width:180px" /></el-form-item>
         <el-form-item>
           <el-button type="primary" @click="fetchData">查询</el-button>
           <el-button v-if="filterProduct" @click="clearProduct">清除产品筛选</el-button>
@@ -24,88 +25,37 @@
     </el-card>
 
     <el-card shadow="never" class="card-b">
-      <!-- 首件 SPC:新建参数按钮 -->
-      <div v-if="viewMode === 'first'" style="margin-bottom:12px">
+      <!-- 新建入口:手动建参(归产线首件) + 创建抽样任务(走独立流程) -->
+      <div style="margin-bottom:12px; display:flex; align-items:center; gap:12px">
         <el-button type="primary" @click="openCreate()">+ 新建参数</el-button>
-      </div>
-      <!-- 产品抽样 SPC:创建抽样任务按钮 -->
-      <div v-else style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between">
-        <span class="block-title">抽样任务参数</span>
         <el-button type="primary" size="small" @click="router.push('/spc/sample-tasks')">+ 创建抽样任务</el-button>
       </div>
 
-      <!-- 统一分组表格:首件=产品分组→参数行;抽样=产品分组→(有抽样任务的)参数行 -->
-      <el-table :data="renderRows" :span-method="spanMethod" v-loading="loading" size="small"
-                :row-key="rowKey" :row-class-name="rowClassName">
-        <el-table-column label="产品 / 参数" min-width="200">
-          <template #default="{row}">
-            <template v-if="isGroupNode(row)">
-              <div class="prod-node">
-                <span class="prod-name">{{ row.productName }}</span>
-                <span class="prod-part mono" v-if="row.partNo">{{ row.partNo }}</span>
-                <span class="prod-kind" v-if="row.kind">{{ kindLabel(row.kind) }}</span>
-                <span class="prod-src" v-if="row.srcLabel">{{ row.srcLabel }}</span>
-                <span class="prod-count">{{ row.count }} 个参数</span>
-              </div>
-            </template>
-            <template v-else>
-              <span>{{ row.paramName }}</span>
-            </template>
-          </template>
+      <!-- 统一参数表:平铺所有来源(产线首件/工装首件/产品抽样),每行一条参数,列表仅展示关键字段 -->
+      <el-table :data="flatRows" v-loading="loading" size="small">
+        <el-table-column label="来源" width="110">
+          <template #default="{row}"><span class="src-tag">{{ row.srcLabel }}</span></template>
         </el-table-column>
-
+        <el-table-column prop="productName" label="产品" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="partNo" label="料号" width="130">
+          <template #default="{row}"><span class="mono" v-if="row.partNo">{{ row.partNo }}</span><span v-else class="muted">—</span></template>
+        </el-table-column>
+        <el-table-column prop="paramName" label="参数名" min-width="140" show-overflow-tooltip />
         <el-table-column prop="procName" label="工序" width="120" />
-        <el-table-column prop="unit" label="单位" width="80" />
-        <el-table-column label="规格下限" width="100">
-          <template #default="{row}"><span v-if="!isGroupNode(row)" class="mono">{{ row.specLower }}</span></template>
-        </el-table-column>
-        <el-table-column label="规格上限" width="100">
-          <template #default="{row}"><span v-if="!isGroupNode(row)" class="mono">{{ row.specUpper }}</span></template>
-        </el-table-column>
-        <el-table-column label="目标值" width="100">
-          <template #default="{row}"><span v-if="!isGroupNode(row)" class="mono">{{ row.targetValue ?? '—' }}</span></template>
-        </el-table-column>
-        <el-table-column prop="subgroupSize" label="子组大小" width="90" />
-        <!-- 图类型: 主图(mono) + 候选 tag, 按标准库推荐集合展示 -->
-        <el-table-column label="图类型" min-width="160">
+        <!-- 状态列(抽样任务参数填任务状态,其余显示 —) -->
+        <el-table-column label="状态" width="90">
           <template #default="{row}">
-            <span v-if="!isGroupNode(row)">
-              <span class="mono chart-main">{{ row.chartType || '—' }}</span>
-              <span v-for="c in chartCandidateList(row)" :key="c" class="chart-tag" :class="{ 'is-primary': c === row.chartType }">{{ c }}</span>
-            </span>
+            <span v-if="row._task" class="pill" :class="statusPill(row._task.status)"><span class="d"></span>{{ row._task.status }}</span>
+            <span v-else class="muted">—</span>
           </template>
         </el-table-column>
 
-        <!-- 状态列(仅抽样视图:填任务状态) -->
-        <el-table-column v-if="viewMode === 'sample'" label="状态" width="90">
+        <!-- 操作列:详情(打开详情弹窗,内聚全部字段与操作)/控制图 -->
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{row}">
-            <span v-if="!isGroupNode(row)">
-              <span v-if="row._task" class="pill" :class="statusPill(row._task.status)"><span class="d"></span>{{ row._task.status }}</span>
-              <span v-else class="muted">—</span>
-            </span>
-          </template>
-        </el-table-column>
-        <!-- 进度列(仅抽样视图:填 当前/目标) -->
-        <el-table-column v-if="viewMode === 'sample'" label="进度" width="100">
-          <template #default="{row}">
-            <span v-if="!isGroupNode(row)">
-              <span v-if="row._task" class="mono" :class="row._task.targetCount > 0 && row._task.currentCount >= row._task.targetCount ? 'c-green' : ''">
-                {{ row._task.currentCount }} / {{ row._task.targetCount > 0 ? row._task.targetCount : '不限' }}
-              </span>
-              <span v-else class="muted">—</span>
-            </span>
-          </template>
-        </el-table-column>
-
-        <!-- 操作列(两视图按钮集合完全一致:去采集/控制图/编辑/删除;位置固定不位移) -->
-        <el-table-column label="操作" width="240" fixed="right">
-          <template #default="{row}">
-            <span v-if="!isGroupNode(row)" style="white-space:nowrap">
-              <el-button v-if="row._task" link type="primary" size="small"
-                         @click="router.push({ path: `/spc/sample-collect/${row._task.id}` })">去采集</el-button>
+            <span style="white-space:nowrap">
+              <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
               <el-button link type="primary" size="small" @click="goChart(row)">控制图</el-button>
-              <el-button link type="warning" size="small" @click="openEdit(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
             </span>
           </template>
         </el-table-column>
@@ -151,13 +101,53 @@
       </el-form>
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="handleSubmit">确定</el-button></template>
     </el-dialog>
+
+    <!-- 参数详情:列表仅展示关键字段,其余字段在此集中呈现 -->
+    <el-dialog v-model="detailVisible" title="参数详情" width="560px" append-to-body>
+      <el-descriptions :column="2" border size="small" v-if="detailRow">
+        <el-descriptions-item label="产品">{{ detailRow.productName }}</el-descriptions-item>
+        <el-descriptions-item label="料号"><span class="mono">{{ detailRow.partNo || '—' }}</span></el-descriptions-item>
+        <el-descriptions-item label="参数名">{{ detailRow.paramName }}</el-descriptions-item>
+        <el-descriptions-item label="工序">{{ detailRow.procName || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="来源"><span class="src-tag">{{ detailRow.srcLabel }}</span></el-descriptions-item>
+        <el-descriptions-item label="单位">{{ detailRow.unit || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="规格下限"><span class="mono">{{ detailRow.specLower ?? '—' }}</span></el-descriptions-item>
+        <el-descriptions-item label="规格上限"><span class="mono">{{ detailRow.specUpper ?? '—' }}</span></el-descriptions-item>
+        <el-descriptions-item label="目标值"><span class="mono">{{ detailRow.targetValue ?? '—' }}</span></el-descriptions-item>
+        <el-descriptions-item label="子组大小">{{ detailRow.subgroupSize }}</el-descriptions-item>
+        <el-descriptions-item label="图类型" :span="2">
+          <span class="mono chart-main">{{ detailRow.chartType || '—' }}</span>
+          <span v-for="c in chartCandidateList(detailRow)" :key="c" class="chart-tag" :class="{ 'is-primary': c === detailRow.chartType }">{{ c }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="采集频率">{{ detailRow.collectFreq || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="σ 算法">{{ detailRow.sigmaMethod || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="σ 倍数 k">{{ detailRow.sigmaK ?? '—' }}</el-descriptions-item>
+        <el-descriptions-item label="CPK 周期">{{ detailRow.cpkPeriod || '不自动' }}</el-descriptions-item>
+        <el-descriptions-item label="激活">{{ detailRow.isActive ? '是' : '否' }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <span v-if="detailRow._task" class="pill" :class="statusPill(detailRow._task.status)"><span class="d"></span>{{ detailRow._task.status }}</span>
+          <span v-else class="muted">—</span>
+        </el-descriptions-item>
+        <el-descriptions-item v-if="detailRow._task" label="采集进度">
+          <span class="mono" :class="detailRow._task.targetCount > 0 && detailRow._task.currentCount >= detailRow._task.targetCount ? 'c-green' : ''">
+            {{ detailRow._task.currentCount }} / {{ detailRow._task.targetCount > 0 ? detailRow._task.targetCount : '不限' }}
+          </span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button type="primary" size="small" @click="goCollect(detailRow)">去采集</el-button>
+        <el-button type="primary" size="small" @click="goChart(detailRow)">控制图</el-button>
+        <el-button type="warning" size="small" @click="openEdit(detailRow); detailVisible=false">编辑</el-button>
+        <el-button type="danger" size="small" @click="handleDelete(detailRow.id); detailVisible=false">删除</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
-import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
@@ -166,7 +156,7 @@ import type { SpcParam, SpcSampleTask } from '@/api/types/spc'
 
 // 基础图码(单一体系): 直接勾选需要绘制的基础控制图, 控制图页按勾选项各渲染一张卡。
 // 取代原 Xbar-R/Xbar-S/I-MR 组合码, 避免"组合码"与"基础图码"两套重复权限码。
-const chartTypes = [
+const ALL_CHART_TYPES = [
   { label: 'Xbar (均值)', value: 'Xbar' },
   { label: 'R (极差)', value: 'R' },
   { label: 'S (标准差)', value: 'S' },
@@ -177,6 +167,20 @@ const chartTypes = [
   { label: 'C (缺陷数)', value: 'C' },
   { label: 'U (单位缺陷数)', value: 'U' },
 ]
+const MEASURE_VALUES = ['Xbar', 'R', 'S', 'I', 'MR']
+const COUNT_VALUES = ['P', 'NP', 'C', 'U']
+
+// 编辑弹窗可选的图类型: 根据当前已选图集自动收窄为单一数据类型,
+// 避免计量型(Xbar/R/S/I/MR)与计数型(P/NP/C/U)混杂(后端亦会拦截混选)。
+const chartTypes = computed(() => {
+  const sel = chartCandidateArr.value
+  const hasMeasure = sel.some(v => MEASURE_VALUES.includes(v))
+  const hasCount = sel.some(v => COUNT_VALUES.includes(v))
+  if (hasMeasure && !hasCount) return ALL_CHART_TYPES.filter(c => MEASURE_VALUES.includes(c.value))
+  if (hasCount && !hasMeasure) return ALL_CHART_TYPES.filter(c => COUNT_VALUES.includes(c.value))
+  // 尚未选择任何图: 展示全量,让用户先确定一类
+  return ALL_CHART_TYPES
+})
 
 // 参数行候选控制图集合(来自 chartCandidates 逗号串),列表展示用
 function chartCandidateList(row: any): string[] {
@@ -204,9 +208,7 @@ const MEASURE_KINDS = ['Xbar', 'R', 'S', 'I', 'MR']
 const needsSpec = computed(() => chartCandidateArr.value.some(k => MEASURE_KINDS.includes(k)))
 
 const router = useRouter()
-const route = useRoute()
 // 视图切换:首件 SPC / 产品抽样 SPC(与筛选条件同级);路由 ?view=sample 默认切抽样
-const viewMode = ref<string>((route.query.view as string) === 'sample' ? 'sample' : 'first')
 
 const paramList = ref<SpcParam[]>([])
 const sampleTasks = ref<SpcSampleTask[]>([])
@@ -214,8 +216,10 @@ const loading = ref(false)
 const filterProduct = ref('')
 const filterParamName = ref('')
 const filterProcName = ref<any>('')
+// 来源筛选:全部(空)/产线首件(FIA)/工装首件(TOOLING)/产品抽样(SAMPLE)
+const filterSource = ref('')
 const procOptions = computed(() => {
-  const src = viewMode.value === 'first' ? paramList.value : sampleTasks.value
+  const src = filterSource.value === 'SAMPLE' ? sampleTasks.value : paramList.value
   return [...new Set(src.map((p: any) => p.procName).filter(Boolean))].sort()
 })
 const dialogVisible = ref(false)
@@ -223,127 +227,75 @@ const isEdit = ref(false)
 const editId = ref('')
 const form = reactive<Partial<SpcParam>>({ paramName: '', subgroupSize: 5, isActive: true })
 
-// ── 分组结构(两种视图均为:产品为父 → 参数为子) ──
-interface GroupNode { isGroup: true; gkey: string; productName: string; partNo?: string; kind?: string; count: number; srcLabel?: string }
-// 抽样视图的参数行挂载关联的抽样任务(_task)
-type ParamRow = SpcParam & { _task?: SpcSampleTask }
-type Row = ParamRow | GroupNode
-const isGroupNode = (r: Row): r is GroupNode => (r as GroupNode).isGroup === true
+// 抽样参数行挂载关联的抽样任务(_task)
+type ParamRow = SpcParam & { _task?: SpcSampleTask; srcLabel?: string }
 
-const renderRows = computed<Row[]>(() => {
-  const rows: Row[] = []
-  const map = new Map<string, { node: GroupNode; params: ParamRow[] }>()
-  const keyOf = (prod: { productName?: string; partNo?: string }) => `${prod.productName || '未绑定产品'}|${prod.partNo || ''}`
+// 平铺参数表:首件三类(FIA_FIRST/MANUAL/TOOLING)与抽样参数合并,每行一条参数,带产品/料号/来源。
+const flatRows = computed<ParamRow[]>(() => {
+  const rows: ParamRow[] = []
+  const sampledParamIds = new Set(sampleTasks.value.map(t => t.paramId))
 
-  // 把首件参数按 products 数组展开成「产品 → 参数」分组;无 products 落入「未绑定产品」
-  function addFirstParam(p: ParamRow) {
-    const prods = (p.products && p.products.length) ? p.products : [{ productName: p.productName || '', partNo: p.partNo || '', kind: (p as any).kind }]
-    for (const prod of prods) {
-      if (filterProduct.value && !((prod.productName || '').includes(filterProduct.value) || (prod.partNo || '').includes(filterProduct.value))) continue
-      if (filterParamName.value && !(p.paramName || '').includes(filterParamName.value)) continue
-      if (filterProcName.value && p.procName !== filterProcName.value) continue
-      const key = keyOf(prod)
-      let g = map.get(key)
-      if (!g) {
-        const node = { isGroup: true, gkey: key, productName: prod.productName || '未绑定产品', partNo: prod.partNo || '', kind: prod.kind, count: 0 } as GroupNode
-        g = { node, params: [] }
-        map.set(key, g)
-      }
-      if (!g.params.includes(p)) g.params.push(p)
-    }
+  function pushFirst(p: SpcParam) {
+    const base = (p.products && p.products.length) ? p.products[0] : null
+    const productName = base?.productName || p.productName || '未绑定产品'
+    const partNo = base?.partNo || p.partNo || ''
+    const src = p.paramSource || 'FIA_FIRST'
+    const srcLabel = src === 'TOOLING' ? '工装首件' : '产线首件'
+    rows.push({ ...p, productName, partNo, srcLabel })
+  }
+  function pushSample(p: SpcParam, t: SpcSampleTask) {
+    const base = (p.products && p.products.length) ? p.products[0] : null
+    const productName = base?.productName || t.productName || p.productName || '未绑定产品'
+    const partNo = base?.partNo || t.partNo || p.partNo || ''
+    rows.push({ ...p, productName, partNo, procName: t.procName || p.procName, srcLabel: '抽样', _task: t })
   }
 
-  // 抽样视图:仅展示"有抽样任务关联"的参数,分组键优先取参数的 products(保证中文正常),
-  // 任务名仅用于状态/进度/工序回填;任务里可能因历史编码问题存了乱码
-  function addSampleParam(p: ParamRow, t: SpcSampleTask) {
-    if (!t) return  // 无关联抽样任务的参数(SAMPLE 孤儿)不进入抽样视图
-    const base = (p.products && p.products.length) ? p.products[0] : { productName: p.productName || '', partNo: p.partNo || '', kind: (p as any).kind }
-    const prod = {
-      productName: base.productName || t.productName || p.productName || '',
-      partNo: base.partNo || t.partNo || p.partNo || '',
-      kind: base.kind || (p as any).kind,
-    }
-    if (filterProduct.value && !((prod.productName || '').includes(filterProduct.value) || (prod.partNo || '').includes(filterProduct.value))) return
-    if (filterProcName.value && t.procName !== filterProcName.value) return
-    const key = keyOf(prod)
-    let g = map.get(key)
-    if (!g) {
-      const node = { isGroup: true, gkey: key, productName: prod.productName || '未绑定产品', partNo: prod.partNo || '', kind: prod.kind, count: 0 } as GroupNode
-      g = { node, params: [] }
-      map.set(key, g)
-    }
-    if (!g.params.some(x => x.id === p.id)) g.params.push({ ...p, productName: prod.productName, partNo: prod.partNo, procName: t.procName || p.procName, _task: t })
-  }
-
-  if (viewMode.value === 'first') {
-    // 首件视图:展示首件派生的参数(FIA_FIRST / MANUAL / 工装 TOOLING 一并归入);
-    // 工装通过"工装首件任务"这一条渠道进入 SPC,本质是首件视图的一部分,不再单独拆分。
-    // 抽样流程派生的参数(paramSource=SAMPLE)严格隔离在"产品抽样 SPC"视图,不污染首件视图。
-    const sampledParamIds = new Set(sampleTasks.value.map(t => t.paramId))
+  if (!filterSource.value || filterSource.value === 'FIA' || filterSource.value === 'TOOLING') {
+    // 首件类:按来源筛选(FIA=产线首件,TOOLING=工装首件);全部时三类并入,工装经"工装首件任务"渠道进入,本质同属首件
     paramList.value
       .filter(p => {
         if (sampledParamIds.has(p.id)) return false
         const src = p.paramSource || 'FIA_FIRST'
+        if (filterSource.value === 'FIA') return src === 'FIA_FIRST' || src === 'MANUAL'
+        if (filterSource.value === 'TOOLING') return src === 'TOOLING'
         return src === 'FIA_FIRST' || src === 'MANUAL' || src === 'TOOLING'
       })
-      .forEach(addFirstParam)
-  } else {
-    // 抽样视图:仅展示"有抽样任务引用"的参数(任务 paramId 集合为唯一判定,与首件视图隔离)
+      .forEach(pushFirst)
+  }
+  if (!filterSource.value || filterSource.value === 'SAMPLE') {
+    // 产品抽样:仅展示有抽样任务关联的参数(任务 paramId 集合为唯一判定)
     const byParam = new Map<string, SpcSampleTask>()
     for (const t of sampleTasks.value) if (!byParam.has(t.paramId)) byParam.set(t.paramId, t)
     paramList.value
       .filter(p => byParam.has(p.id))
-      .forEach(p => addSampleParam(p, byParam.get(p.id)!))
+      .forEach(p => pushSample(p, byParam.get(p.id)!))
   }
 
-  // 保持首次出现顺序(按 map 首次写入顺序)
-  map.forEach(g => {
-    g.node.count = g.params.length
-    rows.push(g.node)
-    g.params.forEach(p => rows.push(p))
+  // 产品/参数名/工序筛选(参数级)
+  return rows.filter(r => {
+    if (filterProduct.value) {
+      const hit = ((r.productName || '').includes(filterProduct.value) || (r.partNo || '').includes(filterProduct.value))
+      if (!hit) return false
+    }
+    if (filterParamName.value && !(r.paramName || '').includes(filterParamName.value)) return false
+    if (filterProcName.value && r.procName !== filterProcName.value) return false
+    return true
   })
-  return rows
 })
-const groupSpans = computed<Record<number, number>>(() => {
-  const m: Record<number, number> = {}
-  renderRows.value.forEach((r, i) => { if (isGroupNode(r)) m[i] = (r as GroupNode).count })
-  return m
-})
-
-function kindLabel(k?: string) {
-  return ({ material: '物料', semi: '半成品', product: '成品' }[k || ''] || (k || ''))
-}
-function rowKey(row: Row) { return isGroupNode(row) ? `g-${row.gkey}` : (row as ParamRow).id }
-function rowClassName({ row }: { row: Row }) { return isGroupNode(row) ? 'grp-row' : '' }
-// 产品节点行(第一级)作为整行分组标题:第0列跨满中间列,第8列(fixed-right 操作列)悬浮不滑动
-// 首件视图 8 列(含目标值,无状态/进度):第0列跨 7(0-6);抽样视图 10 列,第0列跨 9(0-8)
-const MID_COLS = computed(() => (viewMode.value === 'sample' ? 9 : 7))
-function spanMethod({ rowIndex, columnIndex }: { rowIndex: number; columnIndex: number }) {
-  if (groupSpans.value[rowIndex] !== undefined) {
-    if (columnIndex === 0) return { rowspan: 1, colspan: MID_COLS.value }    // 跨满中间列
-    if (columnIndex >= 1 && columnIndex < MID_COLS.value) return { rowspan: 0, colspan: 0 } // 被第0列覆盖
-    // 最后一列(fixed-right 操作列): 保持独立渲染, 产品行由全局样式隐藏
-  }
-  return { rowspan: 1, colspan: 1 }
-}
 
 async function fetchData() {
   loading.value = true
   try {
-    // 两种视图都需要参数全量(用于分组与回填)
-    // 首件视图不再做来源筛选(工装参数经"工装首件任务"渠道并入首件视图,统一展示);
-    // 抽样流程派生的参数靠 renderRows 的 in-memory 过滤与抽样视图隔离。
-    const all = await spcParamApi.list({
-      productName: filterProduct.value || undefined,
-      procName: filterProcName.value || undefined,
-    })
-    paramList.value = all.filter(r => !filterParamName.value || (r.paramName || '').includes(filterParamName.value))
-    // 始终拉取抽样任务,用于:抽样视图按任务分组 + 首件视图排除已被抽样任务占用的参数
+    // 拉全量参数 + 抽样任务:首件三类(FIA_FIRST/MANUAL/TOOLING)与抽样参数合并展示,
+    // 来源筛选与分组均在 flatRows 的 in-memory 逻辑完成。
+    const all = await spcParamApi.list({})
+    paramList.value = all
+    // 始终拉取抽样任务,用于抽样参数挂载任务状态/进度,以及首件参数排除已被抽样任务占用的项
     sampleTasks.value = await spcSampleTaskApi.list()
   } finally { loading.value = false }
 }
 function clearProduct() { filterProduct.value = ''; fetchData() }
-function openCreate() { isEdit.value = false; editId.value = ''; Object.assign(form, { paramName: '', procName: '', unit: '', specLower: undefined, specUpper: undefined, targetValue: undefined, subgroupSize: 5, collectFreq: '', chartType: 'Xbar', chartCandidates: 'Xbar,R', isActive: true, sigmaMethod: 'within', sigmaK: 3, cpkPeriod: '' }); dialogVisible.value = true }
+function openCreate() { isEdit.value = false; editId.value = ''; Object.assign(form, { paramName: '', procName: '', unit: '', specLower: undefined, specUpper: undefined, targetValue: undefined, subgroupSize: 5, collectFreq: '', chartType: 'Xbar', chartCandidates: 'Xbar,R', dataType: 'VARIABLE', isActive: true, sigmaMethod: 'within', sigmaK: 3, cpkPeriod: '' }); dialogVisible.value = true }
 function openEdit(row: SpcParam) {
   isEdit.value = true
   editId.value = row.id
@@ -361,13 +313,20 @@ async function handleSubmit() {
 }
 async function handleDelete(id: string) { await ElMessageBox.confirm('确认删除?'); await spcParamApi.delete(id); ElMessage.success('已删除'); fetchData() }
 function goChart(row: ParamRow) {
-  // 首件视图:首件能力验证(FIRST);抽样视图:量产监控(ROUTINE)+ 抽样任务过滤
-  const q: any = { stage: viewMode.value === 'sample' ? 'ROUTINE' : 'FIRST' }
+  // 抽样任务参数走量产监控(ROUTINE)+ 抽样任务过滤;首件(产线/工装)参数走首件能力验证(FIRST)
+  const q: any = { stage: row._task ? 'ROUTINE' : 'FIRST' }
   if (row._task) q.sampleTaskId = row._task.id
   router.push({ path: `/spc/params/${row.id}`, query: q })
 }
-// 切换视图时重新拉取对应数据
-watch(viewMode, fetchData)
+// 详情弹窗:列表仅展示关键字段,其余字段与操作内聚于此
+const detailVisible = ref(false)
+const detailRow = ref<ParamRow | null>(null)
+function openDetail(row: ParamRow) { detailRow.value = row; detailVisible.value = true }
+function goCollect(row: ParamRow) {
+  // 抽样任务参数走抽样采集页;首件参数(产线/工装)走首件采集页(带 paramId 预选 + 来源单号/批号自动填充)
+  if (row._task) router.push({ path: `/spc/sample-collect/${row._task.id}` })
+  else router.push({ path: '/spc/collect', query: { paramId: row.id, woNo: row.srcWoNo || '', batchNo: row.srcBatchNo || '' } })
+}
 
 function statusPill(s?: string) {
   if (s === '已结案') return 'p-done'
@@ -391,25 +350,10 @@ onMounted(() => { fetchData() })
 .chart-tag.is-primary { background: $cobalt-dim; color: $cobalt; font-weight: 600; }
 .c-green { color: $green; }
 .c-red { color: $signal-red; }
-.prod-node { display: flex; align-items: center; gap: 10px; }
-.prod-name { font-family: $font-display; font-size: 15px; font-weight: 700; color: $ink; }
-.prod-part { font-size: 12px; color: $ink-faint; font-family: $font-mono; }
-.prod-kind { font-size: 11px; padding: 1px 8px; border-radius: 4px; background: $cobalt-dim; color: $cobalt; }
-.prod-count { font-size: 11px; color: $ink-soft; }
-:deep(.el-table__row.grp-row) td.el-table__cell { background: $hairline-soft; }
-:deep(.el-table__row.grp-row) td.el-table__cell:first-child { border-left: 3px solid $cobalt; }
-.prod-node { display: flex; align-items: center; gap: 10px; padding: 2px 0 2px 14px; }
-.prod-name { font-family: $font-display; font-size: 15px; font-weight: 700; color: $ink; }
-// 参数行缩进,体现"产品 → 参数"父子级
-:deep(.el-table__row:not(.grp-row)) td.el-table__cell:first-child .cell { padding-left: 32px; position: relative; }
-:deep(.el-table__row:not(.grp-row)) td.el-table__cell:first-child .cell::before {
-  content: ''; position: absolute; left: 14px; top: 50%; width: 10px; height: 1px; background: $hairline;
-}
-</style>
-
-<!-- 非 scoped:隐藏产品分组行在 fixed 右列(操作列)上的空白 cell,避免分组行右侧出现空洞 -->
-<style lang="scss">
-.param-list .el-table__row.grp-row td.el-table-fixed-column--right {
-  visibility: hidden;
+// 来源列: 分类标签(非业务状态,用淡底胶囊区分 产线首件/工装首件/抽样)
+.src-tag {
+  display: inline-block; font-family: $font-mono; font-size: 11px; line-height: 1;
+  padding: 3px 8px; border-radius: 4px; background: $hairline-soft; color: $ink-soft;
+  white-space: nowrap;
 }
 </style>

@@ -56,7 +56,9 @@
           <el-form-item label="批次号" required>
             <el-input v-model="batchNo" placeholder="同工单可录不同批次号" style="width: 280px" />
           </el-form-item>
-          <el-form-item label="测量值" required>
+
+          <!-- 计量型:录入一组测量值 -->
+          <el-form-item label="测量值" required v-if="!countMode">
             <div class="vals">
               <div class="val-cell" v-for="(v, i) in values" :key="i">
                 <span class="idx mono">{{ i + 1 }}</span>
@@ -65,10 +67,32 @@
               </div>
             </div>
           </el-form-item>
+
+          <!-- 计数型 P/NP:录入不合格数 + 检验总数 -->
+          <template v-else-if="countChart === 'P' || countChart === 'NP'">
+            <el-form-item label="不合格数" required>
+              <el-input-number v-model="nonconforming" :min="0" :precision="0" :controls="false" style="width: 160px" />
+            </el-form-item>
+            <el-form-item label="检验总数 n" required>
+              <el-input-number v-model="inspectN" :min="1" :precision="0" :controls="false" style="width: 160px" />
+            </el-form-item>
+          </template>
+
+          <!-- 计数型 C/U:录入缺陷数 + 检验单位数 -->
+          <template v-else>
+            <el-form-item label="缺陷数" required>
+              <el-input-number v-model="defectCount" :min="0" :precision="0" :controls="false" style="width: 160px" />
+            </el-form-item>
+            <el-form-item label="检验单位数 n" required>
+              <el-input-number v-model="inspectN" :min="1" :precision="0" :controls="false" style="width: 160px" />
+            </el-form-item>
+          </template>
           <el-form-item>
             <el-button type="primary" :loading="submitting" @click="submit">提交子组</el-button>
             <el-button @click="clearBatch">清空批次号</el-button>
-            <span class="hint">共 {{ values.length }} 个测量值，提交后批次号保留以便续录下一批</span>
+            <span class="hint" v-if="countMode && (countChart === 'P' || countChart === 'NP')">P/NP 图:录入该子组不合格数与检验总数</span>
+            <span class="hint" v-else-if="countMode">C/U 图:录入该子组缺陷数与检验单位数</span>
+            <span class="hint" v-else>共 {{ values.length }} 个测量值，提交后批次号保留以便续录下一批</span>
           </el-form-item>
         </el-form>
       </el-card>
@@ -88,7 +112,7 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -106,7 +130,28 @@ const param = ref<SpcParam | null>(null)
 const loading = ref(true)
 const batchNo = ref('')
 const values = ref<(number | null)[]>([])
+const nonconforming = ref<number | null>(null)
+const inspectN = ref<number | null>(null)
+const defectCount = ref<number | null>(null)
 const submitting = ref(false)
+
+/** 计数型图码(P/NP/C/U)集合 */
+const COUNT_SET = ['P', 'NP', 'C', 'U']
+/** 当前参数是否为计数型。优先取后端推断的 dataType,否则由 chartCandidates 解析 */
+const countMode = computed(() => {
+  const p = param.value
+  if (!p) return false
+  if (p.dataType === 'ATTRIBUTE') return true
+  if (p.dataType === 'VARIABLE') return false
+  const raw = p.chartCandidates || p.chartType || ''
+  return raw.split(',').map(s => s.trim()).some(c => COUNT_SET.includes(c))
+})
+/** 计数型具体图码(P/NP/C/U),计量型为 '' */
+const countChart = computed(() => {
+  if (!countMode.value) return ''
+  const raw = (param.value?.chartCandidates || param.value?.chartType || '').split(',').map(s => s.trim())
+  return raw.find(c => COUNT_SET.includes(c)) || ''
+})
 
 async function loadTask() {
   loading.value = true
@@ -114,8 +159,7 @@ async function loadTask() {
     const t = await spcSampleTaskApi.get(taskId)
     task.value = t
     param.value = await spcParamApi.get(t.paramId).catch(() => null)
-    const n = param.value?.subgroupSize || 5
-    values.value = Array.from({ length: n }, () => null)
+    resetEntryValues()
   } catch {
     task.value = null
   } finally {
@@ -123,26 +167,49 @@ async function loadTask() {
   }
 }
 
+/** 根据参数类型重置录入框(计量型 n 个测量值;计数型清空不合格数/缺陷数/样本量) */
+function resetEntryValues() {
+  const n = param.value?.subgroupSize || 5
+  values.value = Array.from({ length: n }, () => null)
+  nonconforming.value = null
+  inspectN.value = null
+  defectCount.value = null
+}
+
 async function submit() {
   if (!batchNo.value.trim()) { ElMessage.warning('请录入批次号'); return }
-  if (values.value.some(v => v == null || isNaN(v))) { ElMessage.warning('请完整录入所有测量值'); return }
   if (!task.value || !param.value) return
+  // 组装请求体(计数型不传 values,计量型不传计数字段)
+  const body: Record<string, unknown> = {
+    paramId: task.value.paramId,
+    subgroupTime: new Date().toISOString().slice(0, 19),
+    woNo: task.value.woNo,
+    batchNo: batchNo.value.trim(),
+    stage: 'ROUTINE',
+    sampleTaskId: task.value.id,
+    productCode: task.value.partNo,
+  }
+  if (countMode.value) {
+    const isCOrU = countChart.value === 'C' || countChart.value === 'U'
+    if (isCOrU) {
+      if (defectCount.value == null || defectCount.value < 0) { ElMessage.warning('请录入缺陷数'); return }
+    } else {
+      if (nonconforming.value == null || nonconforming.value < 0) { ElMessage.warning('请录入不合格数'); return }
+    }
+    if (!inspectN.value || inspectN.value < 1) { ElMessage.warning('请录入检验总数 n'); return }
+    body.nonconforming = nonconforming.value ?? undefined
+    body.inspectN = inspectN.value ?? undefined
+    body.defectCount = defectCount.value ?? undefined
+  } else {
+    if (values.value.some(v => v == null || isNaN(v))) { ElMessage.warning('请完整录入所有测量值'); return }
+    body.values = values.value as number[]
+  }
   submitting.value = true
   try {
-    await spcSubgroupApi.create({
-      paramId: task.value.paramId,
-      subgroupTime: new Date().toISOString().slice(0, 19),
-      woNo: task.value.woNo,
-      batchNo: batchNo.value.trim(),
-      stage: 'ROUTINE',
-      sampleTaskId: task.value.id,
-      productCode: task.value.partNo,
-      values: values.value as number[],
-    })
+    await spcSubgroupApi.create(body as never)
     ElMessage.success('子组已提交')
-    // 续录下一批：清空测量值、保留批次号
-    const n = param.value.subgroupSize || 5
-    values.value = Array.from({ length: n }, () => null)
+    // 续录下一批：清空录入值、保留批次号
+    resetEntryValues()
     await loadTask()
   } finally { submitting.value = false }
 }

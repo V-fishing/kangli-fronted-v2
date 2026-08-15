@@ -27,7 +27,9 @@
           </div>
           <el-form-item label="工单号"><el-input v-model="form.woNo" style="width:240px" /></el-form-item>
           <el-form-item label="批次号"><el-input v-model="form.batchNo" style="width:240px" /></el-form-item>
-          <el-form-item label="测量值" required>
+
+          <!-- 计量型:录入一组测量值 -->
+          <el-form-item label="测量值" required v-if="!countMode">
             <div class="vals">
               <div class="val-cell" v-for="(v, i) in form.values" :key="i">
                 <span class="idx mono">{{ i + 1 }}</span>
@@ -36,10 +38,32 @@
               </div>
             </div>
           </el-form-item>
+
+          <!-- 计数型 P/NP:录入不合格数 + 检验总数 -->
+          <template v-else-if="countChart === 'P' || countChart === 'NP'">
+            <el-form-item label="不合格数" required>
+              <el-input-number v-model="form.nonconforming" :min="0" :precision="0" :controls="false" style="width:160px" />
+            </el-form-item>
+            <el-form-item label="检验总数 n" required>
+              <el-input-number v-model="form.inspectN" :min="1" :precision="0" :controls="false" style="width:160px" />
+            </el-form-item>
+          </template>
+
+          <!-- 计数型 C/U:录入缺陷数 + 检验单位数(样本量/面积) -->
+          <template v-else>
+            <el-form-item label="缺陷数" required>
+              <el-input-number v-model="form.defectCount" :min="0" :precision="0" :controls="false" style="width:160px" />
+            </el-form-item>
+            <el-form-item label="检验单位数 n" required>
+              <el-input-number v-model="form.inspectN" :min="1" :precision="0" :controls="false" style="width:160px" />
+            </el-form-item>
+          </template>
           <el-form-item>
             <el-button type="primary" :loading="submitting" @click="submit">提交子组</el-button>
             <el-button @click="reset">重置</el-button>
-            <span class="hint">共 {{ form.values.length }} 个测量值</span>
+            <span class="hint" v-if="countMode && (countChart === 'P' || countChart === 'NP')">P/NP 图:录入该子组不合格数与检验总数</span>
+            <span class="hint" v-else-if="countMode">C/U 图:录入该子组缺陷数与检验单位数</span>
+            <span class="hint" v-else>共 {{ form.values.length }} 个测量值</span>
           </el-form-item>
         </template>
       </el-form>
@@ -49,7 +73,7 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
@@ -65,21 +89,67 @@ const params = ref<SpcParam[]>([])
 const paramId = ref('')
 const param = ref<SpcParam | null>(null)
 const submitting = ref(false)
-const form = ref({ woNo: '', batchNo: '', values: [] as (number | null)[] })
+const form = ref({
+  woNo: '',
+  batchNo: '',
+  values: [] as (number | null)[],
+  nonconforming: null as number | null,
+  inspectN: null as number | null,
+  defectCount: null as number | null,
+})
+
+/** 计数型图码(P/NP/C/U)集合 */
+const COUNT_SET = ['P', 'NP', 'C', 'U']
+/** 当前参数是否为计数型(P/NP/C/U)。优先取后端推断的 dataType,否则由 chartCandidates 解析 */
+const countMode = computed(() => {
+  const p = param.value
+  if (!p) return false
+  if (p.dataType === 'ATTRIBUTE') return true
+  if (p.dataType === 'VARIABLE') return false
+  const raw = p.chartCandidates || p.chartType || ''
+  return raw.split(',').map(s => s.trim()).some(c => COUNT_SET.includes(c))
+})
+/** 计数型具体图码(P/NP/C/U),计量型为 '' */
+const countChart = computed(() => {
+  if (!countMode.value) return ''
+  const raw = (param.value?.chartCandidates || param.value?.chartType || '').split(',').map(s => s.trim())
+  return raw.find(c => COUNT_SET.includes(c)) || ''
+})
+
+function resetFormValues() {
+  form.value.values = Array.from({ length: param.value?.subgroupSize || 5 }, () => null)
+  form.value.nonconforming = null
+  form.value.inspectN = null
+  form.value.defectCount = null
+}
 
 function onParamChange(id: string) {
   const p = params.value.find(x => x.id === id) || null
   param.value = p
   const n = p?.subgroupSize || 5
   form.value.values = Array.from({ length: n }, () => null)
+  form.value.nonconforming = null
+  form.value.inspectN = null
+  form.value.defectCount = null
 }
 
 async function submit() {
   if (!paramId.value) { ElMessage.warning('请先选择参数'); return }
-  if (form.value.values.some(v => v == null || isNaN(v))) { ElMessage.warning('请完整录入所有测量值'); return }
+  // 组装请求体(计数型不传 values,计量型不传计数字段)
+  if (countMode.value) {
+    const isCOrU = countChart.value === 'C' || countChart.value === 'U'
+    if (isCOrU) {
+      if (form.value.defectCount == null || form.value.defectCount < 0) { ElMessage.warning('请录入缺陷数'); return }
+    } else {
+      if (form.value.nonconforming == null || form.value.nonconforming < 0) { ElMessage.warning('请录入不合格数'); return }
+    }
+    if (!form.value.inspectN || form.value.inspectN < 1) { ElMessage.warning('请录入检验总数 n'); return }
+  } else {
+    if (form.value.values.some(v => v == null || isNaN(v))) { ElMessage.warning('请完整录入所有测量值'); return }
+  }
   submitting.value = true
   try {
-    await spcSubgroupApi.create({
+    const body: Record<string, unknown> = {
       paramId: paramId.value,
       subgroupTime: new Date().toISOString().slice(0, 19),
       woNo: form.value.woNo || undefined,
@@ -87,16 +157,29 @@ async function submit() {
       stage: 'FIRST',
       taskId: (route.query.taskId as string) || undefined,
       productCode: param.value?.products?.[0]?.partNo,
-      values: form.value.values as number[],
-    })
+    }
+    if (countMode.value) {
+      body.nonconforming = form.value.nonconforming ?? undefined
+      body.inspectN = form.value.inspectN ?? undefined
+      body.defectCount = form.value.defectCount ?? undefined
+    } else {
+      body.values = form.value.values as number[]
+    }
+    await spcSubgroupApi.create(body as never)
     ElMessage.success('首件子组已提交')
-    const n = param.value?.subgroupSize || 5
-    form.value.values = Array.from({ length: n }, () => null)
+    resetFormValues()
   } finally { submitting.value = false }
 }
 
 function reset() {
-  form.value = { woNo: form.value.woNo, batchNo: form.value.batchNo, values: Array.from({ length: param.value?.subgroupSize || 5 }, () => null) }
+  form.value = {
+    woNo: form.value.woNo,
+    batchNo: form.value.batchNo,
+    values: Array.from({ length: param.value?.subgroupSize || 5 }, () => null),
+    nonconforming: null,
+    inspectN: null,
+    defectCount: null,
+  }
 }
 
 async function applyFromTask(taskId: string) {
@@ -114,8 +197,22 @@ async function applyFromTask(taskId: string) {
 
 onMounted(async () => {
   const taskId = route.query.taskId as string | undefined
-  if (taskId) await applyFromTask(taskId)
-  else params.value = await spcParamApi.list()
+  if (taskId) {
+    await applyFromTask(taskId)
+    return
+  }
+  params.value = await spcParamApi.list()
+  // 详情弹窗"去采集"带 paramId 预选对应首件参数,并自动带入来源单号/批号
+  const pid = route.query.paramId as string | undefined
+  if (pid && params.value.some(p => p.id === pid)) {
+    paramId.value = pid
+    onParamChange(pid)
+    const p = params.value.find(x => x.id === pid)
+    const wo = (route.query.woNo as string) || p?.srcWoNo || ''
+    const bn = (route.query.batchNo as string) || p?.srcBatchNo || ''
+    if (wo) form.value.woNo = wo
+    if (bn) form.value.batchNo = bn
+  }
 })
 </script>
 

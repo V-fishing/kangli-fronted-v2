@@ -21,6 +21,8 @@ export interface SpcParam {
   chartType?: string // Xbar-R ...
   /** 带入时的推荐控制图全集(逗号分隔);编辑弹窗据此限定 chartType 可选范围,空则用全量 */
   chartCandidates?: string
+  /** 数据类型:VARIABLE=计量型(Xbar/R/S/I/MR),ATTRIBUTE=计数型(P/NP/C/U)。由后端 deriveDataType 自动推断 */
+  dataType?: 'VARIABLE' | 'ATTRIBUTE'
   // 可配置项
   sigmaMethod?: string // within(组内) / overall(整体)
   sigmaK?: number // 控制限/能力 σ 倍数(默认 3)
@@ -32,6 +34,10 @@ export interface SpcParam {
   paramSource?: string
   // 参数↔产品关联(由 FIA 任务派生时回填)
   products?: SpcParamProduct[]
+  /** 来源 FIA 任务单号(首件派生时带入,供采集页自动填充) */
+  srcWoNo?: string
+  /** 来源 FIA 任务批号(首件派生时带入,供采集页自动填充) */
+  srcBatchNo?: string
 }
 
 // ── SpcSpecStandard(SPC 标准线规格,供首件标准库「从SPC拉取」复用) ──
@@ -103,6 +109,25 @@ export interface SpcSubgroupVo extends SpcSubgroup {
   measurements?: SpcMeasurement[]
 }
 
+/** 计数型(P/NP/C/U)参数过程水平聚合(替代计量型 Cp/Cpk)。 */
+export interface CountCapabilityVo {
+  countType: boolean
+  /** 计数图主类型: P / NP / C / U */
+  chartKind?: 'P' | 'NP' | 'C' | 'U'
+  /** 过程平均不合格率 p̄ = Σ不合格数/Σ检验数(P/NP) */
+  pBar?: number
+  /** 百万机会缺陷数 PPM = p̄×1e6(P/NP) */
+  ppm?: number
+  /** 合格率 = 1 − p̄(P/NP) */
+  yieldRate?: number
+  /** 平均单位缺陷数 ū = Σ缺陷数/Σ检验单位数(C/U) */
+  uBar?: number
+  /** 单位缺陷数 DPU = ū(C/U) */
+  dpu?: number
+  /** 参与聚合的计数子组数 */
+  sampleCount: number
+}
+
 export interface SpcMeasurement {
   id: string
   subgroupId: string
@@ -124,6 +149,12 @@ export interface CreateSubgroupRequest {
   sampleTaskId?: string
   productCode?: string
   values: number[]
+  /** 计数型 P/NP 图:子组不合格数(非计数型为 null) */
+  nonconforming?: number
+  /** 计数型 P/NP 图:子组检验总数(样本量 n, 非计数型为 null) */
+  inspectN?: number
+  /** 计数型 C/U 图:子组缺陷数(非计数型为 null) */
+  defectCount?: number
 }
 
 // ── SpcSampleTask(抽样批次任务:量产监控采集载体) ──

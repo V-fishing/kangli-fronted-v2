@@ -146,8 +146,8 @@
         </div>
       </div>
 
-      <!-- CPK/PPK 仪表盘 -->
-      <div v-if="detail" class="card-b" :style="{ animationDelay: '0.05s' }">
+      <!-- CPK/PPK 仪表盘(仅计量型;计数型走 countCapability 卡片) -->
+      <div v-if="detail && !countCapability" class="card-b" :style="{ animationDelay: '0.05s' }">
         <div class="card-head">
           <h2 class="card-title">能力指标</h2>
         </div>
@@ -179,8 +179,36 @@
         </div>
       </div>
 
-      <!-- 直方图 + 趋势 双栏 -->
-      <div v-if="detail" class="grid-b" :style="{ animationDelay: '0.10s' }">
+      <!-- 计数型过程水平(替代 Cp/Cpk) -->
+      <div v-if="countCapability" class="card-b" :style="{ animationDelay: '0.07s' }">
+        <div class="card-head">
+          <h2 class="card-title">计数型过程水平</h2>
+          <span class="sub">{{ countCapability.chartKind }} 图 · {{ countCapability.sampleCount }} 个子组</span>
+        </div>
+        <div style="padding:16px 22px">
+          <template v-if="(countCapability.chartKind === 'P' || countCapability.chartKind === 'NP') && countCapability.pBar != null">
+            <div class="gauge-stats">
+              <div class="g-stat"><span class="g-label">过程平均不合格率 p̄</span><span class="g-val mono">{{ (Number(countCapability.pBar) * 100).toFixed(3) }}%</span></div>
+              <div class="g-stat"><span class="g-label">PPM</span><span class="g-val mono" :class="(countCapability.ppm || 0) > 0 ? 'c-amber' : 'c-green'">{{ (countCapability.ppm || 0).toLocaleString() }}</span></div>
+              <div class="g-stat"><span class="g-label">合格率(良品率)</span><span class="g-val mono c-green">{{ (Number(countCapability.yieldRate) * 100).toFixed(3) }}%</span></div>
+            </div>
+            <div class="cap-foot">计数型参数无规格上下限,不计算 Cp/Cpk;以上为过程平均质量水平</div>
+          </template>
+          <template v-else-if="(countCapability.chartKind === 'C' || countCapability.chartKind === 'U') && countCapability.uBar != null">
+            <div class="gauge-stats">
+              <div class="g-stat"><span class="g-label">平均单位缺陷数 ū</span><span class="g-val mono">{{ Number(countCapability.uBar).toFixed(4) }}</span></div>
+              <div class="g-stat"><span class="g-label">DPU</span><span class="g-val mono" :class="(countCapability.dpu || 0) > 0 ? 'c-amber' : 'c-green'">{{ Number(countCapability.dpu).toFixed(4) }}</span></div>
+            </div>
+            <div class="cap-foot">计数型参数无规格上下限,不计算 Cp/Cpk;以上为单位缺陷水平</div>
+          </template>
+          <template v-else>
+            <div class="cap-foot">尚无计数子组数据(请先在采集页录入不合格数/缺陷数)</div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 直方图 + 趋势 双栏(仅计量型;计数型无直方图/CPK 趋势) -->
+      <div v-if="detail && !countCapability" class="grid-b" :style="{ animationDelay: '0.10s' }">
         <div class="card-b card-b--flush">
           <div class="card-head">
             <h2 class="card-title">分布直方图</h2>
@@ -232,7 +260,8 @@ import * as echarts from 'echarts'
 import { spcCapabilityApi } from '@/api/modules/spc/capability'
 import { spcChartApi } from '@/api/modules/spc/chart'
 import { spcParamApi } from '@/api/modules/spc/params'
-import type { SpcCapability, SpcSupplierCpkVo, SpcHistogramVo, SpcParam } from '@/api/types/spc'
+import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
+import type { SpcCapability, SpcSupplierCpkVo, SpcHistogramVo, SpcParam, CountCapabilityVo } from '@/api/types/spc'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -256,6 +285,8 @@ const computingIds = ref<Record<string, boolean>>({})
 const selectedParamId = ref<string | null>(null)
 
 const detail = ref<SpcCapability | null>(null)
+/** 计数型参数过程水平聚合(替代 Cp/Cpk) */
+const countCapability = ref<CountCapabilityVo | null>(null)
 const histogram = ref<SpcHistogramVo | null>(null)
 const trends = ref<SpcCapability[]>([])
 const supplierData = ref<SpcSupplierCpkVo[]>([])
@@ -417,15 +448,17 @@ const selectParam = async (row: SpcCapability) => {
   try {
     // 同时调用 calc（确保最新数据）和图表数据
     const pid = row.paramId
-    const [det, hist, trend, supplier] = await Promise.all([
+    const [det, hist, trend, supplier, cc] = await Promise.all([
       spcCapabilityApi.calc({ paramId: pid }).catch((e: any) => { console.error('[能力分析] selectParam calc 失败:', e?.message, e); return null }),
       spcChartApi.histogram({ paramId: pid }).catch((e: any) => { console.error('[能力分析] histogram 失败:', e?.message, e); return null }),
       spcCapabilityApi.trend({ paramId: pid, months: 12 }).catch((e: any) => { console.error('[能力分析] trend 失败:', e?.message, e); return [] as SpcCapability[] }),
       spcCapabilityApi.supplierCpk().catch((e: any) => { console.error('[能力分析] supplierCpk 失败:', e?.message, e); return [] as SpcSupplierCpkVo[] }),
+      spcSubgroupApi.countCapability(pid).catch((e: any) => { console.error('[能力分析] countCapability 失败:', e?.message, e); return null }),
     ])
     // calc 返回实体不含 paramName/paramCode,从所点击行补全,保证详情头正确显示
     detail.value = det ? { ...det, paramName: row.paramName, paramCode: (row as any).paramCode } as SpcCapability : null
     histogram.value = hist
+    countCapability.value = cc?.countType ? cc : null
     trends.value = trend || []
     supplierData.value = supplier || []
     await nextTick()
@@ -444,6 +477,7 @@ const backToOverview = () => {
   histogram.value = null
   trends.value = []
   supplierData.value = []
+  countCapability.value = null
   loadOverview()
 }
 

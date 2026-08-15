@@ -3,7 +3,7 @@
     <div class="head-b"><AppBreadcrumb /><h1>控制图 · {{ param?.paramName || '选择参数' }}<span v-if="sampleTaskId" class="mode-tag">抽样任务视图</span></h1></div>
     <el-card shadow="never" class="card-b filter-bar">
       <el-form :inline="true">
-        <el-form-item label="参数"><el-select v-model="paramId" @change="loadChart" placeholder="选择SPC参数" style="width:240px"><el-option v-for="p in sameProductParams" :key="p.id" :label="p.paramName" :value="p.id" /></el-select></el-form-item>
+        <el-form-item label="参数"><el-select v-model="paramId" @change="loadChart" placeholder="选择SPC参数" style="width:240px"><el-option v-for="p in sameProductParams" :key="p.id" :label="paramOptionLabel(p)" :value="p.id" /></el-select></el-form-item>
         <el-form-item label="阶段">
           <span class="stage-hint"><span class="dot" :class="stageClass"></span>{{ stageLabel }}（控制图基于全部样本子组计算，不受阶段限制）</span>
         </el-form-item>
@@ -23,7 +23,7 @@
         <div v-if="!chartCards.length" class="card-b card-empty">该参数未配置控制图类型（chartCandidates 为空）</div>
       </div>
       <div class="right-b">
-        <div class="card-b">
+        <div class="card-b" v-if="isVariable">
           <div class="card-head"><h2>过程能力</h2></div>
           <div style="padding:16px 22px">
             <div class="cpk-row"><div class="cpk"><span class="l">Cpk</span><span class="v mono" :class="cpkLevel">{{ capability?.cpk?.toFixed(2) || '-' }}</span></div><div class="cpk"><span class="l">Ppk</span><span class="v mono">{{ capability?.ppk?.toFixed(2) || '-' }}</span></div></div>
@@ -35,11 +35,38 @@
             <div v-else class="cap-note cap-note--ok"><span class="cap-note__icon">✓</span><span>判定：{{ capability.level }}</span></div>
           </div>
         </div>
-        <div class="card-b">
+        <!-- 计数型过程水平(替代 Cp/Cpk):P/NP 显示 p̄/PPM/合格率;C/U 显示 ū/DPU -->
+        <div class="card-b" v-if="countCapability">
+          <div class="card-head"><h2>计数型过程水平</h2><span class="sub">{{ countCapability.chartKind }} 图 · {{ countCapability.sampleCount }} 个子组</span></div>
+          <div style="padding:16px 22px">
+            <template v-if="(countCapability.chartKind === 'P' || countCapability.chartKind === 'NP') && countCapability.pBar != null">
+              <div class="cpk-row">
+                <div class="cpk"><span class="l">过程平均不合格率 p̄</span><span class="v mono">{{ (Number(countCapability.pBar) * 100).toFixed(3) }}%</span></div>
+                <div class="cpk"><span class="l">PPM</span><span class="v mono" :class="(countCapability.ppm || 0) > 0 ? 'c-amber' : 'c-green'">{{ (countCapability.ppm || 0).toLocaleString() }}</span></div>
+              </div>
+              <div class="cpk-row">
+                <div class="cpk"><span class="l">合格率(良品率)</span><span class="v mono c-green">{{ (Number(countCapability.yieldRate) * 100).toFixed(3) }}%</span></div>
+                <div class="cpk"><span class="l">样本量</span><span class="v mono">{{ countCapability.sampleCount }}</span></div>
+              </div>
+              <div class="cap-foot">计数型参数无规格上下限,不计算 Cp/Cpk;以上为过程平均质量水平</div>
+            </template>
+            <template v-else-if="(countCapability.chartKind === 'C' || countCapability.chartKind === 'U') && countCapability.uBar != null">
+              <div class="cpk-row">
+                <div class="cpk"><span class="l">平均单位缺陷数 ū</span><span class="v mono">{{ Number(countCapability.uBar).toFixed(4) }}</span></div>
+                <div class="cpk"><span class="l">DPU</span><span class="v mono" :class="(countCapability.dpu || 0) > 0 ? 'c-amber' : 'c-green'">{{ Number(countCapability.dpu).toFixed(4) }}</span></div>
+              </div>
+              <div class="cap-foot">计数型参数无规格上下限,不计算 Cp/Cpk;以上为单位缺陷水平</div>
+            </template>
+            <template v-else>
+              <div class="cap-foot">尚无计数子组数据(请先在采集页录入不合格数/缺陷数)</div>
+            </template>
+          </div>
+        </div>
+        <div class="card-b" v-if="isVariable">
           <div class="card-head"><h2>直方图</h2><span class="sub" v-if="hist">μ={{ hist.mean?.toFixed(3) }} σ={{ hist.sigma?.toFixed(3) }}</span></div>
           <div class="chart" ref="histChartRef" style="height:220px"></div>
         </div>
-        <div class="card-b">
+        <div class="card-b" v-if="isVariable">
           <div class="card-head"><h2>CPK 历史趋势</h2></div>
           <div class="chart" ref="trendChartRef" style="height:190px"></div>
           <div style="padding:0 22px 14px">
@@ -166,8 +193,9 @@ import { ElMessage } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcChartApi } from '@/api/modules/spc/chart'
 import { spcCapabilityApi } from '@/api/modules/spc/capability'
+import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
 import { spcControlLimitApi } from '@/api/modules/spc/control-limits'
-import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit, SpcSubgroup } from '@/api/types/spc'
+import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit, SpcSubgroup, CountCapabilityVo } from '@/api/types/spc'
 
 const route = useRoute()
 const params = ref<SpcParam[]>([])
@@ -182,18 +210,32 @@ const sampleTaskId = ref((route.query.sampleTaskId as string) || '')
 const stageLabel = computed(() => ({ FIRST: '首件点', ROUTINE: '量产线', ALL: '全部' }[stage.value] || '量产线'))
 const stageClass = computed(() => ({ FIRST: 'first', ROUTINE: 'routine', ALL: 'all' }[stage.value] || 'routine'))
 
-// 参数下拉:仅展示与当前参数同属一个产品(料号)的参数,避免混入其他产品的参数
+// 参数下拉:按工单号(srcWoNo)聚拢——SPC 首件/工装参数都关联一个工单,同一工单的首件参数应归一组;
+// 无工单号(手动新建等)时回退按产品料号(partNo)收敛,避免混入其他产品的参数。
 const sameProductParams = computed(() => {
   const cur = param.value
+  const wo = cur?.srcWoNo
+  if (wo) {
+    return params.value.filter(p => p.srcWoNo === wo)
+  }
   const curParts = new Set((cur?.products || []).map(p => p.partNo).filter(Boolean))
   if (curParts.size === 0) return params.value.filter(p => p.id === paramId.value)
   return params.value.filter(p => (p.products || []).some(pr => curParts.has(pr.partNo)))
 })
+// 下拉选项文案:参数名 + 来源(产线首件/工装首件/手动/抽样) + 来源工单号,区分同产品同名参数
+const SRC_LABEL: Record<string, string> = { FIA_FIRST: '产线首件', TOOLING: '工装首件', MANUAL: '手动', SAMPLE: '抽样' }
+function paramOptionLabel(p: SpcParam): string {
+  const src = SRC_LABEL[p.paramSource || ''] || ''
+  const suffix = [src, p.srcWoNo].filter(Boolean).join(' · ')
+  return suffix ? `${p.paramName}（${suffix}）` : p.paramName
+}
 const chartData = ref<ControlChartVo | null>(null)
 const capability = ref<SpcCapability | null>(null)
 const hist = ref<SpcHistogramVo | null>(null)
 const trend = ref<SpcCapability[]>([])
 const trendRows = computed(() => trend.value.slice(0, 6))
+/** 计数型(P/NP/C/U)参数过程水平聚合(替代 Cp/Cpk) */
+const countCapability = ref<CountCapabilityVo | null>(null)
 
 const histChartRef = ref<HTMLElement>()
 const trendChartRef = ref<HTMLElement>()
@@ -262,15 +304,17 @@ async function loadChart() {
   // 控制图/直方图统一基于全量子组计算(忽略 stage 维度), 与过程能力口径一致;
   // stage 入口参数在此作废(不再作为过滤条件), 仅保留展示标签意义。
   const p = { paramId: paramId.value, startTime: timeRange.value?.[0], endTime: timeRange.value?.[1], stage: 'ALL', sampleTaskId: sampleTaskId.value || undefined }
-  const [data, cap, h] = await Promise.all([
+  const [data, cap, h, cc] = await Promise.all([
     spcChartApi.controlChart(p).catch(() => null),
     spcCapabilityApi.calc({ paramId: paramId.value }).catch(() => null),
     spcChartApi.histogram(p).catch(() => null),
+    spcSubgroupApi.countCapability(paramId.value).catch(() => null),
   ])
   chartData.value = data
   subgroupPage.value = 1
   capability.value = cap
   hist.value = h
+  countCapability.value = cc?.countType ? cc : null
   trend.value = await spcCapabilityApi.trend({ paramId: paramId.value }).catch(() => [])
   // 先销毁旧图实例,再按 chartCards 动态渲染(卡片数量随 chartCandidates 变化)
   cardCharts.value.forEach(c => c?.dispose())
@@ -301,6 +345,10 @@ const hasCountChart = computed(() => {
   const raw = param.value?.chartCandidates || param.value?.chartType || ''
   return raw.split(',').map(s => s.trim()).filter(Boolean).some(t => ['P', 'NP', 'C', 'U'].includes(t))
 })
+
+/** 计量型参数(VARIABLE):展示 Cp/Cpk 过程能力、直方图、CPK 历史趋势;
+ *  计数型参数(含计数图)走 countCapability 卡片,以上三卡隐藏。 */
+const isVariable = computed(() => !!param.value && !hasCountChart.value)
 
 /** 控制图页卡片生成: 输入已统一为基础图码(Xbar/R/S/I/MR/P/NP/C/U)直接映射为卡片;
  *  同时向下兼容历史组合码(Xbar-R→[Xbar,R]; Xbar-S→[Xbar,S]; I-MR→[I,MR])。
