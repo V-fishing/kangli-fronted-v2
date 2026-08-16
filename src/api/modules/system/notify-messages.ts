@@ -1,6 +1,6 @@
 // 通知中心 API:点对点通知手动发起 + 发送记录查询
 import { request } from '@/api/client'
-import type { NotifyMessage, NotifyChannel } from '@/api/types/system'
+import type { NotifyMessage, NotifyChannel, NotifyCenterRow } from '@/api/types/system'
 import type { PageResult } from '@/api/types/common'
 
 const BASE = '/v1/system/notify-messages'
@@ -30,5 +30,9 @@ export const notifyMessageApi = {
   /** 点对点渠道列表(凭据已脱敏, 仅启用渠道) */
   channels() {
     return request.get<NotifyChannel[]>(`${BASE}/channels`)
+  },
+  /** 通知中心统一视图: 以通知为粒度聚合多渠道投递明细 */
+  centerPage(params?: { status?: string; channel?: string; keyword?: string; page?: number; size?: number }) {
+    return request.get<PageResult<NotifyCenterRow>>(`${BASE}/center/page`, { params })
   },
 }

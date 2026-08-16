@@ -39,30 +39,34 @@
     <el-card shadow="never" class="card-b">
       <el-table :data="records" v-loading="loading" size="small">
         <el-table-column label="发送时间" width="160">
-          <template #default="{row}">{{ fmtTime((row as NotifyMessage).sendTime || (row as NotifyMessage).createdAt) }}</template>
+          <template #default="{row}">{{ fmtTime((row as NotifyCenterRow).sendTime) }}</template>
         </el-table-column>
         <el-table-column label="发送人" width="110">
-          <template #default="{row}">{{ (row as NotifyMessage).senderName || (row as NotifyMessage).senderId || '—' }}</template>
+          <template #default="{row}">{{ (row as NotifyCenterRow).senderName || '—' }}</template>
         </el-table-column>
         <el-table-column label="接收人" width="110">
-          <template #default="{row}">{{ (row as NotifyMessage).receiverName || (row as NotifyMessage).receiverId || '—' }}</template>
+          <template #default="{row}">{{ (row as NotifyCenterRow).receiverName || '—' }}</template>
         </el-table-column>
         <el-table-column label="标题" min-width="180" show-overflow-tooltip>
-          <template #default="{row}">{{ (row as NotifyMessage).title || '—' }}</template>
+          <template #default="{row}">{{ (row as NotifyCenterRow).title || '—' }}</template>
         </el-table-column>
-        <el-table-column label="渠道" width="130">
-          <template #default="{row}">{{ (row as NotifyMessage).channel || '—' }}</template>
+        <el-table-column label="投递明细" min-width="200">
+          <template #default="{row}">
+            <span v-for="d in (row as NotifyCenterRow).deliveries" :key="d.channel || ''" class="ch-tag" :class="deliveryClass(d.status)">
+              {{ d.channel }}<i class="ch-dot" :class="deliveryClass(d.status)"></i>
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{row}">
-            <el-tooltip :content="(row as NotifyMessage).failReason || ''" placement="top">
-              <el-tag :type="statusTagType((row as NotifyMessage).status)" size="small">{{ (row as NotifyMessage).status }}</el-tag>
+            <el-tooltip :content="failSummary(row as NotifyCenterRow)" placement="top">
+              <el-tag :type="statusTagType((row as NotifyCenterRow).status)" size="small">{{ (row as NotifyCenterRow).status }}</el-tag>
             </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column label="关联单据" width="140">
           <template #default="{row}">
-            <span v-if="(row as NotifyMessage).bizNo" class="biz-link" @click="goBiz(row as NotifyMessage)">{{ (row as NotifyMessage).bizNo }}</span>
+            <span v-if="(row as NotifyCenterRow).bizNo" class="biz-link" @click="goBiz(row as NotifyCenterRow)">{{ (row as NotifyCenterRow).bizNo }}</span>
             <span v-else>—</span>
           </template>
         </el-table-column>
@@ -121,13 +125,13 @@ import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { notifyMessageApi } from '@/api/modules/system/notify-messages'
 import { usersApi } from '@/api/modules/uop/users'
-import type { NotifyMessage, NotifyChannel } from '@/api/types/system'
+import type { NotifyCenterRow, NotifyChannel } from '@/api/types/system'
 import type { UserSelectVo } from '@/api/types/uop'
 
 const statusOptions = ['成功', '失败', '发送中']
 const router = useRouter()
 const loading = ref(false), sending = ref(false)
-const records = ref<NotifyMessage[]>([])
+const records = ref<NotifyCenterRow[]>([])
 const users = ref<UserSelectVo[]>([])
 const directChannels = ref<NotifyChannel[]>([])
 const allChannels = ref<string[]>([])
@@ -140,7 +144,7 @@ const sendForm = reactive({ receiverIds: [] as string[], channels: [] as string[
 async function fetch() {
   loading.value = true
   try {
-    const res = await notifyMessageApi.list({
+    const res = await notifyMessageApi.centerPage({
       status: filter.status || undefined,
       channel: filter.channel || undefined,
       keyword: filter.keyword || undefined,
@@ -200,19 +204,31 @@ function statusTagType(status: string): 'success' | 'danger' | 'primary' {
   return 'primary' // 发送中
 }
 
-function fmtTime(v?: string) {
+function fmtTime(v?: string | null) {
   if (!v) return ''
   const m = String(v).match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/)
   return m ? m[0].replace('T', ' ') : String(v)
 }
 
-function goBiz(row: NotifyMessage) {
+function goBiz(row: NotifyCenterRow) {
   const id = row.bizId
   if (!id) return
   const type = row.bizType
   if (type === '8D') router.push('/ncm/8d-reports/' + id)
   else if (type === 'CAPA') router.push('/ncm/capas/' + id)
   else if (type === 'CA') router.push('/ncm/corrective-actions/' + id)
+}
+
+// 投递明细标签配色: 成功=绿 / 发送中=蓝 / 失败=红
+function deliveryClass(status?: string | null): string {
+  if (status === '成功') return 'ok'
+  if (status === '失败') return 'fail'
+  return 'run'
+}
+// 状态列 tooltip: 汇总该通知所有失败渠道的失败原因
+function failSummary(row: NotifyCenterRow): string {
+  const fails = (row.deliveries || []).filter(d => d.status === '失败' && d.failReason)
+  return fails.length ? fails.map(d => `${d.channel}: ${d.failReason}`).join('；') : ''
 }
 
 onMounted(() => { fetch(); loadOptions() })
@@ -224,4 +240,18 @@ onMounted(() => { fetch(); loadOptions() })
 .hint { margin-top: 4px; color: #909399; font-size: 12px; }
 .biz-link { color: $cobalt; cursor: pointer; font-weight: 600; }
 .biz-link:hover { text-decoration: underline; }
+// 投递明细标签: 渠道名 + 状态圆点(站内弹窗/钉钉/邮件...)
+.ch-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: $font-mono; font-size: 11px; line-height: 1;
+  padding: 3px 7px; margin: 2px 6px 2px 0; border-radius: 4px;
+  background: $hairline-soft; color: $ink-soft; white-space: nowrap;
+}
+.ch-tag .ch-dot { width: 6px; height: 6px; border-radius: 50%; background: $ink-faint; }
+.ch-tag.ok { background: rgba($green, 0.12); color: $green; }
+.ch-tag.ok .ch-dot { background: $green; }
+.ch-tag.run { background: rgba($cobalt, 0.12); color: $cobalt; }
+.ch-tag.run .ch-dot { background: $cobalt; }
+.ch-tag.fail { background: rgba($signal-red, 0.12); color: $signal-red; }
+.ch-tag.fail .ch-dot { background: $signal-red; }
 </style>

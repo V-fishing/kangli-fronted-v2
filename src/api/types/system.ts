@@ -54,6 +54,33 @@ export interface NotifyMessage {
   createdAt?: string
 }
 
+/** 通知中心聚合行: 以「通知」为粒度(同一 notification_id 的多渠道投递明细归并为一行) */
+export interface NotifyCenterRow {
+  /** 聚合主键: notification_id 或 明细自身 id */
+  id: string
+  sendTime?: string | null
+  senderName?: string | null
+  receiverId?: string | null
+  receiverName?: string | null
+  title?: string | null
+  bizType?: string | null
+  bizId?: string | null
+  bizNo?: string | null
+  /** 主渠道(通常为 站内弹窗) */
+  channel?: string | null
+  /** 综合状态: 成功 / 发送中 / 失败(任一明细失败即失败, 否则任一发送中即发送中) */
+  status: string
+  /** 该通知的全部投递明细 */
+  deliveries: NotifyDelivery[]
+}
+
+/** 单条投递明细(渠道 + 状态) */
+export interface NotifyDelivery {
+  channel?: string | null
+  status?: string | null
+  failReason?: string | null
+}
+
 // 角色码 -> 中文名(与 ops.sys_role 对齐)
 export const ROLE_LABELS: Record<string, string> = {
   operator: '操作工',
