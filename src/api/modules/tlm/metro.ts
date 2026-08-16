@@ -21,6 +21,15 @@ export const metroApi = {
     request.post<TlmCalibPlan>('/v1/tlm/calib-plans/manual', null, { params: { toolId, planCycle, planDueDate } }),
   // 工装-工单绑定记录(含 GAUGE 校准快照)
   bindRecords: (toolId: string) => request.get<any[]>('/v1/tlm/tooling/' + toolId + '/binds'),
+  // 计量数据采集: GAUGE 实测值录入并绑定工单/批次
+  collectPage: (params: { keyword?: string; woNo?: string; judged?: string; page?: number; size?: number }) =>
+    request.get<any>('/v1/tlm/metro-record/page', { params }),
+  collectCreate: (body: {
+    toolId: string; woNo?: string; batchNo?: string; measurePoint?: string;
+    measureValue?: string; measureUnit?: string; standardValue?: string;
+    upperLimit?: string; lowerLimit?: string; judged?: string; measureTime?: string;
+    operator?: string; remark?: string;
+  }) => request.post<any>('/v1/tlm/metro-record', body),
 }
 
 export interface MetroDashboard {

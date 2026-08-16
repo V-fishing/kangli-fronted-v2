@@ -145,11 +145,30 @@ function createFirst(row: TlmTooling) {
   }
   router.push({ path: '/fia/tasks/create', query: { toolId: row.id, toolNo: row.toolNo, toolName: row.toolName } })
 }
-async function doRepair(row: TlmTooling) {
-  const { value } = await ElMessageBox.prompt('送修说明', '工装送修', { inputType: 'textarea' })
-  await tlmToolingApi.repair(row.id, { faultDesc: value || '' })
-  ElMessage.success('已送修')
-  fetch()
+// 送修:弹窗选故障类型 + 填送修说明(结构化 faultType 供根因聚合, 审批人由「系统管理 › 审核配置」决定)
+const FAULT_TYPES = ['磨损', '变形', '断裂', '精度超差', '电气故障', '其他']
+const repairDialog = ref(false)
+const repairSubmitting = ref(false)
+const repairRow = ref<TlmTooling | null>(null)
+const repairFaultType = ref('其他')
+const repairFaultDesc = ref('')
+function openRepair(row: TlmTooling) {
+  repairRow.value = row
+  repairFaultType.value = '其他'
+  repairFaultDesc.value = ''
+  repairDialog.value = true
+}
+async function submitRepair() {
+  if (!repairRow.value) return
+  repairSubmitting.value = true
+  try {
+    await tlmToolingApi.repair(repairRow.value.id!, { faultType: repairFaultType.value, faultDesc: repairFaultDesc.value.trim() })
+    ElMessage.success('已送修，待审批人处理')
+    repairDialog.value = false
+    fetch()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '送修失败')
+  } finally { repairSubmitting.value = false }
 }
 // 报废:弹窗填报废方式 + 原因(审批人由「系统管理 › 审核配置」决定,不手选)
 const scrapDialog = ref(false)
@@ -208,7 +227,7 @@ function onRowCommand(c: { cmd: string, row: TlmTooling }) {
     case 'first': return createFirst(c.row)
     case 'bind': return openBind(c.row)
     case 'edit': return openEdit(c.row)
-    case 'repair': return doRepair(c.row)
+    case 'repair': return openRepair(c.row)
     case 'scrap': return openScrap(c.row)
     case 'lock': return doLock(c.row)
     case 'delete': return doDelete(c.row)
@@ -377,6 +396,30 @@ onMounted(fetch)
       <template #footer>
         <el-button @click="bindDialog = false">取消</el-button>
         <el-button type="primary" :disabled="binding" @click="doBind">{{ binding ? '提交中' : '确认派工' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 送修弹窗(选故障类型 + 填说明, 审批人由审核配置决定不手选) -->
+    <el-dialog v-model="repairDialog" title="工装送修" width="520px" append-to-body>
+      <div v-if="repairRow" style="margin-bottom:16px;color:var(--el-text-color-regular);font-size:13px;">
+        工装：<span class="mono c-cobalt">{{ repairRow.toolNo }}</span> {{ repairRow.toolName }}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+        <div>
+          <label class="l">故障类型 *</label>
+          <el-select v-model="repairFaultType" style="width:100%;margin-top:6px;">
+            <el-option v-for="ft in FAULT_TYPES" :key="ft" :label="ft" :value="ft" />
+          </el-select>
+        </div>
+        <div>
+          <label class="l">送修说明</label>
+          <el-input v-model="repairFaultDesc" type="textarea" :rows="3" placeholder="如：定位导柱磨损导致精度下降" style="margin-top:6px;" />
+        </div>
+        <div class="mute" style="font-size:12px;">审批人将按「系统管理 › 审核配置 › 工装维修审核」节点自动指派，无需在此选择。</div>
+      </div>
+      <template #footer>
+        <el-button @click="repairDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="repairSubmitting" @click="submitRepair">{{ repairSubmitting ? '提交中' : '确认送修' }}</el-button>
       </template>
     </el-dialog>
 

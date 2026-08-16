@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { QmsInternalAudit, QmsAuditNc, QmsMgmtStats } from '@/api/types/qmsMgmt'
 import { qmsAuditApi } from '@/api/modules/qmsMgmt'
 import { usePermissionStore } from '@/stores/permission'
+import { downloadBlob } from '@/api/modules/common/files'
 import StatCards from '@/components/common/StatCards.vue'
 
 const perm = usePermissionStore()
@@ -51,6 +52,17 @@ async function loadStats() {
   try { stats.value = await qmsAuditApi.stats() } catch (e) { /* ignore */ }
 }
 function onSearch() { page.value = 1; fetch() }
+
+async function onExport() {
+  try {
+    await downloadBlob('/api/v1/qms-mgmt/audits/export',
+      '内审计划.csv',
+      { keyword: keyword.value || undefined, status: filterStatus.value || undefined })
+    ElMessage.success('导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
+}
 
 const formDialog = ref(false)
 const editingId = ref('')
@@ -213,6 +225,7 @@ onMounted(() => { fetch(); loadStats() })
         <h1>内审数据<span class="no mono">QMS</span></h1>
       </div>
       <el-button v-if="perm.has('qms-mgmt.audit.create')" type="primary" @click="openCreate">新建内审</el-button>
+      <el-button v-if="perm.has('qms-mgmt.audit.list')" @click="onExport">导出 CSV</el-button>
     </div>
 
     <StatCards :cards="[

@@ -31,3 +31,16 @@ export const fileApi = {
     URL.revokeObjectURL(url)
   },
 }
+
+/** 通用：请求二进制流并触发浏览器下载(用于报表/CSV 导出)。 */
+export async function downloadBlob(url: string, saveAs: string, params?: Record<string, any>) {
+  const blob = await request.get<Blob>(url, { params, responseType: 'blob' })
+  const u = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = u
+  a.download = saveAs
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(u)
+}

@@ -21,4 +21,6 @@ export const csFeedbackApi = {
     request.post(`/v1/cs/feedbacks/${id}/link-ncm`, null, { params: { ncmId } }),
   triggerNcm: (id: string, data: TriggerNcmRequest) =>
     request.post<CsFeedback>(`/v1/cs/feedbacks/${id}/trigger-ncm`, data),
+  exportCsv: (params: { keyword?: string; fbType?: string; status?: string }) =>
+    request.get<void>('/v1/cs/feedbacks/export', { params, responseType: 'blob' }),
 }

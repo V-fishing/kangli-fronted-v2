@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { QmsAdverseEvent, QmsMgmtStats } from '@/api/types/qmsMgmt'
 import { qmsAdverseApi } from '@/api/modules/qmsMgmt'
 import { usePermissionStore } from '@/stores/permission'
+import { downloadBlob } from '@/api/modules/common/files'
 import StatCards from '@/components/common/StatCards.vue'
 
 const perm = usePermissionStore()
@@ -45,6 +46,17 @@ async function loadStats() {
   try { stats.value = await qmsAdverseApi.stats() } catch (e) { /* ignore */ }
 }
 function onSearch() { page.value = 1; fetch() }
+
+async function onExport() {
+  try {
+    await downloadBlob('/api/v1/qms-mgmt/adverse/export',
+      '不良事件.csv',
+      { keyword: keyword.value || undefined, eventType: filterType.value || undefined, status: filterStatus.value || undefined })
+    ElMessage.success('导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
+}
 
 const formDialog = ref(false)
 const editingId = ref('')
@@ -122,6 +134,7 @@ onMounted(() => { fetch(); loadStats() })
         <h1>不良事件<span class="no mono">QMS</span></h1>
       </div>
       <el-button v-if="perm.has('qms-mgmt.adverse.create')" type="primary" @click="openCreate">登记事件</el-button>
+      <el-button v-if="perm.has('qms-mgmt.adverse.list')" @click="onExport">导出 CSV</el-button>
     </div>
 
     <StatCards :cards="[

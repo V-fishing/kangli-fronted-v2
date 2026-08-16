@@ -9,8 +9,10 @@ export const tlmToolingApi = {
   create: (body: Partial<TlmTooling>) => request.post<TlmTooling>('/v1/tlm/tooling', body),
   update: (body: Partial<TlmTooling>) => request.put<void>('/v1/tlm/tooling', body),
   delete: (id: string) => request.delete<void>(`/v1/tlm/tooling/${id}`),
-  repair: (id: string, params: { faultDesc?: string; approverId?: string }) =>
+  repair: (id: string, params: { faultDesc?: string; faultType?: string; approverId?: string }) =>
     request.post<void>(`/v1/tlm/tooling/${id}/repair`, null, { params }),
+  repairAnalysis: (params: { startDate?: string; endDate?: string }) =>
+    request.get<Record<string, any>>('/v1/tlm/repair/analysis', { params }),
   repairComplete: (id: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-complete`),
   repairFill: (id: string, measure: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-fill`, null, { params: { measure } }),
   repairDone: (id: string) => request.post<void>(`/v1/tlm/tooling/${id}/repair-done`),

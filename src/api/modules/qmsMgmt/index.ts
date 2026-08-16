@@ -26,6 +26,8 @@ export const qmsAuditApi = {
     request.get<PageResult<QmsAuditNc>>('/v1/qms-mgmt/audits/nc/page', { params }),
   ncSave: (data: QmsAuditNc) => request.post<QmsAuditNc>('/v1/qms-mgmt/audits/nc', data),
   ncDelete: (id: string) => request.delete(`/v1/qms-mgmt/audits/nc/${id}`),
+  exportCsv: (params: { keyword?: string; status?: string }) =>
+    request.get<void>('/v1/qms-mgmt/audits/export', { params, responseType: 'blob' }),
 }
 
 export const qmsAdverseApi = {
@@ -38,6 +40,8 @@ export const qmsAdverseApi = {
   delete: (id: string) => request.delete(`/v1/qms-mgmt/adverse/${id}`),
   handle: (id: string, status: string, handleDesc?: string, owner?: string) =>
     request.post(`/v1/qms-mgmt/adverse/${id}/handle`, null, { params: { status, handleDesc, owner } }),
+  exportCsv: (params: { keyword?: string; eventType?: string; status?: string }) =>
+    request.get<void>('/v1/qms-mgmt/adverse/export', { params, responseType: 'blob' }),
 }
 
 export const qmsBoardApi = {
