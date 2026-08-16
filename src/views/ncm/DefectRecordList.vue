@@ -32,6 +32,12 @@
             <el-tag v-else type="info" size="small">{{ (row as NcmDefectRecord).source }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="来源工装" width="120">
+          <template #default="{row}">
+            <router-link v-if="(row as NcmDefectRecord).toolId" :to="`/tlm/tooling/${(row as NcmDefectRecord).toolId}`" class="mono link">{{ (row as NcmDefectRecord).toolNo }}</router-link>
+            <span v-else class="no-measure">—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="发生时间" width="160"><template #default="{row}">{{ fmtMinute((row as NcmDefectRecord).occurredAt) }}</template></el-table-column>
         <el-table-column label="处置方案" width="110">
           <template #default="{row}">
@@ -188,7 +194,7 @@ const auth = useAuthStore()
 const list = ref<NcmDefectRecord[]>([])
 const loading = ref(false), dictLoading = ref(false)
 const dicts = ref<NcmDefectDict[]>([])
-const sources = ['手动', '首件检验', 'SQM', 'SPC', 'MES导入']
+const sources = ['手动', '首件检验', 'SQM', 'SPC', 'MES导入', '工装']
 const dispos = ['退货', '返修', '报废', '让步接收', '挑选', '合格入库']
 const stages = ['来料不良', '半成品不良', '成品不良', '首件不良']
 

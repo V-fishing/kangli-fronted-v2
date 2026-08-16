@@ -24,6 +24,10 @@ export interface NcmDefectRecord {
   batchTotal?: number
   defectRate?: number
   deviceCode?: string
+  /** 来源工装 ID(工装发起不良时回填)。 */
+  toolId?: string
+  /** 来源工装编号(工装发起不良时回填,列表直接展示)。 */
+  toolNo?: string
   batchNo?: string
   productModel?: string
   operatorId?: string

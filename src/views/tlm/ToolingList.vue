@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import type { TlmTooling } from '@/api/types/tlm'
-import { tlmToolingApi } from '@/api/modules/tlm/tooling'
+import { tlmToolingApi, productionOrderApi } from '@/api/modules/tlm/tooling'
 import { usePermissionStore } from '@/stores/permission'
 
 const router = useRouter()
@@ -108,14 +108,25 @@ const bindDialog = ref(false)
 const binding = ref(false)
 const bindRow = ref<TlmTooling | null>(null)
 const bindWoNo = ref('')
+const woOptions = ref<string[]>([])
+const woLoading = ref(false)
+async function loadWoOptions(kw?: string) {
+  woLoading.value = true
+  try {
+    woOptions.value = await productionOrderApi.list(kw, 200)
+  } catch (e) {
+    woOptions.value = []
+  } finally { woLoading.value = false }
+}
 function openBind(row: TlmTooling) {
   bindRow.value = row
   bindWoNo.value = ''
   bindDialog.value = true
+  loadWoOptions()
 }
 async function doBind() {
   if (!bindRow.value) return
-  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请填写工单号'); return }
+  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请选择工单号'); return }
   binding.value = true
   try {
     await tlmToolingApi.bind(bindRow.value.id!, bindWoNo.value.trim())
@@ -357,7 +368,11 @@ onMounted(fetch)
         工装：<span class="mono c-cobalt">{{ bindRow.toolNo }}</span> {{ bindRow.toolName }}
       </div>
       <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        <div><label class="l">工单号 *</label><el-input v-model="bindWoNo" style="width:100%" placeholder="如：WO-20260814-001" /></div>
+        <div><label class="l">工单号 *</label>
+          <el-select v-model="bindWoNo" filterable remote :remote-method="loadWoOptions" :loading="woLoading" allow-create default-first-option placeholder="输入关键字搜索生产工单号" style="width:100%">
+            <el-option v-for="wo in woOptions" :key="wo" :label="wo" :value="wo" />
+          </el-select>
+        </div>
       </div>
       <template #footer>
         <el-button @click="bindDialog = false">取消</el-button>

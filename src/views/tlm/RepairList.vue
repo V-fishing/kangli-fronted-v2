@@ -1,11 +1,15 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TlmRepair } from '@/api/types/tlm'
+import type { NcmDefectDict } from '@/api/types/ncm'
 import { tlmRepairApi } from '@/api/modules/tlm/repair'
+import { tlmToolingApi } from '@/api/modules/tlm/tooling'
+import { ncmDefectRecordApi } from '@/api/modules/ncm/defect-records'
+import { ncmDefectDictApi } from '@/api/modules/ncm/defect-dicts'
 import { usePermissionStore } from '@/stores/permission'
 
 const router = useRouter()
@@ -101,7 +105,49 @@ async function doVerify(row: TlmRepair) {
   }
 }
 
-onMounted(fetch)
+// ---- 发起不良(工装维修 → NCM 不良列表) ----
+const dicts = ref<NcmDefectDict[]>([])
+const defectDialog = ref(false)
+const defectSubmitting = ref(false)
+const defectRow = ref<TlmRepair | null>(null)
+const defectForm = reactive({
+  defectDictCode: '',
+  severity: '一般',
+  defectCount: 1,
+  batchTotal: 1,
+  remark: '',
+})
+function openDefect(row: TlmRepair) {
+  defectRow.value = row
+  Object.assign(defectForm, { defectDictCode: '', severity: '一般', defectCount: 1, batchTotal: 1, remark: '' })
+  defectDialog.value = true
+}
+async function submitDefect() {
+  if (!defectRow.value?.toolId) return
+  if (!defectForm.defectDictCode) { ElMessage.warning('请选择缺陷编码'); return }
+  defectSubmitting.value = true
+  try {
+    await ncmDefectRecordApi.create({
+      source: '工装',
+      toolId: defectRow.value.toolId,
+      toolNo: defectRow.value.toolNo,
+      defectDictCode: defectForm.defectDictCode,
+      severity: defectForm.severity,
+      defectCount: defectForm.defectCount,
+      batchTotal: defectForm.batchTotal,
+      remark: defectForm.remark || `工装修维修发起:${defectRow.value.toolNo} ${defectRow.value.faultDesc || ''}`,
+      stage: '半成品不良',
+    } as any)
+    ElMessage.success('已发起不良记录，已进入不良管理列表')
+    defectDialog.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '发起失败')
+  } finally {
+    defectSubmitting.value = false
+  }
+}
+
+onMounted(() => { fetch(); ncmDefectDictApi.list().then(d => dicts.value = d).catch(() => {}) })
 </script>
 
 <template>
@@ -159,6 +205,7 @@ onMounted(fetch)
             <el-button v-if="(row.status === 'PENDING' || row.status === 'REPAIRING') && perm.has('tlm.tooling.repair')" link type="primary" size="small" @click="openFill(row)">填写措施</el-button>
             <el-button v-if="row.status === 'REPAIRING' && perm.has('tlm.tooling.repair')" link type="primary" size="small" @click="doRepairDone(row)">完成维修</el-button>
             <el-button v-if="row.status === 'DONE' && perm.has('tlm.tooling.repair')" link type="primary" size="small" @click="doVerify(row)">验证通过</el-button>
+            <el-button link type="warning" size="small" @click="openDefect(row)">发起不良</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -182,6 +229,31 @@ onMounted(fetch)
       <template #footer>
         <el-button @click="fillDialog = false">取消</el-button>
         <el-button type="primary" :disabled="filling" @click="submitFill">{{ filling ? '提交中' : '确认填写' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="defectDialog" title="发起不良记录（工装来源）" width="520px" append-to-body>
+      <div v-if="defectRow" style="margin-bottom:12px;font-size:13px;color:var(--el-text-color-regular);">
+        工装：<span class="mono c-cobalt">{{ defectRow.toolNo }}</span> {{ defectRow.toolName }}
+      </div>
+      <el-form :model="defectForm" label-width="80px">
+        <el-form-item label="缺陷编码" required>
+          <el-select v-model="defectForm.defectDictCode" filterable placeholder="选择不良字典" style="width:100%" v-loading="dicts.length===0">
+            <el-option v-for="d in dicts" :key="d.code" :label="`${d.code} · ${d.name}`" :value="d.code" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="严重度" required>
+          <el-select v-model="defectForm.severity" style="width:100%"><el-option v-for="s in ['严重','一般','轻微']" :key="s" :label="s" :value="s" /></el-select>
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12"><el-form-item label="不良数量" required><el-input-number v-model="defectForm.defectCount" :min="1" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="批次总数"><el-input-number v-model="defectForm.batchTotal" :min="1" style="width:100%" /></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="备注"><el-input v-model="defectForm.remark" type="textarea" :rows="2" placeholder="如：工装磨损导致尺寸超差" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="defectDialog=false">取消</el-button>
+        <el-button type="primary" :loading="defectSubmitting" @click="submitDefect">确认发起不良</el-button>
       </template>
     </el-dialog>
   </div>

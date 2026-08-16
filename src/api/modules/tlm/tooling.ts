@@ -31,3 +31,9 @@ export const tlmToolingApi = {
   relateProduct: (id: string, body: Partial<TlmToolProduct>) => request.post<TlmToolProduct>(`/v1/tlm/tooling/${id}/product`, body),
   unrelateProduct: (id: string, pid: string) => request.delete<void>(`/v1/tlm/tooling/${id}/product/${pid}`),
 }
+
+/** 生产工单号下拉(从 MES 落地宽表 finished_goods_inspection/critical_material_binding 去重取真实工单号)。 */
+export const productionOrderApi = {
+  list: (keyword?: string, limit = 200) =>
+    request.get<string[]>('/v1/sqm/trace/production-orders', { params: { keyword, limit } }),
+}

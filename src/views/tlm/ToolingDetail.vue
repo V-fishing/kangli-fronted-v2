@@ -4,7 +4,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, TlmProductDetail } from '@/api/types/tlm'
-import { tlmToolingApi } from '@/api/modules/tlm/tooling'
+import { tlmToolingApi, productionOrderApi } from '@/api/modules/tlm/tooling'
 import { tlmMaintApi } from '@/api/modules/tlm/maint'
 import { tlmRepairApi } from '@/api/modules/tlm/repair'
 import { metroApi } from '@/api/modules/tlm/metro'
@@ -187,13 +187,24 @@ function createFirst() {
 const bindDialog = ref(false)
 const binding = ref(false)
 const bindWoNo = ref('')
+const woOptions = ref<string[]>([])
+const woLoading = ref(false)
+async function loadWoOptions(kw?: string) {
+  woLoading.value = true
+  try {
+    woOptions.value = await productionOrderApi.list(kw, 200)
+  } catch (e) {
+    woOptions.value = []
+  } finally { woLoading.value = false }
+}
 function openBind() {
   bindWoNo.value = ''
   bindDialog.value = true
+  loadWoOptions()
 }
 async function doBind() {
   if (!tool.value) return
-  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请填写工单号'); return }
+  if (!bindWoNo.value || !bindWoNo.value.trim()) { ElMessage.warning('请选择工单号'); return }
   binding.value = true
   try {
     await tlmToolingApi.bind(tool.value.id!, bindWoNo.value.trim())
@@ -471,7 +482,11 @@ onMounted(load)
         工装：<span class="mono c-cobalt">{{ tool.toolNo }}</span> {{ tool.toolName }}
       </div>
       <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        <div><label class="l">工单号 *</label><el-input v-model="bindWoNo" style="width:100%" placeholder="如：WO-20260814-001" /></div>
+        <div><label class="l">工单号 *</label>
+          <el-select v-model="bindWoNo" filterable remote :remote-method="loadWoOptions" :loading="woLoading" allow-create default-first-option placeholder="输入关键字搜索生产工单号" style="width:100%">
+            <el-option v-for="wo in woOptions" :key="wo" :label="wo" :value="wo" />
+          </el-select>
+        </div>
       </div>
       <template #footer>
         <el-button @click="bindDialog = false">取消</el-button>
