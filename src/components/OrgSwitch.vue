@@ -5,7 +5,7 @@
       @change="onChange"
       size="small"
       placeholder="组织视图"
-      style="width: 140px"
+      style="width: 108px"
     >
       <el-option label="全部" value="ALL" />
       <el-option v-for="o in orgs" :key="o.orgCode" :label="o.orgName" :value="o.orgCode" />
@@ -40,5 +40,9 @@ function onChange(val: string) {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.org-switch :deep(.el-select__wrapper) {
+  min-height: 28px;
+  font-size: 12px;
 }
 </style>

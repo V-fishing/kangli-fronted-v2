@@ -2,9 +2,26 @@ node_modules
 dist
 dist-ssr
 *.local
-.env.local
+.env
+.env.*
+!.env.example
 src/auto-imports.d.ts
 src/components.d.ts
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# ---------- TypeScript / Vite 缓存 ----------
+*.tsbuildinfo
+*.cache
+.vite/
+*.local
+
+# ---------- 编辑器 / IDE ----------
+.idea/
+*.iml
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini

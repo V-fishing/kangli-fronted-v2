@@ -32,7 +32,7 @@
       </div>
 
       <!-- 统一参数表:平铺所有来源(产线首件/工装首件/产品抽样),每行一条参数,列表仅展示关键字段 -->
-      <el-table :data="flatRows" v-loading="loading" size="small">
+      <el-table :data="pagedRows" v-loading="loading" size="small">
         <el-table-column label="来源" width="110">
           <template #default="{row}"><span class="src-tag">{{ row.srcLabel }}</span></template>
         </el-table-column>
@@ -60,6 +60,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div style="display:flex; justify-content:flex-end; padding:14px 22px 0">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="flatRows.length"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+        />
+      </div>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑参数' : '新建参数'" width="480px" append-to-body>
@@ -146,7 +157,7 @@
 
 <script setup lang="ts">
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -213,11 +224,20 @@ const router = useRouter()
 const paramList = ref<SpcParam[]>([])
 const sampleTasks = ref<SpcSampleTask[]>([])
 const loading = ref(false)
+// 前端分页:flatRows 为内存合并+筛选后的完整结果,pagedRows 按页码切片展示
+const currentPage = ref(1)
+const pageSize = ref(20)
+const pagedRows = computed<ParamRow[]>(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return flatRows.value.slice(start, start + pageSize.value)
+})
 const filterProduct = ref('')
 const filterParamName = ref('')
 const filterProcName = ref<any>('')
 // 来源筛选:全部(空)/产线首件(FIA)/工装首件(TOOLING)/产品抽样(SAMPLE)
 const filterSource = ref('')
+// 任一筛选条件变化(来源/产品/参数名/工序)重置回第一页,避免停留在越界页码
+watch([filterSource, filterProduct, filterParamName, filterProcName], () => { currentPage.value = 1 })
 const procOptions = computed(() => {
   const src = filterSource.value === 'SAMPLE' ? sampleTasks.value : paramList.value
   return [...new Set(src.map((p: any) => p.procName).filter(Boolean))].sort()
@@ -293,6 +313,7 @@ async function fetchData() {
     // 始终拉取抽样任务,用于抽样参数挂载任务状态/进度,以及首件参数排除已被抽样任务占用的项
     sampleTasks.value = await spcSampleTaskApi.list()
   } finally { loading.value = false }
+  currentPage.value = 1
 }
 function clearProduct() { filterProduct.value = ''; fetchData() }
 function openCreate() { isEdit.value = false; editId.value = ''; Object.assign(form, { paramName: '', procName: '', unit: '', specLower: undefined, specUpper: undefined, targetValue: undefined, subgroupSize: 5, collectFreq: '', chartType: 'Xbar', chartCandidates: 'Xbar,R', dataType: 'VARIABLE', isActive: true, sigmaMethod: 'within', sigmaK: 3, cpkPeriod: '' }); dialogVisible.value = true }
