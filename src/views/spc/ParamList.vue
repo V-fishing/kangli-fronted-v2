@@ -42,11 +42,11 @@
         </el-table-column>
         <el-table-column prop="paramName" label="参数名" min-width="140" show-overflow-tooltip />
         <el-table-column prop="procName" label="工序" width="120" />
-        <!-- 状态列(抽样任务参数填任务状态,其余显示 —) -->
+        <!-- 状态列:抽样任务参数填任务状态(采集中/已结案),首件类参数统一显示"已建参"(标准已生效),整列均为胶囊无空置 -->
         <el-table-column label="状态" width="90">
           <template #default="{row}">
             <span v-if="row._task" class="pill" :class="statusPill(row._task.status)"><span class="d"></span>{{ row._task.status }}</span>
-            <span v-else class="muted">—</span>
+            <span v-else class="pill p-wait"><span class="d"></span>已建参</span>
           </template>
         </el-table-column>
 
@@ -137,7 +137,7 @@
         <el-descriptions-item label="激活">{{ detailRow.isActive ? '是' : '否' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <span v-if="detailRow._task" class="pill" :class="statusPill(detailRow._task.status)"><span class="d"></span>{{ detailRow._task.status }}</span>
-          <span v-else class="muted">—</span>
+          <span v-else class="pill p-wait"><span class="d"></span>已建参</span>
         </el-descriptions-item>
         <el-descriptions-item v-if="detailRow._task" label="采集进度">
           <span class="mono" :class="detailRow._task.targetCount > 0 && detailRow._task.currentCount >= detailRow._task.targetCount ? 'c-green' : ''">

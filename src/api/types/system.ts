@@ -66,6 +66,8 @@ export interface NotifyCenterRow {
   bizType?: string | null
   bizId?: string | null
   bizNo?: string | null
+  /** 关联单据跳转链接(后端按 bizType+bizId 生成) */
+  bizLink?: string | null
   /** 主渠道(通常为 站内弹窗) */
   channel?: string | null
   /** 综合状态: 成功 / 发送中 / 失败(任一明细失败即失败, 否则任一发送中即发送中) */

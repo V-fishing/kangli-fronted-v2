@@ -11,6 +11,7 @@ export interface AuditLogVO {
   operatorId: string
   operatorName: string
   recordId: string
+  recordNo?: string | null
   detail: string
   status: string
   costMs: number | null

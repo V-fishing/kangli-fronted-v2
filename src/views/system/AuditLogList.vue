@@ -30,7 +30,10 @@
         <el-table-column prop="action" label="动作" width="120" />
         <el-table-column prop="operatorName" label="操作人" width="130" />
         <el-table-column prop="recordId" label="业务ID" min-width="160">
-          <template #default="{ row }"><span class="mono">{{ row.recordId || '—' }}</span></template>
+          <template #default="{ row }">
+            <span class="mono">{{ row.recordNo || row.recordId || '—' }}</span>
+            <span v-if="row.recordNo && row.recordId" class="mono faint rec-uuid" :title="row.recordId">{{ row.recordId.slice(0, 8) }}</span>
+          </template>
         </el-table-column>
         <el-table-column prop="detail" label="操作摘要" min-width="240" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="90">
@@ -56,6 +59,7 @@
         <el-descriptions-item label="模块">{{ current.module }}</el-descriptions-item>
         <el-descriptions-item label="动作">{{ current.action }}</el-descriptions-item>
         <el-descriptions-item label="操作人">{{ current.operatorName }} <span class="mono faint">({{ current.operatorId }})</span></el-descriptions-item>
+        <el-descriptions-item label="业务单号"><span class="mono">{{ current.recordNo || '—' }}</span></el-descriptions-item>
         <el-descriptions-item label="业务ID"><span class="mono">{{ current.recordId || '—' }}</span></el-descriptions-item>
         <el-descriptions-item label="方法">{{ current.method || '—' }}</el-descriptions-item>
         <el-descriptions-item label="耗时"><span class="mono">{{ current.costMs != null ? current.costMs + ' ms' : '—' }}</span></el-descriptions-item>
@@ -136,6 +140,7 @@ onMounted(() => { fetchModules(); fetchData() })
 .page-b { margin-top: 14px; display: flex; justify-content: flex-end; }
 .mono { font-family: $font-mono; }
 .faint { color: $ink-faint; }
+.rec-uuid { margin-left: 6px; font-size: 11px; }
 .pill { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 12px; font-family: $font-mono; border: 1px solid; }
 .pill-ok { color: $green; border-color: $green; }
 .pill-fail { color: $signal-red; border-color: $signal-red; }

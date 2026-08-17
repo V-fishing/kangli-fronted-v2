@@ -66,7 +66,7 @@
         </el-table-column>
         <el-table-column label="关联单据" width="140">
           <template #default="{row}">
-            <span v-if="(row as NotifyCenterRow).bizNo" class="biz-link" @click="goBiz(row as NotifyCenterRow)">{{ (row as NotifyCenterRow).bizNo }}</span>
+            <span v-if="(row as NotifyCenterRow).bizLink" class="biz-link" @click="goBiz(row as NotifyCenterRow)">{{ (row as NotifyCenterRow).bizNo || (row as NotifyCenterRow).bizId }}</span>
             <span v-else>—</span>
           </template>
         </el-table-column>
@@ -211,12 +211,9 @@ function fmtTime(v?: string | null) {
 }
 
 function goBiz(row: NotifyCenterRow) {
-  const id = row.bizId
-  if (!id) return
-  const type = row.bizType
-  if (type === '8D') router.push('/ncm/8d-reports/' + id)
-  else if (type === 'CAPA') router.push('/ncm/capas/' + id)
-  else if (type === 'CA') router.push('/ncm/corrective-actions/' + id)
+  const link = row.bizLink
+  if (!link) return
+  router.push(link)
 }
 
 // 投递明细标签配色: 成功=绿 / 发送中=蓝 / 失败=红
