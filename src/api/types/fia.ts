@@ -49,6 +49,7 @@ export interface FiaTask {
   updatedAt?: string
   createdBy?: string
   version?: number
+  changeId?: string // 关联物料变更单 ID(变更驱动的首件)
 }
 
 // ── 检验项 ──
@@ -112,6 +113,7 @@ export interface CreateFiaTaskRequest {
   stdItemIds?: string[]
   isUrgent?: boolean
   remark?: string
+  changeId?: string // 关联物料变更单 ID(非空时后端强制绑定 supplier/partNo + source=SUPPLIER)
 }
 
 /** 工装首件检验任务创建(人工入口): 按 toolId 取工装档案自动匹配标准,批次号必填 */

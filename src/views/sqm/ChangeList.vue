@@ -36,7 +36,7 @@
         <el-table-column label="客户" width="130"><template #default="{row}"><span v-if="row.customerNotify" class="pill p-run" style="margin-right:4px">需通知</span><span v-if="row.customerApproved" class="pill p-done">已批准</span><span v-if="!row.customerNotify && !row.customerApproved" class="muted">—</span></template></el-table-column>
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{row}">
-            <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
+            <el-button link type="primary" size="small" @click="goDetail(row)">详情</el-button>
             <el-button v-if="row.status==='待申请' && canSubmit" link type="primary" size="small" @click="submit(row)">提交</el-button>
             <el-button v-if="row.status==='审批中' && canApprove" link type="success" size="small" @click="openApprove(row)">审批</el-button>
             <el-button v-if="row.status==='已批准' && canClose" link type="warning" size="small" @click="closeChange(row)">关闭</el-button>
@@ -169,6 +169,28 @@
         </el-descriptions>
       </template>
 
+      <!-- 关联首件任务(变更 → 首件 绑定闭环入口) -->
+      <template v-if="detail">
+        <el-divider content-position="left">关联首件任务(FIA 验证)</el-divider>
+        <div class="fia-link-bar">
+          <span class="muted" v-if="!relatedFia">尚未创建关联首件任务</span>
+          <el-button
+            v-if="detail.order.status === '已批准' && !relatedFia && canCreateFia"
+            type="primary" size="small"
+            @click="goCreateFia(detail.order.id)">创建首件任务</el-button>
+          <el-button
+            v-if="relatedFia"
+            link type="primary" size="small"
+            @click="goFia(relatedFia.id)">查看首件 ›</el-button>
+        </div>
+        <el-table v-if="relatedFia" :data="[relatedFia]" size="small" border style="margin-top:8px">
+          <el-table-column prop="code" label="任务编号" width="180" />
+          <el-table-column label="类型" width="120"><template #default="{row}">{{ row.source === 'SUPPLIER' ? '供应商来料首件' : (row.source || '—') }}</template></el-table-column>
+          <el-table-column label="状态" width="100"><template #default="{row}"><span class="pill" :class="fiaStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
+          <el-table-column label="结果" width="100"><template #default="{row}"><span v-if="row.overallJudge" class="pill" :class="fiaJudgeClass(row.overallJudge)">{{ row.overallJudge }}</span><span v-else class="muted">—</span></template></el-table-column>
+        </el-table>
+      </template>
+
       <div v-if="detail" class="section-title">流程线路（变更全生命周期）</div>
       <el-timeline v-if="detail">
         <el-timeline-item
@@ -241,8 +263,10 @@ import { usePermissionStore } from '@/stores/permission'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { fileApi } from '@/api/modules/common/files'
 import type { SqmChangeOrder, SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan, SqmChangeStrictInspect } from '@/api/types/sqm'
+import type { FiaTask } from '@/api/types/fia'
 
 const route = useRoute()
 const router = useRouter()
@@ -253,6 +277,7 @@ const canSubmit = computed(() => perm.has('sqm.change.submit'))
 const canApprove = computed(() => perm.has('sqm.change.approve'))
 const canClose = computed(() => perm.has('sqm.change.close'))
 const canRollback = computed(() => perm.has('sqm.change.rollback'))
+const canCreateFia = computed(() => perm.has('sqm.change.createFia'))
 const list = ref<SqmChangeOrderListVo[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
@@ -366,27 +391,41 @@ const detail = ref<SqmChangeOrderVo | null>(null)
 const detailSupplier = ref<SqmSupplier | null>(null)
 // 关联审核计划(双向追溯: 变更单 → 审核计划)
 const relatedAudits = ref<SqmAuditPlan[]>([])
+// 关联首件任务(变更 → 首件 绑定追溯):按 change_id 反查
+const relatedFia = ref<FiaTask | null>(null)
 const sortedApprovals = computed(() => detail.value ? [...detail.value.approvals].sort((a, b) => (a.seqOrder || 99) - (b.seqOrder || 99)) : [])
 
+function goDetail(r: any) { router.push(`/sqm/changes/${r.id}`) }
+
 async function openDetail(r: any) {
-  detail.value = null; detailSupplier.value = null; relatedAudits.value = []
+  detail.value = null; detailSupplier.value = null; relatedAudits.value = []; relatedFia.value = null
   detailVisible.value = true
   detail.value = await sqmChangeApi.get(r.id)
   const sid = detail.value.order.supplierId
   if (sid) { try { detailSupplier.value = await sqmSupplierApi.get(sid) } catch { detailSupplier.value = null } }
   // 双向追溯: 反查该变更单联动生成的审核计划
   try {
-    console.log('[ChangeList] 查询关联审核, changeId=', r.id)
     relatedAudits.value = await sqmAuditApi.listByChangeId(r.id)
-    console.log('[ChangeList] 关联审核结果 =', relatedAudits.value.length, '条', relatedAudits.value)
-  } catch (e: any) {
-    console.warn('[ChangeList] 查询关联审核失败', e?.message || e)
-    relatedAudits.value = []
-  }
+  } catch { relatedAudits.value = [] }
+  // 变更 → 首件 绑定追溯: 按 change_id 反查关联首件
+  try {
+    relatedFia.value = await fiaTaskApi.byChange(r.id)
+  } catch { relatedFia.value = null }
 }
 
 // 双向追溯: 跳转到关联审核计划详情
 function goAudit(id: string) { router.push({ path: '/sqm/audits', query: { planId: id } }) }
+// 跳转到首件创建页(携带 changeId 预填供应商/料号/品类 + 自动匹配标准)
+function goCreateFia(changeId: string) { router.push({ path: '/fia/tasks/create', query: { changeId } }) }
+// 跳转到关联首件详情
+function goFia(id: string) { router.push(`/fia/tasks/${id}`) }
+// 首件状态/判定 → StatusPill 变体(遵循 AGENTS.md 铁律,复用原型 pill 类)
+function fiaStatusClass(s: string): string {
+  return ({ '待检': 'p-wait', '进行中': 'p-run', '待复核': 'p-sign', '待批准': 'p-sign', '已完成': 'p-done', '已作废': 'p-mute' } as Record<string, string>)[s] || 'p-mute'
+}
+function fiaJudgeClass(j: string): string {
+  return ({ '合格': 'p-done', '警告': 'p-run', '不合格': 'p-lock' } as Record<string, string>)[j] || 'p-mute'
+}
 function planStatusType(s: string): 'info' | 'success' | 'warning' | 'primary' {
   if (s === '已完成') return 'success'
   if (s === '进行中') return 'warning'
@@ -407,8 +446,8 @@ function changeStatusClass(s: string) { return ({ '待申请': 'p-wait', '审批
 const CHANGE_FLOW = [
   { key: 'apply', label: '申请', hint: '变更提出' },
   { key: 'approve', label: '审批中', hint: '采购→研发→质量' },
-  { key: 'approved', label: '已批准', hint: '联动FIA标准/加严检验' },
-  { key: 'close', label: '关闭/归档', hint: '解冻收货' },
+  { key: 'approved', label: '已批准', hint: '待首件/SPC 验证' },
+  { key: 'close', label: '关闭/归档', hint: '首件合格 + SPC 连续稳定后归档' },
 ]
 const changeTimeline = computed(() => {
   const s = detail.value?.order?.status

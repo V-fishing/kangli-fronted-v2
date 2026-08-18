@@ -78,6 +78,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'sqm/audits/record/:recordId', name: 'SqmAuditRecord', component: () => import('@/views/sqm/AuditRecordDetail.vue'), meta: { title: '审核记录' } },
       { path: 'system/audit-config', name: 'SqmAuditConfig', component: () => import('@/views/sqm/AuditApprovalConfig.vue'), meta: { title: '审核人员配置' } },
       { path: 'sqm/changes', name: 'SqmChanges', component: () => import('@/views/sqm/ChangeList.vue'), meta: { title: '变更' } },
+      { path: 'sqm/changes/:id', name: 'SqmChangeDetail', component: () => import('@/views/sqm/ChangeDetail.vue'), meta: { title: '变更详情' } },
       { path: 'sqm/supplier-lots', name: 'SqmSupplierLots', component: () => import('@/views/sqm/SupplierLots.vue'), meta: { title: '供应商来料批次' } },
       { path: 'sqm/trace', name: 'SqmTrace', component: () => import('@/views/sqm/TraceList.vue'), meta: { title: '物料追溯' } },
       { path: 'sqm/trace/view', redirect: '/sqm/trace' },

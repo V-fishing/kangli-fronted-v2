@@ -8,21 +8,26 @@
     </div>
 
     <div class="card-b">
+      <div v-if="fromChange" class="src-banner">
+        来源:物料变更单 <span class="mono">{{ form.changeId }}</span> · 已自动带入供应商、料号、产品名称与触发类型,均锁定不可改;仅需填写工序、批次号与 SPC 参数
+      </div>
       <el-form :model="form" label-width="100px" style="max-width: 680px; padding: 24px" @submit.prevent="submitCreate">
         <el-input v-model="form.orgId" type="hidden" />
 
         <!-- 一级分段: 产品首件 / 工装首件(方案 a,el-radio-group + el-radio-button,零手写) -->
         <el-form-item label="任务类型">
-          <el-radio-group v-model="taskKind">
+          <el-radio-group v-model="taskKind" :disabled="fromChange">
             <el-radio-button value="product">产品首件</el-radio-button>
             <el-radio-button value="tooling">工装首件</el-radio-button>
           </el-radio-group>
+          <div class="hint" v-if="fromChange">来自物料变更单,固定为产品首件</div>
         </el-form-item>
 
         <el-form-item label="触发类型" required>
-          <el-select v-model="form.triggerType" clearable placeholder="选择触发事件类型" style="width: 100%" v-loading="triggerLoading">
+          <el-select v-model="form.triggerType" clearable placeholder="选择触发事件类型" style="width: 100%" v-loading="triggerLoading" :disabled="fromChange">
             <el-option v-for="t in triggers" :key="t.id" :label="t.name" :value="t.name" />
           </el-select>
+          <div class="hint" v-if="fromChange">物料变更对应「换料」触发类型,已自动选中并锁定</div>
         </el-form-item>
 
         <!-- 工装首件: 关联工装反选,自动带出工序/供应商/产品编码;隐藏产品料号与品类 -->
@@ -41,7 +46,7 @@
         <el-form-item v-else label="产品料号" required>
           <el-select v-model="form.partNo" filterable remote clearable :remote-method="remoteSearchProduct"
             :loading="productLoading" placeholder="输入物料编码模糊搜索" style="width: 100%"
-            @change="onProductPick">
+            :disabled="fromChange" @change="onProductPick">
             <el-option v-for="p in productOptions" :key="p.partNo" :label="`${p.partNo} · ${p.productName}`" :value="p.partNo || ''" />
           </el-select>
           <div class="hint" v-if="form.productName">已带出: {{ form.productName }}
@@ -51,15 +56,17 @@
         </el-form-item>
 
         <el-form-item label="产品名称">
-          <el-input v-model="form.productName" placeholder="自动带出, 可修改" />
+          <el-input v-model="form.productName" placeholder="点击选择产品料号后自动带出" :disabled="fromChange" />
+          <div class="hint" v-if="fromChange">已从物料变更单料号自动匹配产品名称,锁定不可改</div>
         </el-form-item>
 
         <el-form-item v-if="taskKind === 'product'" label="品类">
-          <el-radio-group v-model="form.category" @change="onCategoryChange">
+          <el-radio-group v-model="form.category" :disabled="fromChange" @change="onCategoryChange">
             <el-radio value="material">物料首件</el-radio>
             <el-radio value="semi">半成品首件</el-radio>
             <el-radio value="product">成品首件</el-radio>
           </el-radio-group>
+          <div class="hint" v-if="fromChange">来自物料变更单,固定为物料首件(供应商来料)</div>
         </el-form-item>
 
         <el-form-item label="工序">
@@ -81,7 +88,7 @@
 
         <el-form-item :label="taskKind === 'tooling' ? '供应商(工装)' : '供应商'">
           <el-select v-model="form.supplierId" clearable filterable remote :remote-method="searchSuppliers"
-            :loading="supLoading" placeholder="输入名称/编码搜索供应商" style="width: 100%" :disabled="isFactorySelf || taskKind === 'tooling'"
+            :loading="supLoading" placeholder="输入名称/编码搜索供应商" style="width: 100%" :disabled="isFactorySelf || taskKind === 'tooling' || fromChange"
             @visible-change="onSupVisible">
             <el-option v-for="s in suppliers" :key="s.id" :label="`${s.name} (${s.supplierCode || s.supplierNo || '-'})`" :value="s.id" />
           </el-select>
@@ -144,6 +151,7 @@ import { fiaStdApi } from '@/api/modules/fia/stds'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcProcessApi } from '@/api/modules/spc/process'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { tlmToolingApi } from '@/api/modules/tlm/tooling'
 import { orgApi } from '@/api/modules/uop/orgs'
 import type { FiaTriggerType, FiaInspStd, ProductSearchResult } from '@/api/types/fia'
@@ -161,6 +169,8 @@ const submitting = ref(false)
 
 // 一级分段: product=产品首件 / tooling=工装首件
 const taskKind = ref<'product' | 'tooling'>('product')
+// 变更驱动首件: 由变更单「创建首件任务」跳转而来,供应商/料号/品类锁定不可改
+const fromChange = ref(false)
 
 // 下拉选项
 const triggers = ref<FiaTriggerType[]>([])
@@ -206,6 +216,7 @@ const form = reactive({
   batchNo: '',
   isUrgent: false,
   remark: '',
+  changeId: '',
 })
 const autoStd = ref('')
 const categoryLabel = computed(() => ({ material: '物料', semi: '半成品', product: '成品' }[form.category] || '-'))
@@ -265,10 +276,16 @@ async function submitCreate() {
 
   // 产品首件分支(原逻辑)
   if (!form.partNo) { ElMessage.warning('请选择产品料号'); return }
-  if (!form.productName) { ElMessage.warning('请填写产品名称'); return }
-  if (!form.category) { ElMessage.warning('请选择品类(物料/半成品/成品)'); return }
-  if (!form.procName) { ElMessage.warning('请填写工序'); return }
-  if (form.category === 'material' && !form.supplierId) { ElMessage.warning('物料类首件必须选择供应商'); return }
+  // 变更驱动首件: 供应商/品类已由变更单锁定,仅补产品名称兜底
+  if (fromChange.value) {
+    if (!form.procName) { ElMessage.warning('请填写工序'); return }
+    if (!form.productName) form.productName = form.partNo
+  } else {
+    if (!form.productName) { ElMessage.warning('请填写产品名称'); return }
+    if (!form.category) { ElMessage.warning('请选择品类(物料/半成品/成品)'); return }
+    if (!form.procName) { ElMessage.warning('请填写工序'); return }
+    if (form.category === 'material' && !form.supplierId) { ElMessage.warning('物料类首件必须选择供应商'); return }
+  }
   submitting.value = true
   try {
     // SPC 参数勾选收集 fiaStdItemId(仅已关联标准项的参数可勾选),提交后后端精确生成对应检验项;
@@ -470,10 +487,52 @@ onMounted(async () => {
       await loadSpcParams()
     } catch { /* 工装不存在静默回退手动选择 */ }
   }
+  // 从物料变更单「创建首件任务」跳转预填: query.changeId
+  // 自动带入变更产品的料号/品类/供应商信息/触发类型/产品名称,锁定不可改,仅工序/批次号/SPC参数需手动填写
+  const qChangeId = route.query.changeId as string | undefined
+  if (qChangeId) {
+    try {
+      const c = await sqmChangeApi.get(qChangeId)
+      const o = c.order
+      taskKind.value = 'product'
+      fromChange.value = true
+      form.changeId = qChangeId
+      form.partNo = o.partNo || ''
+      form.category = 'material' // 供应商物料变更 → 物料类首件
+      // 触发类型: 物料变更本质为更换/新增原材料,自动选中「换料」并锁定
+      await loadTriggers()
+      const hitTrigger = (triggers.value || []).find(t => t.name === '换料')
+      form.triggerType = hitTrigger?.name || ''
+      if (o.supplierId) {
+        form.supplierId = o.supplierId
+        // 反查供应商名用于展示(失败则留空,后续匹配标准仅依赖 supplierId)
+        try {
+          const sup = await sqmSupplierApi.get(o.supplierId)
+          form.supplierName = sup.name || ''
+          ensureOption(suppliers.value, sup, o.supplierId)
+        } catch { form.supplierName = '' }
+      }
+      // 料号选项回填,使 el-select 显示变更料号
+      if (form.partNo) {
+        // 用料号反查物料主数据,自动带出真实产品名称(与 onProductPick 同源)
+        const orgId = await effectiveOrgId()
+        const hits = await fiaTaskApi.searchProduct({ orgId, keyword: form.partNo }).catch(() => [])
+        const hit = (hits || []).find(p => p.partNo === form.partNo)
+        form.productName = hit?.productName || o.title || form.partNo
+        if (hit?.category) form.category = hit.category
+        productOptions.value = [{ partNo: form.partNo, productName: form.productName } as ProductSearchResult]
+      }
+      // 自动匹配标准 + 加载 SPC 参数(需先有工序;无工序时等待用户选择)
+      if (form.procName) await matchStdAndLoad()
+      await loadSpcParams()
+    } catch { /* 变更单不存在静默回退手动选择 */ }
+  }
 })
 </script>
 
 <style scoped lang="scss">
+.src-banner { font-size: 13px; color: $ink-soft; background: $paper; border: 1px solid $hairline; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+.src-banner .mono { font-family: $font-mono; color: $cobalt; }
 .hint { font-size: 12px; color: #409eff; margin-top: 4px; }
 .tag-b { display: inline-block; margin-left: 6px; padding: 0 8px; border: 1px solid #e4e2dd; border-radius: 4px; font-size: 12px; color: #141414; background: #f8f7f4; }
 .spc-box { width: 100%; border: 1px solid #e4e2dd; border-radius: 8px; padding: 12px; background: #f8f7f4; }
