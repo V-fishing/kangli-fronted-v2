@@ -92,6 +92,12 @@
 
     <!-- 详情弹窗(含供应商反查 + 会签进度) -->
     <el-dialog v-model="detailVisible" title="变更单详情" width="640px" append-to-body>
+      <el-steps v-if="detail" :active="changeStepActive" :finish-status="changeStepFinish" align-center class="mb">
+        <el-step title="申请" :description="detail.order.applicant || '—'" />
+        <el-step title="审批中" description="采购→研发→质量" />
+        <el-step title="已批准" description="联动FIA/加严" />
+        <el-step title="关闭/归档" description="解冻收货" />
+      </el-steps>
       <el-descriptions v-if="detail" :column="2" border size="small">
         <el-descriptions-item label="变更编号">{{ detail.order.changeNo }}</el-descriptions-item>
         <el-descriptions-item label="标题">{{ detail.order.title }}</el-descriptions-item>
@@ -146,6 +152,21 @@
         </el-table>
       </template>
 
+      <template v-if="detail && detail.strictInspects && detail.strictInspects.length">
+        <el-divider content-position="left">加严检验(变更后验证)</el-divider>
+        <el-table :data="detail.strictInspects" size="small" border>
+          <el-table-column label="批次" width="70"><template #default="{row}">{{ row.seq || '—' }}/{{ row.totalSeq || '—' }}</template></el-table-column>
+          <el-table-column prop="strictNo" label="加严单号" min-width="140" />
+          <el-table-column prop="aqlLevel" label="AQL" width="70" />
+          <el-table-column label="结果" width="90"><template #default="{row}">
+            <el-tag v-if="row.result==='合格'" size="small" type="success">合格</el-tag>
+            <el-tag v-else-if="row.result==='不合格'" size="small" type="danger">不合格</el-tag>
+            <el-tag v-else size="small" type="info">待检</el-tag>
+          </template></el-table-column>
+          <el-table-column label="检验日期" width="110"><template #default="{row}">{{ row.inspectDate || '—' }}</template></el-table-column>
+        </el-table>
+      </template>
+
       <template #footer><el-button @click="detailVisible=false">关闭</el-button></template>
     </el-dialog>
   </div>
@@ -163,7 +184,7 @@ import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { fileApi } from '@/api/modules/common/files'
-import type { SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan } from '@/api/types/sqm'
+import type { SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan, SqmChangeStrictInspect } from '@/api/types/sqm'
 
 const route = useRoute()
 const router = useRouter()
@@ -315,6 +336,21 @@ async function downloadFile(path: string, name: string) {
 
 function riskClass(l?: string) { return ({ '高': 'p-lock', '中': 'p-wait', '低': 'p-done' } as Record<string, string>)[l || ''] || '' }
 function changeStatusClass(s: string) { return ({ '待申请': 'p-wait', '审批中': 'p-run', '已批准': 'p-done', '已驳回': 'p-lock', '已关闭': 'p-done', '已回滚': 'p-lock' } as Record<string, string>)[s] || '' }
+
+// 主流程步骤条:待申请(0)→审批中(1)→已批准(2)→关闭/归档(3);驳回/回滚置为异常终止态
+const changeStepActive = computed(() => {
+  const s = detail.value?.order?.status
+  if (s === '待申请') return 0
+  if (s === '审批中') return 1
+  if (s === '已批准') return 2
+  if (s === '已关闭' || s === '已回滚') return 3
+  return 1 // 已驳回:停在第1步(审批中)由 finish-status 标红
+})
+const changeStepFinish = computed(() => {
+  const s = detail.value?.order?.status
+  if (s === '已驳回' || s === '已回滚') return 'error'
+  return 'success'
+})
 onMounted(async () => {
   await fetch()
   // 双向追溯: 从审核详情跳转而来时, 自动打开指定变更单详情
@@ -343,6 +379,8 @@ onMounted(async () => {
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
 .pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 .muted { color: $ink-faint; }
+.mono { font-family: $font-mono; font-size: 12px; color: $ink; }
+.mb { margin-bottom: 14px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; }
 .p-wait { background: $amber-dim; color: $amber; } .p-wait .d { background: $amber; }

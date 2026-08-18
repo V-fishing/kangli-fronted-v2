@@ -212,9 +212,22 @@ export interface SqmChangeApproval {
   opinion?: string
 }
 
+export interface SqmChangeStrictInspect {
+  id: string
+  strictNo?: string
+  seq?: number
+  totalSeq?: number
+  inspectType?: string
+  aqlLevel?: string
+  result?: string // 待检/合格/不合格
+  inspectDate?: string
+  restored?: boolean
+}
+
 export interface SqmChangeOrderVo {
   order: SqmChangeOrder
   approvals: SqmChangeApproval[]
+  strictInspects?: SqmChangeStrictInspect[]
 }
 
 export interface ApproveChangeRequest {
