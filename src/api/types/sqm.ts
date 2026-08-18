@@ -178,6 +178,13 @@ export interface SqmChangeOrder {
   strictFlag?: boolean
   applyDate?: string
   createdAt?: string
+  oldPartNo?: string
+  newPartNo?: string
+  effDate?: string
+  switchDate?: string
+  impactDesc?: string
+  customerNotify?: boolean
+  customerApproved?: boolean
 }
 
 /** 变更单列表行(后端 SqmChangeOrderListVo:含供应商名 + 评估资料) */
@@ -197,6 +204,12 @@ export interface SqmChangeOrderListVo {
   verifyReport?: string
   riskFile?: string
   riskPreMark?: string
+  oldPartNo?: string
+  newPartNo?: string
+  effDate?: string
+  switchDate?: string
+  customerNotify?: boolean
+  customerApproved?: boolean
 }
 
 export interface SqmChangeApproval {

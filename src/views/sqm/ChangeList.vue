@@ -17,6 +17,7 @@
           <template #default="{row}"><el-link v-if="row.supplierId" type="primary" underline="never" @click="openDetail(row)">{{ row.supplierName || '—' }}</el-link><span v-else>—</span></template>
         </el-table-column>
         <el-table-column prop="partNo" label="料号" width="110"><template #default="{row}">{{ row.partNo || '—' }}</template></el-table-column>
+        <el-table-column label="料号对照" min-width="130"><template #default="{row}"><span v-if="row.oldPartNo || row.newPartNo">{{ row.oldPartNo || '—' }} → {{ row.newPartNo || '—' }}</span><span v-else class="muted">—</span></template></el-table-column>
         <el-table-column prop="changeType" label="变更类型" width="90"><template #default="{row}">{{ row.changeType || '—' }}</template></el-table-column>
         <el-table-column label="评估资料" width="200">
           <template #default="{row}">
@@ -27,10 +28,12 @@
           </template>
         </el-table-column>
         <el-table-column label="风险" width="60"><template #default="{row}"><span class="pill" :class="riskClass(row.riskPreMark)">{{ row.riskPreMark || '—' }}</span></template></el-table-column>
+        <el-table-column label="生效/切换" width="150"><template #default="{row}"><div>{{ row.effDate || '—' }}</div><div class="muted" style="font-size:11px">切 {{ row.switchDate || '—' }}</div></template></el-table-column>
         <el-table-column prop="urgency" label="紧急度" width="70" />
         <el-table-column label="状态" width="90"><template #default="{row}"><span class="pill" :class="changeStatusClass(row.status)"><span class="d"></span>{{ row.status }}</span></template></el-table-column>
         <el-table-column prop="applicant" label="申请人" width="100"><template #default="{row}">{{ row.applicant || '—' }}</template></el-table-column>
         <el-table-column prop="applyDate" label="申请日期" width="100" />
+        <el-table-column label="客户" width="130"><template #default="{row}"><span v-if="row.customerNotify" class="pill p-run" style="margin-right:4px">需通知</span><span v-if="row.customerApproved" class="pill p-done">已批准</span><span v-if="!row.customerNotify && !row.customerApproved" class="muted">—</span></template></el-table-column>
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
@@ -86,18 +89,36 @@
           <el-button size="small" @click="riskInput?.click()">选择文件上传</el-button>
           <el-tag v-if="createForm.riskFile" size="small" type="warning" closable style="margin-left:8px" @close="createForm.riskFile=''">{{ uploadNames.riskFile || createForm.riskFile }}</el-tag>
         </el-form-item>
+        <el-divider content-position="left">变更对照与影响</el-divider>
+        <el-form-item label="旧料号"><el-input v-model="createForm.oldPartNo" placeholder="被替换料号" /></el-form-item>
+        <el-form-item label="新料号"><el-input v-model="createForm.newPartNo" placeholder="新启用料号" /></el-form-item>
+        <el-form-item label="计划生效日"><el-date-picker v-model="createForm.effDate" type="date" value-format="YYYY-MM-DD" placeholder="生效日期" style="width:100%" /></el-form-item>
+        <el-form-item label="切换日期"><el-date-picker v-model="createForm.switchDate" type="date" value-format="YYYY-MM-DD" placeholder="产线切换日期" style="width:100%" /></el-form-item>
+        <el-form-item label="影响范围"><el-input v-model="createForm.impactDesc" type="textarea" :rows="2" placeholder="影响的机型/工序/客户" /></el-form-item>
+        <el-form-item label="加严检验">
+          <el-radio-group v-model="createForm.strictFlag">
+            <el-radio-button :value="true">需要</el-radio-button>
+            <el-radio-button :value="false">不需要</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="客户通知">
+          <el-radio-group v-model="createForm.customerNotify">
+            <el-radio-button :value="true">需通知</el-radio-button>
+            <el-radio-button :value="false">不通知</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="客户批准">
+          <el-radio-group v-model="createForm.customerApproved">
+            <el-radio-button :value="true">已批准</el-radio-button>
+            <el-radio-button :value="false">未批准</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <template #footer><el-button @click="createVisible=false">取消</el-button><el-button type="primary" :loading="uploading" @click="submitCreate">确定</el-button></template>
     </el-dialog>
 
     <!-- 详情弹窗(含供应商反查 + 会签进度) -->
     <el-dialog v-model="detailVisible" title="变更单详情" width="640px" append-to-body>
-      <el-steps v-if="detail" :active="changeStepActive" :finish-status="changeStepFinish" align-center class="mb">
-        <el-step title="申请" :description="detail.order.applicant || '—'" />
-        <el-step title="审批中" description="采购→研发→质量" />
-        <el-step title="已批准" description="联动FIA/加严" />
-        <el-step title="关闭/归档" description="解冻收货" />
-      </el-steps>
       <el-descriptions v-if="detail" :column="2" border size="small">
         <el-descriptions-item label="变更编号">{{ detail.order.changeNo }}</el-descriptions-item>
         <el-descriptions-item label="标题">{{ detail.order.title }}</el-descriptions-item>
@@ -117,6 +138,25 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <el-descriptions v-if="detail" :column="2" border size="small" style="margin-top:14px">
+        <el-descriptions-item label="料号对照" :span="2">
+          <span v-if="detail.order.oldPartNo || detail.order.newPartNo">{{ detail.order.oldPartNo || '—' }} → {{ detail.order.newPartNo || '—' }}</span>
+          <span v-else class="muted">—</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="计划生效日">{{ detail.order.effDate || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="切换日期">{{ detail.order.switchDate || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="影响范围" :span="2">{{ detail.order.impactDesc || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="加严检验">
+          <el-tag v-if="detail.order.strictFlag" size="small" type="warning">需要</el-tag>
+          <el-tag v-else size="small" type="info">不需要</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="客户通知/批准">
+          <span v-if="detail.order.customerNotify" class="pill p-run" style="margin-right:4px">需通知</span>
+          <span v-if="detail.order.customerApproved" class="pill p-done">已批准</span>
+          <span v-if="!detail.order.customerNotify && !detail.order.customerApproved" class="muted">—</span>
+        </el-descriptions-item>
+      </el-descriptions>
+
       <template v-if="detailSupplier">
         <el-divider content-position="left">供应商信息</el-divider>
         <el-descriptions :column="2" border size="small">
@@ -128,6 +168,24 @@
           <el-descriptions-item label="电话">{{ detailSupplier.contactPhone || '—' }}</el-descriptions-item>
         </el-descriptions>
       </template>
+
+      <div v-if="detail" class="section-title">流程线路（变更全生命周期）</div>
+      <el-timeline v-if="detail">
+        <el-timeline-item
+          v-for="node in changeTimeline"
+          :key="node.key"
+          :type="node.done ? 'success' : node.aborted ? 'danger' : 'info'"
+          :hollow="!node.active"
+        >
+          <span :class="['tl-label']">
+            {{ node.label }}
+            <el-tag v-if="node.done" size="small" type="success">已完成</el-tag>
+            <el-tag v-else-if="node.aborted" size="small" type="danger">已终止</el-tag>
+            <el-tag v-else size="small" type="info">未开始</el-tag>
+          </span>
+          <div v-if="node.hint" class="tl-hint">{{ node.hint }}</div>
+        </el-timeline-item>
+      </el-timeline>
 
       <template v-if="detail && detail.approvals.length">
         <el-divider content-position="left">签字进度(采购→研发→质量)</el-divider>
@@ -184,7 +242,7 @@ import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { fileApi } from '@/api/modules/common/files'
-import type { SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan, SqmChangeStrictInspect } from '@/api/types/sqm'
+import type { SqmChangeOrder, SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan, SqmChangeStrictInspect } from '@/api/types/sqm'
 
 const route = useRoute()
 const router = useRouter()
@@ -225,10 +283,12 @@ const createForm = reactive({
   title: '', supplierId: '', partNo: '', changeType: '材料',
   reason: '', verifyReport: '', riskFile: '',
   riskPreMark: '中', urgency: '中', orgId: auth.user?.orgId || '',
+  oldPartNo: '', newPartNo: '', effDate: null, switchDate: null, impactDesc: '',
+  strictFlag: false, customerNotify: false, customerApproved: false,
 })
 
 async function openCreate() {
-  Object.assign(createForm, { title: '', supplierId: filterSupplierId.value || '', partNo: '', changeType: '材料', reason: '', verifyReport: '', riskFile: '', riskPreMark: '中', urgency: '中', orgId: auth.user?.orgId || '' })
+  Object.assign(createForm, { title: '', supplierId: filterSupplierId.value || '', partNo: '', changeType: '材料', reason: '', verifyReport: '', riskFile: '', riskPreMark: '中', urgency: '中', orgId: auth.user?.orgId || '', oldPartNo: '', newPartNo: '', effDate: null, switchDate: null, impactDesc: '', strictFlag: false, customerNotify: false, customerApproved: false })
   uploadNames.verifyReport = ''; uploadNames.riskFile = ''
   createVisible.value = true
   if (!suppliers.value.length) { try { suppliers.value = await sqmSupplierApi.list() } catch { /* 忽略 */ } }
@@ -252,7 +312,12 @@ async function submitCreate() {
   if (!createForm.title) { ElMessage.warning('请填写标题'); return }
   if (!createForm.supplierId) { ElMessage.warning('请选择供应商'); return }
   if (!createForm.reason) { ElMessage.warning('请填写变更说明(评估资料)'); return }
-  await sqmChangeApi.create({ ...createForm })
+  const payload: Record<string, unknown> = { ...createForm }
+  // 归一化:null 日期/空字符串转为 undefined,避免 LocalDate 解析失败
+  for (const k of ['effDate', 'switchDate']) {
+    if (payload[k] === null || payload[k] === '') payload[k] = undefined
+  }
+  await sqmChangeApi.create(payload as Partial<SqmChangeOrder>)
   ElMessage.success('已创建')
   createVisible.value = false
   fetch()
@@ -337,19 +402,31 @@ async function downloadFile(path: string, name: string) {
 function riskClass(l?: string) { return ({ '高': 'p-lock', '中': 'p-wait', '低': 'p-done' } as Record<string, string>)[l || ''] || '' }
 function changeStatusClass(s: string) { return ({ '待申请': 'p-wait', '审批中': 'p-run', '已批准': 'p-done', '已驳回': 'p-lock', '已关闭': 'p-done', '已回滚': 'p-lock' } as Record<string, string>)[s] || '' }
 
-// 主流程步骤条:待申请(0)→审批中(1)→已批准(2)→关闭/归档(3);驳回/回滚置为异常终止态
-const changeStepActive = computed(() => {
+// 主流程生命周期线(参考供应商审核详情的 timeline 样式):申请→审批中→已批准→关闭/归档
+// 驳回/回滚:审批中节点标红"已终止";关闭/归档节点在已关闭·已回滚时视为完成
+const CHANGE_FLOW = [
+  { key: 'apply', label: '申请', hint: '变更提出' },
+  { key: 'approve', label: '审批中', hint: '采购→研发→质量' },
+  { key: 'approved', label: '已批准', hint: '联动FIA标准/加严检验' },
+  { key: 'close', label: '关闭/归档', hint: '解冻收货' },
+]
+const changeTimeline = computed(() => {
   const s = detail.value?.order?.status
-  if (s === '待申请') return 0
-  if (s === '审批中') return 1
-  if (s === '已批准') return 2
-  if (s === '已关闭' || s === '已回滚') return 3
-  return 1 // 已驳回:停在第1步(审批中)由 finish-status 标红
-})
-const changeStepFinish = computed(() => {
-  const s = detail.value?.order?.status
-  if (s === '已驳回' || s === '已回滚') return 'error'
-  return 'success'
+  const aborted = s === '已驳回' || s === '已回滚'
+  // activeIndex: 当前已到达的最大节点下标
+  let activeIndex = 0
+  if (s === '待申请') activeIndex = 0
+  else if (s === '审批中') activeIndex = 1
+  else if (s === '已批准') activeIndex = 2
+  else if (s === '已关闭' || s === '已回滚') activeIndex = 3
+  else if (aborted) activeIndex = 1
+  return CHANGE_FLOW.map((n, i) => ({
+    ...n,
+    active: i <= activeIndex,
+    done: i < activeIndex || ((s === '已关闭' || s === '已回滚') && i <= activeIndex),
+    aborted: aborted && i === 1,
+    type: aborted && i === 1 ? 'danger' : (i <= activeIndex ? 'success' : 'info'),
+  }))
 })
 onMounted(async () => {
   await fetch()
@@ -379,12 +456,16 @@ onMounted(async () => {
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
 .pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 .muted { color: $ink-faint; }
-.mono { font-family: $font-mono; font-size: 12px; color: $ink; }
-.mb { margin-bottom: 14px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; }
 .p-wait { background: $amber-dim; color: $amber; } .p-wait .d { background: $amber; }
 .p-run { background: $cobalt-dim; color: $cobalt; } .p-run .d { background: $cobalt; }
 .p-lock { background: $signal-red-dim; color: $signal-red; } .p-lock .d { background: $signal-red; }
 .p-done { background: $green-dim; color: $green; } .p-done .d { background: $green; }
+.section-title { font-weight: 600; margin: 16px 0 8px; color: $ink; }
+.tl-label { display: inline-flex; align-items: center; gap: 8px; }
+.tl-click { cursor: pointer; color: $cobalt; font-weight: 600; }
+.tl-click:hover { text-decoration: underline; }
+.tl-arrow { font-size: 12px; }
+.tl-hint { color: $ink-faint; font-size: 12px; margin-top: 2px; }
 </style>
