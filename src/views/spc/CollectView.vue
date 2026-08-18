@@ -59,7 +59,7 @@
             </el-form-item>
           </template>
           <el-form-item>
-            <el-button type="primary" :loading="submitting" @click="submit">提交子组</el-button>
+            <el-button type="primary" :loading="submitting" v-if="canSubmitSubgroup" @click="submit">提交子组</el-button>
             <el-button @click="reset">重置</el-button>
             <el-button v-if="paramId" type="primary" plain @click="goChart">查看控制图</el-button>
             <span class="hint" v-if="countMode && (countChart === 'P' || countChart === 'NP')">P/NP 图:录入该子组不合格数与检验总数</span>
@@ -76,11 +76,15 @@
 // @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
+const perm = usePermissionStore()
+// 子组提交权限(后端 spc.subgroup.create 守卫)
+const canSubmitSubgroup = computed(() => perm.has('spc.subgroup.create'))
 import type { SpcParam } from '@/api/types/spc'
 
 const route = useRoute()

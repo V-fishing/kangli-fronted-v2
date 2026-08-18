@@ -10,7 +10,7 @@
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建供应商</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" v-if="canManage" @click="openCreate()">+ 新建供应商</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe>
         <el-table-column type="index" label="#" width="50" :index="(i: number) => (page - 1) * size + i + 1" />
         <el-table-column prop="supplierNo" label="编号" width="120" />
@@ -24,8 +24,8 @@
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openDetail(row as SqmSupplier)">详情</el-button>
-            <el-button link type="warning" size="small" @click="openEdit(row as SqmSupplier)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete((row as SqmSupplier).id)">删除</el-button>
+            <el-button link type="warning" size="small" v-if="canManage" @click="openEdit(row as SqmSupplier)">编辑</el-button>
+            <el-button link type="danger" size="small" v-if="canDelete" @click="handleDelete((row as SqmSupplier).id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -95,7 +95,7 @@
       </template>
       <template #footer>
         <el-button @click="detailVisible=false">关闭</el-button>
-        <el-button type="warning" @click="detailVisible=false; openEdit(detailRow!)">编辑</el-button>
+        <el-button type="warning" v-if="canManage" @click="detailVisible=false; openEdit(detailRow!)">编辑</el-button>
       </template>
     </el-dialog>
   </div>
@@ -103,12 +103,13 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { sqmAbnormalApi } from '@/api/modules/sqm/abnormals'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
@@ -118,6 +119,9 @@ import type { SqmSupplier } from '@/api/types/sqm'
 
 const router = useRouter()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canManage = computed(() => perm.has('sqm.supplier.create'))
+const canDelete = computed(() => perm.has('sqm.supplier.delete'))
 const list = ref<SqmSupplier[]>([])
 const loading = ref(false)
 const filterName = ref(''), filterLevel = ref(''), filterStatus = ref('')

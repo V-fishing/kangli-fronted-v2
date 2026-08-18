@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import type { SqmIncomingAbnormal, CloseAbnormalRequest } from '@/api/types/sqm'
 import { sqmAbnormalApi } from '@/api/modules/sqm/abnormals'
 import { ncm8dApi } from '@/api/modules/ncm/8d-reports'
@@ -14,6 +15,11 @@ import AssignDialog from '@/components/common/AssignDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canReassign = computed(() => perm.has('sqm.abnormal.create'))
+const canClose = computed(() => perm.has('sqm.abnormal.close'))
+const canLaunch8d = computed(() => perm.has('ncm.8d.create'))
+const canLaunchCapa = computed(() => perm.has('ncm.capa.create'))
 
 const list = ref<SqmIncomingAbnormal[]>([])
 const loading = ref(false)
@@ -264,8 +270,8 @@ onMounted(() => fetch())
           <template #default="{ row }">
             <span style="white-space: nowrap">
               <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-              <el-button link type="warning" @click="openReassign(row)">指派</el-button>
-              <el-button link type="danger" @click="openClose(row)">关闭</el-button>
+              <el-button link type="warning" v-if="canReassign" @click="openReassign(row)">指派</el-button>
+              <el-button link type="danger" v-if="canClose" @click="openClose(row)">关闭</el-button>
             </span>
           </template>
         </el-table-column>
@@ -338,6 +344,7 @@ onMounted(() => fetch())
           :loading="launching"
           :disabled="!!detailRow?.d8Id"
           @click="openAssign('8D')"
+          v-if="canLaunch8d"
         >
           发起 8D{{ detailRow?.d8Id ? '（已发起）' : '' }}
         </el-button>
@@ -346,6 +353,7 @@ onMounted(() => fetch())
           :loading="launching"
           :disabled="!!detailRow?.capaId"
           @click="openAssign('CAPA')"
+          v-if="canLaunchCapa"
         >
           发起 CAPA{{ detailRow?.capaId ? '（已发起）' : '' }}
         </el-button>

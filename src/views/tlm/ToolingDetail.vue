@@ -3,17 +3,75 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, TlmProductDetail } from '@/api/types/tlm'
+import type { TlmTooling, TlmToolVersion, TlmToolProduct, TlmProductCandidate, TlmProductDetail, TlmMaintRecord } from '@/api/types/tlm'
 import { tlmToolingApi, productionOrderApi } from '@/api/modules/tlm/tooling'
 import { tlmMaintApi } from '@/api/modules/tlm/maint'
 import { tlmRepairApi } from '@/api/modules/tlm/repair'
 import { metroApi } from '@/api/modules/tlm/metro'
+import { tlmScrapApi } from '@/api/modules/tlm/scrap'
 import { usePermissionStore } from '@/stores/permission'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
 const perm = usePermissionStore()
+const auth = useAuthStore()
+
+// ---- 待审批报废单(审批中心聚合 url 跳到此页, 需提供审批渠道) ----
+const pendingScrap = ref<TlmScrap | null>(null)
+const scrapApproving = ref(false)
+const rejectDialog = ref(false)
+const rejectComment = ref('')
+const rejecting = ref(false)
+
+const canApproveScrap = computed(() => {
+  if (!pendingScrap.value) return false
+  if (!perm.has('tlm.scrap.approve')) return false
+  // 审批人身份由后端 assertScrapApprover 在提交时强校验(非审批人提交返回 403 明确提示),
+  // 前端仅按权限码放行,避免测试数据 approver_id 为空/多条 PENDING 时误隐藏入口。
+  return true
+})
+
+async function loadPendingScrap() {
+  if (!id) return
+  try {
+    pendingScrap.value = await tlmScrapApi.pendingByTool(id)
+  } catch {
+    pendingScrap.value = null
+  }
+}
+async function doApproveScrap() {
+  if (!pendingScrap.value?.id) return
+  scrapApproving.value = true
+  try {
+    await tlmScrapApi.approve(pendingScrap.value.id)
+    ElMessage.success('报废审批已通过，工装已归档')
+    rejectDialog.value = false
+    await load()
+    await loadPendingScrap()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '审批失败')
+  } finally {
+    scrapApproving.value = false
+  }
+}
+async function doRejectScrap() {
+  if (!pendingScrap.value?.id) return
+  rejecting.value = true
+  try {
+    await tlmScrapApi.reject(pendingScrap.value.id, rejectComment.value || undefined)
+    ElMessage.success('已驳回报废申请')
+    rejectDialog.value = false
+    rejectComment.value = ''
+    await load()
+    await loadPendingScrap()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '驳回失败')
+  } finally {
+    rejecting.value = false
+  }
+}
 const tool = ref<TlmTooling | null>(null)
 const records = ref<any[]>([])
 const versions = ref<TlmToolVersion[]>([])
@@ -132,6 +190,42 @@ async function submitVersion() {
   } finally { savingVer.value = false }
 }
 
+// ---- 新增保养记录 ----
+const maintDialog = ref(false)
+const savingMaint = ref(false)
+const maintForm = ref<Partial<TlmMaintRecord>>({ maintDate: '', result: '', attachment: '' })
+function openAddMaint() {
+  maintForm.value = { maintDate: '', result: '', attachment: '' }
+  maintDialog.value = true
+}
+async function submitMaint() {
+  if (!maintForm.value.maintDate || !maintForm.value.maintDate.trim()) {
+    ElMessage.warning('请选择保养日期')
+    return
+  }
+  if (!maintForm.value.result || !maintForm.value.result.trim()) {
+    ElMessage.warning('请填写保养结果')
+    return
+  }
+  savingMaint.value = true
+  try {
+    await tlmMaintApi.createRecord({
+      toolId: tool.value?.id,
+      toolNo: tool.value?.toolNo,
+      maintDate: maintForm.value.maintDate,
+      result: maintForm.value.result,
+      attachment: maintForm.value.attachment || undefined,
+    })
+    ElMessage.success('已新增保养记录')
+    maintDialog.value = false
+    records.value = await tlmMaintApi.records(id)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+  } finally {
+    savingMaint.value = false
+  }
+}
+
 // 详情页维修步骤推进: 与维修工单列表一致(PENDING/REPAIRING 填措施 → REPAIRING 完成维修 → DONE 验证通过)
 const fillDialog = ref(false)
 const filling = ref(false)
@@ -231,6 +325,7 @@ async function load() {
         const cpr = await metroApi.planPage({ keyword: tool.value?.toolNo, size: 50 })
         calibs.value = cpr.records || []
       } catch { calibs.value = [] }
+      await loadPendingScrap()
     }
   } finally { loading.value = false }
 }
@@ -253,6 +348,12 @@ onMounted(load)
       </template>
       <el-button v-if="hasToolPerm('tlm.tooling.first')" type="primary" size="small" @click="createFirst">创建首件</el-button>
       <el-button v-if="hasToolPerm('tlm.tooling.bind')" size="small" @click="openBind">派工</el-button>
+      <template v-if="canApproveScrap">
+        <el-divider direction="vertical" />
+        <span class="pill p-wait"><span class="d"></span>待报废审批</span>
+        <el-button type="primary" size="small" :loading="scrapApproving" @click="doApproveScrap">通过</el-button>
+        <el-button type="danger" size="small" plain @click="rejectDialog = true">驳回</el-button>
+      </template>
     </div>
 
     <div class="grid-b" v-if="tool">
@@ -327,6 +428,7 @@ onMounted(load)
               <el-radio-button v-if="canTrace" value="bind">绑定记录</el-radio-button>
               <el-radio-button v-if="canTrace" value="calib">校准记录</el-radio-button>
             </el-radio-group>
+            <el-button v-if="perm.has('tlm.maint.record.create') && activeTab === 'maint'" type="primary" size="small" @click="openAddMaint">+ 新增保养记录</el-button>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'version'" type="primary" size="small" @click="openAddVersion">+ 新增版本记录</el-button>
             <el-button v-if="perm.has('tlm.tooling.edit') && activeTab === 'product'" type="primary" size="small" @click="openRelate">+ 关联产品</el-button>
           </div>
@@ -411,6 +513,25 @@ onMounted(load)
         </el-card>
       </div>
     </div>
+
+    <!-- 新增保养记录弹窗 -->
+    <el-dialog v-model="maintDialog" title="新增保养记录" width="520px" append-to-body>
+      <div style="display:grid;gap:14px;">
+        <div><label class="l">保养日期 *</label>
+          <el-date-picker v-model="maintForm.maintDate" type="date" value-format="YYYY-MM-DD" placeholder="选择保养日期" style="width:100%" />
+        </div>
+        <div><label class="l">保养结果 *</label>
+          <el-input v-model="maintForm.result" type="textarea" :rows="3" placeholder="如：清洁导轨、润滑丝杠、更换易损件，状态正常" />
+        </div>
+        <div><label class="l">附件</label>
+          <el-input v-model="maintForm.attachment" placeholder="附件名称 / 编号（选填）" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="maintDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="savingMaint" @click="submitMaint">{{ savingMaint ? '保存中' : '保存' }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 新增版本记录弹窗 -->
     <el-dialog v-model="verDialog" title="新增版本记录" width="520px" append-to-body>
@@ -506,6 +627,22 @@ onMounted(load)
       <template #footer>
         <el-button @click="fillDialog = false">取消</el-button>
         <el-button type="primary" :disabled="filling" @click="submitFillRepair">{{ filling ? '提交中' : '确认填写' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 驳回报废申请弹窗 -->
+    <el-dialog v-model="rejectDialog" title="驳回报废申请" width="480px" append-to-body>
+      <div v-if="pendingScrap" style="margin-bottom:12px;color:var(--el-text-color-regular);font-size:13px;">
+        报废单：<span class="mono c-cobalt">{{ pendingScrap.scrapNo }}</span>
+        <span style="margin-left:8px;">工装：<span class="mono">{{ pendingScrap.toolNo }}</span></span>
+      </div>
+      <div style="display:grid;gap:8px;">
+        <div><label class="l">报废原因（参考）</label><div class="v-mute">{{ pendingScrap?.reason || '—' }}</div></div>
+        <div><label class="l">驳回意见</label><el-input v-model="rejectComment" type="textarea" :rows="4" placeholder="请填写驳回原因" /></div>
+      </div>
+      <template #footer>
+        <el-button @click="rejectDialog = false">取消</el-button>
+        <el-button type="danger" :disabled="rejecting" @click="doRejectScrap">{{ rejecting ? '提交中' : '确认驳回' }}</el-button>
       </template>
     </el-dialog>
   </div>

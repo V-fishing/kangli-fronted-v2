@@ -6,7 +6,7 @@
         <h1>供应商审核</h1>
       </div>
       <div style="display:flex; gap:8px">
-        <el-button type="primary" size="small" @click="openCreate">+ 新建审核计划</el-button>
+        <el-button type="primary" size="small" v-if="canCreatePlan" @click="openCreate">+ 新建审核计划</el-button>
         <el-button size="small" @click="goConfig">审核人员配置</el-button>
       </div>
     </div>
@@ -23,7 +23,8 @@
         <el-table-column prop="planNo" label="计划编号" width="150" />
         <el-table-column label="供应商" min-width="160"><template #default="{row}">{{ supplierName((row as SqmAuditPlan).supplierId) }}</template></el-table-column>
         <el-table-column prop="auditType" label="审核类型" width="120" />
-        <el-table-column prop="auditorTeam" label="审核组" min-width="130"><template #default="{row}"><span>{{ (row as SqmAuditPlan).actualAuditors || (row as SqmAuditPlan).auditorTeam || '—' }}</span><el-tag v-if="(row as SqmAuditPlan).actualAuditors" size="small" type="success" effect="plain" style="margin-left:6px">已参与</el-tag></template></el-table-column>
+        <el-table-column prop="auditorTeam" label="计划审核组" min-width="130"><template #default="{row}"><span class="mono">{{ (row as SqmAuditPlan).auditorTeam || '—' }}</span></template></el-table-column>
+        <el-table-column label="实际参与" min-width="110"><template #default="{row}"><span v-if="(row as SqmAuditPlan).actualAuditors" class="mono">{{ (row as SqmAuditPlan).actualAuditors }}</span><el-tag v-else size="small" type="info" effect="plain">未签字</el-tag></template></el-table-column>
         <el-table-column label="组长" width="100"><template #default="{row}">{{ (row as SqmAuditPlan).auditLeadUserName || (row as SqmAuditPlan).auditLead || '—' }}</template></el-table-column>
         <el-table-column prop="riskLevel" label="风险" width="60"><template #default="{row}"><span class="pill" :class="riskClass((row as SqmAuditPlan).riskLevel)">{{ (row as SqmAuditPlan).riskLevel || '无' }}</span></template></el-table-column>
         <el-table-column prop="planDate" label="计划日期" width="110" />
@@ -31,8 +32,12 @@
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openDetail(row as SqmAuditPlan)">详情</el-button>
-            <el-button link type="warning" size="small" @click="openAssign(row as SqmAuditPlan)">指派组长</el-button>
-            <el-button v-if="(row as SqmAuditPlan).status==='待执行'" link type="success" size="small" @click="start(row as SqmAuditPlan)">开始执行</el-button>
+            <el-button link type="warning" size="small" v-if="canCreatePlan" @click="openAssign(row as SqmAuditPlan)">指派组长</el-button>
+            <el-tooltip v-if="(row as SqmAuditPlan).status==='待执行' && canStart" :disabled="canStartPlan(row as SqmAuditPlan)" :content="startHint(row as SqmAuditPlan)">
+              <span>
+                <el-button :disabled="!canStartPlan(row as SqmAuditPlan)" link type="success" size="small" @click="start(row as SqmAuditPlan)">开始执行</el-button>
+              </span>
+            </el-tooltip>
             <el-button v-if="(row as SqmAuditPlan).status==='进行中'" link type="primary" size="small" @click="goExecute(row as SqmAuditPlan)">执行</el-button>
             <el-button v-if="(row as SqmAuditPlan).status==='已完成' && recordIdOf(row as SqmAuditPlan)" link type="primary" size="small" @click="goRecord(row as SqmAuditPlan)">查看记录</el-button>
             <el-button v-if="recordIdOf(row as SqmAuditPlan)" link type="primary" size="small" @click="downloadReport(row as SqmAuditPlan)">下载报告</el-button>
@@ -55,7 +60,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="供应商">{{ supplierName(detailRow.supplierId) }}</el-descriptions-item>
           <el-descriptions-item label="审核类型">{{ detailRow.auditType }}</el-descriptions-item>
-          <el-descriptions-item label="组长">{{ detailRow.auditLead }}</el-descriptions-item>
+          <el-descriptions-item label="组长">{{ detailRow.auditLeadUserName || detailRow.auditLead || '—' }}</el-descriptions-item>
           <el-descriptions-item label="审核组">{{ detailRow.actualAuditors || detailRow.auditorTeam || '—' }}</el-descriptions-item>
           <el-descriptions-item label="风险等级">{{ detailRow.riskLevel || '无' }}</el-descriptions-item>
           <el-descriptions-item label="计划日期">{{ detailRow.planDate }}</el-descriptions-item>
@@ -131,7 +136,7 @@
                 <el-tag v-if="a.hasVeto" size="small" type="danger" effect="plain">一票否决</el-tag>
               </span>
               <span class="appr-status">{{ a.status==='done' ? '已通过' : a.status==='rejected' ? '已驳回' : '待会签' }}</span>
-              <span class="appr-actions" v-if="canSign(a)">
+              <span class="appr-actions" v-if="canSign(a) && canApprove">
                 <el-button type="success" link size="small" @click="signAudit(a, true)">通过</el-button>
                 <el-button type="danger" link size="small" @click="signAudit(a, false)">驳回</el-button>
               </span>
@@ -153,7 +158,7 @@
         </el-form-item>
         <el-form-item label="审核类型" required>
           <el-select v-model="createForm.auditType" style="width:100%" @change="onTypeChange">
-            <el-option v-for="t in auditTypeKeys" :key="t" :label="t" :value="t" />
+            <el-option v-for="t in creatableAuditTypes" :key="t" :label="t" :value="t" />
           </el-select>
         </el-form-item>
         <el-form-item label="计划日期">
@@ -205,11 +210,12 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
@@ -220,8 +226,15 @@ import { AUDIT_TYPE_META, auditMeta, parseExt, processStepsOf } from '@/views/sq
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canCreatePlan = computed(() => perm.has('sqm.audit.create'))
+const canStart = computed(() => perm.has('sqm.audit.plan.start'))
+const canApprove = computed(() => perm.has('sqm.audit.approve'))
 // 审核类型选项(来自元数据配置,单一数据源)
 const auditTypeKeys = Object.keys(AUDIT_TYPE_META)
+// 「物料变更审核」只能由变更单提交联动派生(changeId 由后端回填),不应手动创建,
+// 故新建弹窗的类型下拉剔除它,避免与二级菜单「物料变更审核」(变更单管理)造成重复观感
+const creatableAuditTypes = auditTypeKeys.filter(t => t !== '物料变更审核')
 const list = ref<SqmAuditPlan[]>([])
 const loading = ref(false)
 const filterStatus = ref(''), filterType = ref('')
@@ -258,8 +271,51 @@ function recordIdOf(r?: SqmAuditPlan): string | undefined {
   return recordByPlan.value[r.id] || r.recordId
 }
 
+// 列表级会签进度:仅对"待执行且独立审核"的计划并行拉取,用于禁用未全签的开始执行按钮
+// key=planId, value={ done, total }。变更联动审核(changeId 非空)无需会签,不计入。
+const signProgress = ref<Record<string, { done: number; total: number }>>({})
+function canStartPlan(r: SqmAuditPlan): boolean {
+  if (r.status !== '待执行') return false
+  if (r.changeId && r.changeId.trim()) return true // 变更联动:变更批准即可开始
+  const p = signProgress.value[r.id]
+  if (!p || p.total === 0) return false // 无会签链视为未就绪
+  return p.done >= p.total
+}
+function startHint(r: SqmAuditPlan): string {
+  if (r.changeId && r.changeId.trim()) return '变更单审批通过后可开始执行'
+  const p = signProgress.value[r.id]
+  if (!p || p.total === 0) return '需先配置审核组会签'
+  return `需审核组全部会签通过后方可开始(已签 ${p.done}/${p.total})`
+}
+
 function clearSupplierFilter() { filterSupplierId.value = ''; filterSupplierName.value = ''; router.replace({ query: {} }); fetch() }
-async function fetch() { loading.value = true; try { const [res, recs] = await Promise.all([sqmAuditApi.listPlansPage({ status: filterStatus.value || undefined, auditType: filterType.value || undefined, supplierId: filterSupplierId.value || undefined, page: page.value, size: size.value }), sqmAuditApi.listRecords()]); records.value = recs; list.value = res.records; total.value = res.total } finally { loading.value = false } }
+async function fetch() {
+  loading.value = true
+  try {
+    const [res, recs] = await Promise.all([
+      sqmAuditApi.listPlansPage({ status: filterStatus.value || undefined, auditType: filterType.value || undefined, supplierId: filterSupplierId.value || undefined, page: page.value, size: size.value }),
+      sqmAuditApi.listRecords(),
+    ])
+    records.value = recs
+    list.value = res.records
+    total.value = res.total
+    // 列表级会签进度:仅对"待执行且独立审核"的计划拉取,驱动开始执行按钮的禁用态
+    const pending = list.value.filter(p => p.status === '待执行' && !(p.changeId && p.changeId.trim()))
+    if (pending.length) {
+      const prog = await Promise.all(pending.map(async p => {
+        try {
+          const apps = await sqmAuditApi.listApprovals(p.id)
+          return { id: p.id, done: apps.filter(a => a.status === 'done').length, total: apps.length }
+        } catch { return { id: p.id, done: 0, total: 0 } }
+      }))
+      const map: Record<string, { done: number; total: number }> = {}
+      for (const x of prog) map[x.id] = { done: x.done, total: x.total }
+      signProgress.value = map
+    } else {
+      signProgress.value = {}
+    }
+  } finally { loading.value = false }
+}
 async function start(r: SqmAuditPlan) {
   try {
     await sqmAuditApi.startPlan(r.id)
@@ -477,4 +533,5 @@ async function submitCreate() {
 .appr-role { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .appr-status { color: $ink-faint; font-size: 13px; }
 .appr-meta { color: #666; font-size: 13px; margin-top: 2px; }
+.mono { font-family: $font-mono; font-size: 12px; color: $ink; }
 </style>

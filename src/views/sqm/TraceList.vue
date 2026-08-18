@@ -30,7 +30,7 @@
           @keyup.enter="doSearch"
         />
         <button class="btn-b" @click="doSearch">查询</button>
-        <el-button type="primary" link @click="lotDialogVisible = true">+ 新建来料批次</el-button>
+        <el-button type="primary" link @click="lotDialogVisible = true" v-if="canCreateLot">+ 新建来料批次</el-button>
       </div>
       <span class="tl-summary" v-if="total > 0">共 <b class="mono">{{ total }}</b> 条</span>
     </div>
@@ -176,10 +176,13 @@ import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import SourceDetailDialog from '@/components/sqm/SourceDetailDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canCreateLot = computed(() => perm.has('sqm.trace.create'))
 const pageSize = usePageSize()
 
 // 组织隔离: 当前选中的组织视图(非空且非 'ALL' 时透传给后端)

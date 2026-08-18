@@ -22,7 +22,7 @@
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openQuick(row as QmsCapa)">详情</el-button>
             <el-button link type="primary" size="small" @click="router.push(`/ncm/capas/${(row as QmsCapa).id}`)">完整页</el-button>
-            <el-button link type="warning" size="small" @click="openAssign(row as QmsCapa)">改派</el-button>
+            <el-button link type="warning" size="small" v-if="canReassign" @click="openAssign(row as QmsCapa)">改派</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -68,16 +68,19 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmCapaApi } from '@/api/modules/ncm/capas'
 import type { QmsCapa } from '@/api/types/ncm'
 import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
 import AssignDialog from '@/components/common/AssignDialog.vue'
 
 const router = useRouter()
+const perm = usePermissionStore()
+const canReassign = computed(() => perm.has('ncm.capa.create'))
 const list = ref<QmsCapa[]>([])
 const loading = ref(false)
 const filterStatus = ref('')

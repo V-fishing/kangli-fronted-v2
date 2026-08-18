@@ -20,8 +20,8 @@
     </el-card>
     <el-card shadow="never" class="card-b">
       <div class="toolbar">
-        <el-button type="primary" @click="openCreate">+ 新建任务</el-button>
-        <el-button @click="onScanMissing" :loading="scanning">立即扫描到期缺失</el-button>
+        <el-button type="primary" v-if="canEditTask" @click="openCreate">+ 新建任务</el-button>
+        <el-button v-if="canEditTask" @click="onScanMissing" :loading="scanning">立即扫描到期缺失</el-button>
       </div>
       <el-table :data="filtered" v-loading="loading" size="small">
         <el-table-column label="参数名" min-width="160"><template #default="{row}">{{ paramNameMap[row.paramId] || row.paramId || '—' }}</template></el-table-column>
@@ -50,10 +50,10 @@
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{row}">
             <span style="white-space:nowrap">
-              <el-button link type="warning" size="small" @click="openDowntime(row)">标记停机</el-button>
-              <el-button link type="danger" size="small" :disabled="row.isPlannedDowntime" @click="onMarkMissing(row)">标记缺失</el-button>
-              <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+              <el-button link type="warning" size="small" v-if="canEditTask" @click="openDowntime(row)">标记停机</el-button>
+              <el-button link type="danger" size="small" v-if="canEditTask" :disabled="row.isPlannedDowntime" @click="onMarkMissing(row)">标记缺失</el-button>
+              <el-button link type="primary" size="small" v-if="canEditTask" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="danger" size="small" v-if="canEditTask" @click="onDelete(row)">删除</el-button>
             </span>
           </template>
         </el-table-column>
@@ -104,11 +104,15 @@
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
 import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
+import { usePermissionStore } from '@/stores/permission'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { spcCollectTaskApi } from '@/api/modules/spc/collect-tasks'
 import { usersApi } from '@/api/modules/uop/users'
 import { spcParamApi } from '@/api/modules/spc/params'
+const perm = usePermissionStore()
+// 采集任务增删改/停机/缺失/扫描权限(后端 spc.subgroup.create 守卫)
+const canEditTask = computed(() => perm.has('spc.subgroup.create'))
 import type { SpcCollectTask, SpcCollectMode } from '@/api/types/spc'
 import type { UserSelectVo } from '@/api/types/uop'
 

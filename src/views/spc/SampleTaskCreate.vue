@@ -84,7 +84,7 @@
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" native-type="submit" :loading="submitting">创建任务</el-button>
+          <el-button type="primary" native-type="submit" :loading="submitting" v-if="canCreateSampleTask">创建任务</el-button>
           <el-button @click="router.back()">取消</el-button>
         </el-form-item>
       </el-form>
@@ -112,6 +112,7 @@
 // @ts-nocheck
 import { reactive, ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -120,6 +121,9 @@ import { spcParamApi } from '@/api/modules/spc/params'
 import { spcProcessApi } from '@/api/modules/spc/process'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
+const perm = usePermissionStore()
+// 抽样任务创建权限(后端 spc.sample-task.create 守卫)
+const canCreateSampleTask = computed(() => perm.has('spc.sample-task.create'))
 import type { SpcParam, SpcSampleTask, SpcProcess } from '@/api/types/spc'
 import type { SqmSupplier } from '@/api/types/sqm'
 

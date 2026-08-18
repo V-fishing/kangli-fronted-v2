@@ -55,7 +55,7 @@
             </div>
             <div style="display:flex;gap:10px;align-items:center">
               <input v-model="advance.owner" class="field-input" :placeholder="ownerPlaceholder" style="width:140px" />
-              <button class="btn-fill" @click="doAdvance">确认推进 →</button>
+              <button class="btn-fill" v-if="canAdvance" @click="doAdvance">确认推进 →</button>
             </div>
             <div v-if="needApprove(curStage) && signerOf(curStage)" class="sign-hint">本阶段需由【{{ signerOf(curStage) }}】签批后方可进入下一阶段</div>
           </div>
@@ -74,7 +74,7 @@
               <el-select v-model="approveForm.approved" style="width:100px"><el-option label="通过" :value="true" /><el-option label="驳回" :value="false" /></el-select>
               <input v-model="approveForm.comment" class="field-input" placeholder="审批意见" style="width:160px" />
               <input v-model="approveForm.password" class="field-input" type="password" :placeholder="signerPlaceholder" style="width:140px" />
-              <button class="btn-fill" @click="doApprove">提交签批</button>
+              <button class="btn-fill" v-if="canApprove" @click="doApprove">提交签批</button>
             </div>
             <div class="sign-hint">电子签名：请输入当前登录用户【{{ authStore.user?.username }}】的登录密码以完成签批</div>
             <div v-if="signerOf(curStage)" class="sign-hint">本阶段仅限【{{ signerOf(curStage) }}】签批</div>
@@ -114,7 +114,7 @@
         <!-- 已闭环:重开 -->
         <div v-if="vo.report.status === '已闭环' && route.query.from !== 'archive'" style="padding:18px 24px">
           <span class="c-green">8D 已闭环。</span>
-          <el-button type="warning" size="small" style="margin-left:16px" @click="doReopen">效果验证复发 — 重开</el-button>
+          <el-button type="warning" size="small" style="margin-left:16px" v-if="canReopen" @click="doReopen">效果验证复发 — 重开</el-button>
         </div>
       </div>
 
@@ -164,6 +164,7 @@ import { ncm8dApi } from '@/api/modules/ncm/8d-reports'
 import { ncmDefectRecordApi } from '@/api/modules/ncm/defect-records'
 import type { AssignCandidate } from '@/api/modules/ncm/defect-records'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import FishboneTable from '@/components/workflow/FishboneTable.vue'
 import FiveWhyEditor from '@/components/workflow/FiveWhyEditor.vue'
 import type { EightDVo, Qms8dStageDetail, D8Stage, EightDApprovalConfig, Qms8dWhyItem } from '@/api/types/ncm'
@@ -172,6 +173,10 @@ import type { AuditLogItem } from '@/api/modules/ncm/8d-reports'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const perm = usePermissionStore()
+const canAdvance = computed(() => perm.has('ncm.8d.advance'))
+const canApprove = computed(() => perm.has('ncm.8d.approve'))
+const canReopen = computed(() => perm.has('ncm.8d.reopen'))
 const id = route.params.id as string
 const vo = ref<EightDVo | null>(null)
 const activeStep = ref<D8Stage>('D1')

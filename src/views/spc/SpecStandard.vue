@@ -9,7 +9,7 @@
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建标准线</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" v-if="canEditStd" @click="openCreate()">+ 新建标准线</el-button></div>
       <el-table :data="pagedList" v-loading="loading" size="small">
         <el-table-column prop="material" label="物料" min-width="150" />
         <el-table-column prop="procName" label="工序" width="150" />
@@ -23,8 +23,8 @@
           <template #default="{row}">
             <span style="white-space:nowrap">
               <el-button link type="primary" size="small" @click="goChart(row)">控制图</el-button>
-              <el-button link type="warning" size="small" @click="openEdit(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-button link type="warning" size="small" v-if="canEditStd" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="danger" size="small" v-if="canDeleteStd" @click="handleDelete(row.id)">删除</el-button>
             </span>
           </template>
         </el-table-column>
@@ -58,10 +58,15 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { spcSpecStandardApi } from '@/api/modules/spc/specStandard'
 import { spcParamApi } from '@/api/modules/spc/params'
+const perm = usePermissionStore()
+// 标准线增删改权限(后端 spc.param.create/delete 守卫)
+const canEditStd = computed(() => perm.has('spc.param.create'))
+const canDeleteStd = computed(() => perm.has('spc.param.delete'))
 import type { SpcSpecStandard } from '@/api/types/spc'
 
 // 基础图码(与参数编辑弹窗单一体系对齐): 标准线推荐主图, 由 fillSpecFromStandard 归一带入参数

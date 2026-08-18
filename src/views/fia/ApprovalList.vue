@@ -41,7 +41,7 @@
         <el-table-column prop="approveAt" label="审批时间" width="160" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{row}">
-            <el-button v-if="(row as FiaApproval).status === '待审批'" link type="primary" size="small" @click="openApprove(row as FiaApproval)">审批</el-button>
+            <el-button v-if="(row as FiaApproval).status === '待审批' && canApprove" link type="primary" size="small" @click="openApprove(row as FiaApproval)">审批</el-button>
             <el-button v-else link type="info" size="small" @click="viewApproval(row as FiaApproval)">查看</el-button>
           </template>
         </el-table-column>
@@ -85,11 +85,14 @@ import { useRouter } from 'vue-router'
 import { fiaApprovalApi } from '@/api/modules/fia/approvals'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { request } from '@/api/client'
 import type { FiaApproval } from '@/api/types/fia'
 import type { SysUser } from '@/api/types/uop'
 
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canApprove = computed(() => perm.has('fia.std.create'))
 const router = useRouter()
 const list = ref<FiaApproval[]>([])
 const users = ref<SysUser[]>([])

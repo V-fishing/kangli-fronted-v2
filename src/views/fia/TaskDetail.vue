@@ -107,7 +107,7 @@
       <el-input v-model="signPassword" type="password" placeholder="密码" show-password />
       <template #footer>
         <el-button @click="signVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitSign" :loading="signLoading">确认签名</el-button>
+        <el-button type="primary" @click="submitSign" :loading="signLoading" v-if="canSign">确认签名</el-button>
       </template>
     </el-dialog>
   </div>
@@ -121,6 +121,7 @@ import { ElMessage } from 'element-plus'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { fiaSignConfigApi } from '@/api/modules/fia/sign-config'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { request } from '@/api/client'
 import type { FiaTaskVo, FiaTaskStatus, InspResult, FiaSignConfig, PreviewJudgeRequest, PreviewJudgeResult } from '@/api/types/fia'
 import type { SysUser } from '@/api/types/uop'
@@ -128,6 +129,8 @@ import type { SysUser } from '@/api/types/uop'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canSign = computed(() => perm.has('fia.sign.inspector'))
 const vo = ref<FiaTaskVo | null>(null)
 const id = route.params.id as string
 const signConfig = ref<FiaSignConfig | null>(null)

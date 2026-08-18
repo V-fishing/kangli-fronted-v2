@@ -3,12 +3,13 @@
     <div class="head-b"><AppBreadcrumb /><h1>归档查询</h1></div>
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
-        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:120px"><el-option value="fia" label="FIA首件" /><el-option value="audit" label="SQM审核" /><el-option value="8d" label="8D整改" /><el-option value="patrol" label="巡检" /><el-option value="tlm" label="工装报废" /></el-select></el-form-item>
+        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:120px" @change="doQuery"><el-option value="fia" label="FIA首件" /><el-option value="audit" label="SQM审核" /><el-option value="8d" label="8D整改" /><el-option value="patrol" label="巡检" /><el-option value="tlm" label="工装报废" /></el-select></el-form-item>
         <el-form-item label="关键词"><el-input v-model="filterKeyword" clearable placeholder="报告号/工单号" style="width:200px" /></el-form-item>
-        <el-form-item><el-button type="primary" @click="fetch">查询</el-button></el-form-item>
+        <el-form-item><el-button type="primary" @click="doQuery">查询</el-button></el-form-item>
       </el-form>
     </el-card>
-    <el-card shadow="never" class="card-b">
+    <el-card shadow="never" class="card-b" :body-style="{padding:'0'}">
+      <div class="card-head"><h3>归档记录</h3><span class="mute mono">{{ total }} 条</span></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
         <el-table-column prop="archiveType" label="类型" width="80"><template #default="{row}"><el-tag size="small">{{ (row as any).archiveType==='fia'?'FIA':(row as any).archiveType==='audit'?'SQM':(row as any).archiveType==='8d'?'8D':(row as any).archiveType==='tlm'?'工装报废':'巡检' }}</el-tag></template></el-table-column>
         <el-table-column prop="archiveNo" label="归档号" width="180" />
@@ -23,6 +24,17 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="size"
+          :total="total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          @size-change="fetch"
+          @current-change="fetch" />
+      </div>
     </el-card>
 
     <el-drawer v-model="drawer" :title="drawerTitle" size="600px" destroy-on-close>
@@ -164,6 +176,7 @@ import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 const list = ref<any[]>([])
 const loading = ref(false)
 const filterType = ref(''), filterKeyword = ref('')
+const page = ref(1), size = ref(20), total = ref(0)
 const drawer = ref(false)
 const detail = ref<any>(null)
 const dlId = ref('')
@@ -187,9 +200,23 @@ const sourceTarget = computed(() => getSourceTarget(detail.value?.source, detail
 async function fetch() {
   loading.value = true
   try {
-    const all = await request.get<any[]>('/v1/archives', { params: { type: filterType.value || undefined, keyword: filterKeyword.value || undefined } }).catch(() => [])
-    list.value = (all || []).filter(r => !filterType.value || r.archiveType === filterType.value)
+    const data = await request.get('/v1/archives', {
+      params: {
+        type: filterType.value || undefined,
+        keyword: filterKeyword.value || undefined,
+        page: page.value,
+        size: size.value
+      }
+    }).catch(() => null)
+    const pr = (data && (data.records !== undefined || data.total !== undefined)) ? data : { records: (data || []), total: (data || []).length }
+    list.value = pr.records || []
+    total.value = pr.total || 0
   } finally { loading.value = false }
+}
+
+function doQuery() {
+  page.value = 1
+  fetch()
 }
 
 async function openDetail(row: any) {
@@ -291,6 +318,10 @@ onMounted(() => {
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 22px; border-bottom: 1px solid $hairline; }
+.card-head h3 { font-family: $font-display; font-size: 15px; font-weight: 700; margin: 0; }
+.card-head .mute { color: $ink-faint; font-size: 12px; }
+.pager { display: flex; justify-content: flex-end; padding: 14px 22px; }
 .mono { font-family: $font-mono; }
 .sec-title { font-weight: 700; font-size: 13px; margin: 18px 0 8px; padding-left: 8px; border-left: 3px solid var(--el-color-primary); }
 .tl-node { font-weight: 600; }

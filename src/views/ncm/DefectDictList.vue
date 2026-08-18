@@ -10,7 +10,7 @@
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建字典</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" v-if="canCreateDict" @click="openCreate()">+ 新建字典</el-button></div>
       <el-table :data="list" v-loading="loading" size="small">
         <el-table-column prop="code" label="缺陷编码" width="120" />
         <el-table-column prop="name" label="缺陷名称" />
@@ -20,8 +20,8 @@
         <el-table-column prop="referenceCount" label="引用次数" width="90" />
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{row}">
-            <el-button link type="warning" size="small" @click="openEdit(row as NcmDefectDict)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete((row as NcmDefectDict).id)">删除</el-button>
+            <el-button link type="warning" size="small" v-if="canCreateDict" @click="openEdit(row as NcmDefectDict)">编辑</el-button>
+            <el-button link type="danger" size="small" v-if="canDeleteDict" @click="handleDelete((row as NcmDefectDict).id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -41,13 +41,17 @@
 
 <script setup lang="ts">
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmDefectDictApi } from '@/api/modules/ncm/defect-dicts'
 import type { NcmDefectDict } from '@/api/types/ncm'
 
 const list = ref<NcmDefectDict[]>([])
+const perm = usePermissionStore()
+const canCreateDict = computed(() => perm.has('ncm.defect.create'))
+const canDeleteDict = computed(() => perm.has('ncm.defect.delete'))
 const loading = ref(false)
 const filter = reactive({ code: '', name: '' })
 const filterCategory = ref<any>('')

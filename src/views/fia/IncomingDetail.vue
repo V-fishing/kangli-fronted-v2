@@ -99,7 +99,7 @@
                 <el-option v-for="d in dispositionOptions" :key="d" :label="d" :value="d" />
               </el-select>
               <el-input v-model="dispositionRemark" placeholder="处置备注（可选）" style="margin-top:8px" />
-              <button class="btn-fill" style="margin-top:8px; width:100%" @click="submitDisposition">提交处置</button>
+              <el-button type="primary" style="margin-top:8px; width:100%" @click="submitDisposition" v-if="canDisposition">提交处置</el-button>
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@
       <el-input v-model="signPassword" type="password" placeholder="密码" show-password />
       <template #footer>
         <el-button @click="signVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitSign" :loading="signLoading">确认签名</el-button>
+        <el-button type="primary" @click="submitSign" :loading="signLoading" v-if="canSign">确认签名</el-button>
       </template>
     </el-dialog>
   </div>
@@ -125,11 +125,15 @@ import { ElMessage } from 'element-plus'
 import { fiaIncomingApi } from '@/api/modules/fia/incoming'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { request } from '@/api/client'
+import { usePermissionStore } from '@/stores/permission'
 import type { FiaTaskVo, FiaTaskStatus, InspResult } from '@/api/types/fia'
 import type { SysUser } from '@/api/types/uop'
 import type { SqmSupplier } from '@/api/types/sqm'
 
 const route = useRoute()
+const perm = usePermissionStore()
+const canSign = computed(() => perm.has('fia.sign.inspector'))
+const canDisposition = computed(() => perm.has('fia.sign.disposition'))
 const vo = ref<FiaTaskVo | null>(null)
 const id = route.params.id as string
 const users = ref<SysUser[]>([])

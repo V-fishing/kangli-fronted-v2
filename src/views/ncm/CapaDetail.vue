@@ -28,10 +28,10 @@
         <el-progress :percentage="vo.capa.progress ?? 0" :status="vo.capa.progress===100?'success':''" :stroke-width="8" />
         <div v-if="vo.capa.status !== '已关闭'" style="margin-top:14px;display:flex;gap:10px;align-items:center">
           <el-input-number v-model="progress" :min="0" :max="100" size="small" style="width:120px" />
-          <el-button type="primary" size="small" @click="updateProgress">更新进度</el-button>
-          <el-button v-if="vo.capa.progress===100 && vo.capa.status==='已验证'" type="success" size="small" @click="doClose">关闭 CAPA</el-button>
-          <el-button v-if="vo.capa.status==='待审批'" type="primary" size="small" @click="openApprove">审批</el-button>
-          <el-button type="warning" size="small" @click="doReset">效果验证无效 — 重置</el-button>
+          <el-button type="primary" size="small" v-if="canUpdateProgress" @click="updateProgress">更新进度</el-button>
+          <el-button v-if="vo.capa.progress===100 && vo.capa.status==='已验证' && canClose" type="success" size="small" @click="doClose">关闭 CAPA</el-button>
+          <el-button v-if="vo.capa.status==='待审批' && canApprove" type="primary" size="small" @click="openApprove">审批</el-button>
+          <el-button type="warning" size="small" v-if="canReset" @click="doReset">效果验证无效 — 重置</el-button>
         </div>
       </div>
 
@@ -61,15 +61,21 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmCapaApi } from '@/api/modules/ncm/capas'
 import type { CapaVo } from '@/api/types/ncm'
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canUpdateProgress = computed(() => perm.has('ncm.capa.create'))
+const canClose = computed(() => perm.has('ncm.capa.close'))
+const canApprove = computed(() => perm.has('ncm.capa.approve'))
+const canReset = computed(() => perm.has('ncm.capa.reset'))
 const id = route.params.id as string
 const vo = ref<CapaVo | null>(null)
 const progress = ref(0)

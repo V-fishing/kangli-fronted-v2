@@ -93,6 +93,7 @@
                         size="small"
                         type="primary"
                         :loading="!!computingIds[row.paramId]"
+                        v-if="canCalc"
                         @click.stop="calcAndEnter(row)"
                       >计算</el-button>
                     </template>
@@ -256,11 +257,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { usePermissionStore } from '@/stores/permission'
 import * as echarts from 'echarts'
 import { spcCapabilityApi } from '@/api/modules/spc/capability'
 import { spcChartApi } from '@/api/modules/spc/chart'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
+const perm = usePermissionStore()
+// 能力计算权限(后端 spc.capability.list 守卫)
+const canCalc = computed(() => perm.has('spc.capability.list'))
 import type { SpcCapability, SpcSupplierCpkVo, SpcHistogramVo, SpcParam, CountCapabilityVo } from '@/api/types/spc'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

@@ -102,7 +102,7 @@
               <span v-if="a.opinion">意见：{{ a.opinion }}</span>
             </div>
             <el-button
-              v-if="a.status === 'pending'"
+              v-if="a.status === 'pending' && canApprove"
               link type="primary" size="small"
               @click="openApprove(a)"
             >会签</el-button>
@@ -178,9 +178,12 @@ import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { auditExecuteApi } from '@/api/modules/sqm/auditExecute'
 import type { SqmAuditPlan, SqmAuditRecord, SqmAuditNc, SqmAuditApproval, SqmAuditWorkflowLog, SqmSupplier, SqmAuditChecklistItem } from '@/api/types/sqm'
 import { auditMeta, parseExt, processStepsOf } from '@/views/sqm/auditTypeMeta'
+import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canApprove = computed(() => perm.has('sqm.audit.approve'))
 
 const plan = ref<SqmAuditPlan | null>(null)
 const record = ref<SqmAuditRecord | null>(null)

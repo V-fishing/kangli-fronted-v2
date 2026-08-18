@@ -10,7 +10,7 @@
       <p class="desc-s" v-if="rootLotNo">来料批次 {{ rootLotNo }}</p>
       <div class="head-actions">
         <el-button @click="$router.back()">← 返回列表</el-button>
-        <el-button type="primary" @click="openCreateChild(null)">+ 新建根节点</el-button>
+        <el-button type="primary" @click="openCreateChild(null)" v-if="canEditTrace">+ 新建根节点</el-button>
       </div>
     </div>
 
@@ -66,7 +66,7 @@
           <span class="tn-supplier" v-if="n.supplierName">{{ n.supplierName }}</span>
           <span class="tn-qty" v-if="n.qty!=null">{{ n.qty }}{{ n.unit||'' }}</span>
           <span class="tn-date" v-if="n.nodeDate">{{ String(n.nodeDate).slice(0,10) }}</span>
-          <span class="tn-actions">
+          <span class="tn-actions" v-if="canEditTrace">
             <el-button link type="primary" size="small" @click="openCreateChild(n)">+子节点</el-button>
             <el-button link size="small" @click="openAttachComponent(n)">挂载</el-button>
           </span>
@@ -126,8 +126,8 @@
       </template>
       <template #footer>
         <el-button @click="detailVis=false">关闭</el-button>
-        <el-button type="primary" @click="openCreateChild(curNode)">添加子节点</el-button>
-        <el-button @click="openAttachComponent(curNode)">挂载组成</el-button>
+        <el-button type="primary" @click="openCreateChild(curNode)" v-if="canEditTrace">添加子节点</el-button>
+        <el-button @click="openAttachComponent(curNode)" v-if="canEditTrace">挂载组成</el-button>
       </template>
     </el-dialog>
 
@@ -179,16 +179,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
 import type { TraceNodeTreeVO, SqmTraceNode, SqmTraceRawDetail, SqmTraceProductDetail, SqmKeyPartSn, TraceDirectionNode, TraceComponentItem, TraceFullTreeVO } from '@/api/types/sqm'
+import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canEditTrace = computed(() => perm.has('sqm.trace.create'))
 const rootLotId = ref((route.query.rootLotId as string) || '')
 const rootLotNo = ref((route.query.lotNo as string) || '')
 const rootNodeId = ref((route.query.rootNodeId as string) || '')

@@ -118,7 +118,7 @@
       </div>
       <template #footer>
         <el-button @click="batchVisible = false">关闭</el-button>
-        <el-button type="primary" :loading="batchLoading" @click="submitBatch">生成检验单</el-button>
+        <el-button type="primary" :loading="batchLoading" @click="submitBatch" v-if="canCreateTask">生成检验单</el-button>
       </template>
     </el-dialog>
   </div>
@@ -131,10 +131,13 @@ import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { fiaIncomingApi } from '@/api/modules/fia/incoming'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import type { FiaTask, FiaTaskStatus, IncomingDashboard, BatchByLotResult } from '@/api/types/fia'
 
 const router = useRouter()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canCreateTask = computed(() => perm.has('fia.task.create'))
 const list = ref<FiaTask[]>([])
 const loading = ref(false)
 const dash = ref<IncomingDashboard | null>(null)

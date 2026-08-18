@@ -55,7 +55,7 @@
             <div class="rh-actions">
               <el-button :loading="traceLoading" @click="openTrace">引用追溯</el-button>
               <el-button @click="goToSpcParams">去配置SPC参数</el-button>
-              <el-button type="primary" :loading="saving" @click="save">保存明细</el-button>
+              <el-button type="primary" :loading="saving" @click="save" v-if="canEditStd">保存明细</el-button>
             </div>
           </div>
 
@@ -131,12 +131,15 @@ import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { fiaStdApi } from '@/api/modules/fia/stds'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import StdItemEditor from '@/components/fia/StdItemEditor.vue'
 import type { FiaInspStd, FiaStdItemRequest, StdTraceResult } from '@/api/types/fia'
 
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canEditStd = computed(() => perm.has('fia.std.create'))
 const route = useRoute()
 const router = useRouter()
 const stds = ref<FiaInspStd[]>([])

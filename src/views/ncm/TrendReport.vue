@@ -28,8 +28,8 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="loadRealtime">实时查询</el-button>
-          <el-button :loading="genLoading" @click="generate">生成当前周期报表</el-button>
-          <el-button link type="primary" @click="openRule">恶化规则配置</el-button>
+          <el-button :loading="genLoading" v-if="canManageTrend" @click="generate">生成当前周期报表</el-button>
+          <el-button link type="primary" v-if="canManageTrend" @click="openRule">恶化规则配置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -105,7 +105,7 @@
       </el-form>
       <template #footer>
         <el-button @click="ruleVisible=false">取消</el-button>
-        <el-button type="primary" :loading="ruleSaving" @click="saveRule">保存并生效</el-button>
+        <el-button type="primary" :loading="ruleSaving" v-if="canManageTrend" @click="saveRule">保存并生效</el-button>
       </template>
     </el-drawer>
   </div>
@@ -113,13 +113,16 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmTrendReportApi } from '@/api/modules/ncm/trend-report'
 import type { TrendPoint, TrendRule } from '@/api/types/ncm'
 
+const perm = usePermissionStore()
+const canManageTrend = computed(() => perm.has('ncm.record.list'))
 const products = ['MX-200', 'MX-300', 'MX-400', 'MX-500']
 const today = new Date()
 const d90 = new Date(today.getTime() - 89 * 86400000)

@@ -3,7 +3,7 @@
     <div class="head-b"><AppBreadcrumb /><h1>检验标准库</h1></div>
     <el-card shadow="never" class="card-b">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px">
-        <el-button type="primary" @click="openCreate()">+ 新建标准</el-button>
+        <el-button type="primary" @click="openCreate()" v-if="canEditStd">+ 新建标准</el-button>
         <el-input v-model="keyword" clearable placeholder="搜索编码/物料/工序" style="width:260px" @keyup.enter="onSearch" @clear="onSearch">
           <template #append><el-button @click="onSearch">查询</el-button></template>
         </el-input>
@@ -18,12 +18,12 @@
         <el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="(row as FiaInspStd).status==='生效'?'success':(row as FiaInspStd).status==='草稿'?'warning':'info'" size="small">{{ (row as FiaInspStd).status }}</el-tag></template></el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{row}">
-            <el-button link type="warning" size="small" @click="openEdit(row as FiaInspStd)">编辑</el-button>
+            <el-button link type="warning" size="small" @click="openEdit(row as FiaInspStd)" v-if="canEditStd">编辑</el-button>
             <template v-if="(row as FiaInspStd).status !== '草稿'">
-              <el-button v-if="(row as FiaInspStd).status === '生效'" link type="info" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '停用')">停用</el-button>
-              <el-button v-else link type="success" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '生效')">启用</el-button>
+              <el-button v-if="(row as FiaInspStd).status === '生效'" link type="info" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '停用')" v-if="canEditStd">停用</el-button>
+              <el-button v-else link type="success" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '生效')" v-if="canEditStd">启用</el-button>
             </template>
-            <el-button v-if="(row as FiaInspStd).status === '草稿'" link type="danger" size="small" @click="handleDelete((row as FiaInspStd).id)">删除</el-button>
+            <el-button v-if="(row as FiaInspStd).status === '草稿'" link type="danger" size="small" @click="handleDelete((row as FiaInspStd).id)" v-if="canDeleteStd">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -69,17 +69,21 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { fiaStdApi } from '@/api/modules/fia/stds'
 import { spcProcessApi } from '@/api/modules/spc/process'
 import type { FiaInspStd } from '@/api/types/fia'
 import type { SpcProcess } from '@/api/types/spc'
 
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canEditStd = computed(() => perm.has('fia.std.create'))
+const canDeleteStd = computed(() => perm.has('fia.std.delete'))
 const list = ref<FiaInspStd[]>([])
 const loading = ref(false), procLoading = ref(false)
 // 工序下拉数据源改为权威的 spc_process 工序字典(与工序管理页同源),不再用标准库/参数文本去重

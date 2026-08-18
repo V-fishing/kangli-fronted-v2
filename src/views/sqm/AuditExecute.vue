@@ -34,7 +34,7 @@
     <el-card shadow="never" class="card-b">
       <template #header>
         <span>现场审核检查项</span>
-        <el-button size="small" type="primary" style="float:right" @click="saveChecklist">保存检查项</el-button>
+        <el-button size="small" type="primary" style="float:right" v-if="canEdit" @click="saveChecklist">保存检查项</el-button>
       </template>
       <el-table :data="checklist" size="small" border>
         <el-table-column label="序号" width="60" type="index" />
@@ -58,18 +58,18 @@
         </el-table-column>
         <el-table-column label="操作" width="70">
           <template #default="{row, $index}">
-            <el-button link type="danger" size="small" @click="checklist.splice($index, 1)">删除</el-button>
+            <el-button link type="danger" size="small" v-if="canEdit" @click="checklist.splice($index, 1)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-button size="small" style="margin-top:10px" @click="checklist.push({ itemName:'', result:'符合' })">+ 添加检查项</el-button>
+      <el-button size="small" style="margin-top:10px" v-if="canEdit" @click="checklist.push({ itemName:'', result:'符合' })">+ 添加检查项</el-button>
     </el-card>
 
     <el-card shadow="never" class="card-b">
       <template #header>现场照片</template>
       <div class="photo-bar">
         <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFile" />
-        <el-button size="small" @click="(fileInput as HTMLInputElement).click()">+ 上传照片</el-button>
+        <el-button size="small" v-if="canEdit" @click="(fileInput as HTMLInputElement).click()">+ 上传照片</el-button>
         <span class="hint">照片存于服务端 logs/photos/，带时间水印</span>
       </div>
       <div class="photo-list" v-if="photos.length">
@@ -77,7 +77,7 @@
           <img :src="photoSrc(p)" class="thumb" />
           <div class="photo-meta">
             <div class="mono">{{ p.fileName }}</div>
-            <el-button link type="danger" size="small" @click="removePhoto(p)">删除</el-button>
+            <el-button link type="danger" size="small" v-if="canEdit" @click="removePhoto(p)">删除</el-button>
           </div>
         </div>
       </div>
@@ -87,7 +87,7 @@
       <el-card shadow="never" class="card-b">
         <template #header>
           <span>不符合项</span>
-          <el-button size="small" type="primary" style="float:right" @click="openNc">+ 新增不符合项</el-button>
+          <el-button size="small" type="primary" style="float:right" v-if="canEdit" @click="openNc">+ 新增不符合项</el-button>
         </template>
         <div class="hint" style="margin-bottom:8px" v-if="!reviewSubmitted">
           不符合项可在「提交复核」前随时补充；若检查项中存在「不符合」判定，将自动计入不符合项。
@@ -111,8 +111,8 @@
           <span class="appr-meta" v-if="review.operator">执行人：{{ review.operator }}</span>
         </div>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center" v-if="review.status === 'pending'">
-          <el-button size="small" type="success" :disabled="!reviewOpinion.trim()" @click="doReview(true)">通过复核</el-button>
-          <el-button size="small" type="danger" :disabled="!reviewOpinion.trim()" @click="doReview(false)">驳回</el-button>
+          <el-button size="small" type="success" :disabled="!reviewOpinion.trim()" v-if="canApprove" @click="doReview(true)">通过复核</el-button>
+          <el-button size="small" type="danger" :disabled="!reviewOpinion.trim()" v-if="canApprove" @click="doReview(false)">驳回</el-button>
           <el-input v-model="reviewOpinion" size="small" placeholder="复核意见（必填）" style="width:200px" />
           <el-input v-model="reviewConclusion" size="small" placeholder="审核结论（选填，留空则自动判定）" style="width:280px" />
         </div>
@@ -124,7 +124,7 @@
         </el-alert>
       </div>
       <div v-else>
-        <el-button size="small" type="primary" :disabled="!checklist.length" @click="submitReview">提交复核</el-button>
+        <el-button size="small" type="primary" :disabled="!checklist.length" v-if="canEdit" @click="submitReview">提交复核</el-button>
         <span class="hint" v-if="checklist.length">提交后由指定复核人签批，通过即闭环归档。</span>
         <span class="hint hl" v-else>请先「保存检查项」（至少 1 项）完成现场审核，方可提交复核。</span>
       </div>
@@ -165,10 +165,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import { usePermissionStore } from '@/stores/permission'
 import { auditExecuteApi } from '@/api/modules/sqm/auditExecute'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
@@ -177,6 +178,9 @@ import type { SqmAuditPlan, SqmAuditChecklistItem, SqmAuditPhoto, SqmAuditNc, Sq
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canEdit = computed(() => perm.has('sqm.audit.create'))
+const canApprove = computed(() => perm.has('sqm.audit.approve'))
 const planId = route.params.planId as string
 
 const plan = ref<SqmAuditPlan | null>(null)

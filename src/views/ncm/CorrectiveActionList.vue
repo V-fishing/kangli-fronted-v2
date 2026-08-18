@@ -6,7 +6,7 @@
         <h1>纠正措施</h1>
       </div>
       <div class="head-actions">
-        <button class="btn-fill" @click="openCreate">+ 新建纠正措施</button>
+        <button class="btn-fill" v-if="canCreateCa" @click="openCreate">+ 新建纠正措施</button>
       </div>
     </div>
 
@@ -58,9 +58,9 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="$router.push(`/ncm/corrective-actions/${(row as NcmCorrectiveAction).id}`)">详情</el-button>
-            <el-button link type="primary" size="small" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="openProgress(row as NcmCorrectiveAction)">进度</el-button>
-            <el-button link type="warning" size="small" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="openAssign(row as NcmCorrectiveAction)">改派</el-button>
-            <el-button link type="primary" size="small" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="doClose(row as NcmCorrectiveAction)">关闭</el-button>
+            <el-button link type="primary" size="small" v-if="canCreateCa" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="openProgress(row as NcmCorrectiveAction)">进度</el-button>
+            <el-button link type="warning" size="small" v-if="canCreateCa" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="openAssign(row as NcmCorrectiveAction)">改派</el-button>
+            <el-button link type="primary" size="small" v-if="canCloseCa" :disabled="(row as NcmCorrectiveAction).status === '已关闭'" @click="doClose(row as NcmCorrectiveAction)">关闭</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -121,16 +121,20 @@
 
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmCorrectiveActionApi } from '@/api/modules/ncm/corrective-actions'
 import type { NcmCorrectiveAction } from '@/api/types/ncm'
 import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
 import AssignDialog from '@/components/common/AssignDialog.vue'
 
 const statusOptions = ['待启动', '已完成', '已关闭']
+const perm = usePermissionStore()
+const canCreateCa = computed(() => perm.has('ncm.ca.create'))
+const canCloseCa = computed(() => perm.has('ncm.ca.close'))
 
 const list = ref<NcmCorrectiveAction[]>([])
 const loading = ref(false)

@@ -93,7 +93,7 @@
             </el-form-item>
           </template>
           <el-form-item>
-            <el-button type="primary" :loading="submitting" @click="submit">提交子组</el-button>
+            <el-button type="primary" v-if="canSubmitSubgroup" :loading="submitting" @click="submit">提交子组</el-button>
             <el-button @click="clearBatch">清空批次号</el-button>
             <span class="hint" v-if="countMode && (countChart === 'P' || countChart === 'NP')">P/NP 图:录入该子组不合格数与检验总数</span>
             <span class="hint" v-else-if="countMode">C/U 图:录入该子组缺陷数与检验单位数</span>
@@ -121,6 +121,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { spcParamApi } from '@/api/modules/spc/params'
 import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
 import { spcSampleTaskApi } from '@/api/modules/spc/sampleTasks'
@@ -128,6 +129,8 @@ import type { SpcParam, SpcSampleTask } from '@/api/types/spc'
 
 const route = useRoute()
 const router = useRouter()
+const perm = usePermissionStore()
+const canSubmitSubgroup = computed(() => perm.has('spc.subgroup.create'))
 const taskId = route.params.taskId as string
 
 const task = ref<SpcSampleTask | null>(null)

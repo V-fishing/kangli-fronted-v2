@@ -56,8 +56,8 @@
           <template #default="{ row }">
             <el-button type="info" link @click="openDetail(row)">详情</el-button>
             <template v-if="row.lockStatus === '锁定'">
-              <el-button type="warning" link @click="openEmergency(row)">紧急放行</el-button>
-              <el-button type="danger" link @click="openRelease(row)">审批释放</el-button>
+              <el-button v-if="perm.has('fia.wolock.emergency')" type="warning" link @click="openEmergency(row)">紧急放行</el-button>
+              <el-button v-if="perm.has('fia.wolock.release')" type="danger" link @click="openRelease(row)">审批释放</el-button>
             </template>
             <span v-else>—</span>
           </template>
@@ -147,7 +147,9 @@ import { fiaWoLockApi } from '@/api/modules/fia/woLock'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import type { FiaWoLock } from '@/api/types/fia'
 import type { FiaTask } from '@/api/types/fia'
+import { usePermissionStore } from '@/stores/permission'
 
+const perm = usePermissionStore()
 const route = useRoute()
 const router = useRouter()
 const list = ref<FiaWoLock[]>([])

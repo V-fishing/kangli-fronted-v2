@@ -32,6 +32,7 @@
           <el-switch
             :model-value="rule.isEnabled"
             :loading="togglingRuleId === rule.id"
+            :disabled="!canEditRule"
             @change="(val: any) => handleToggleRule(rule, val)"
             size="default"
           />
@@ -67,6 +68,7 @@
             <el-switch
               :model-value="ch.isEnabled"
               :loading="togglingChannelId === ch.id"
+              :disabled="!canEditChannel"
               @change="(val: any) => handleToggleChannel(ch, val)"
               size="small"
             />
@@ -88,10 +90,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { usePermissionStore } from '@/stores/permission'
 import * as echarts from 'echarts'
 import { spcRuleApi, type SpcRuleTriggerVo } from '@/api/modules/spc/rules'
 import { spcNotifyChannelApi } from '@/api/modules/spc/notify-channels'
+const perm = usePermissionStore()
+// 判异规则/通知渠道开关权限(后端 spc.rule.list / spc.param.list 守卫)
+const canEditRule = computed(() => perm.has('spc.rule.list'))
+const canEditChannel = computed(() => perm.has('spc.param.list'))
 import type { SpcRule, SpcNotifyChannel } from '@/api/types/spc'
 import { ElMessage } from 'element-plus'
 

@@ -123,7 +123,7 @@
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" native-type="submit" :loading="submitting">创建任务</el-button>
+          <el-button type="primary" native-type="submit" :loading="submitting" v-if="canCreateTask">创建任务</el-button>
           <el-button @click="router.back()">取消</el-button>
         </el-form-item>
       </el-form>
@@ -137,6 +137,7 @@ import { useRouter, useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { fiaTriggerApi } from '@/api/modules/fia/triggers'
 import { fiaStdApi } from '@/api/modules/fia/stds'
@@ -154,6 +155,8 @@ import type { TlmTooling } from '@/api/types/tlm'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canCreateTask = computed(() => perm.has('fia.task.create'))
 const submitting = ref(false)
 
 // 一级分段: product=产品首件 / tooling=工装首件

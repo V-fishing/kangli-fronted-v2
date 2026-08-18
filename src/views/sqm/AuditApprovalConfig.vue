@@ -48,8 +48,8 @@
               </el-table-column>
             </el-table>
             <div class="row-actions">
-              <el-button size="small" @click="addAuditor(t)">+ 添加会签人</el-button>
-              <el-button size="small" type="primary" :loading="savingType === t" @click="save(t)">保存该类型</el-button>
+              <el-button size="small" @click="addAuditor(t)" :disabled="!canCfg">+ 添加会签人</el-button>
+              <el-button size="small" type="primary" :loading="savingType === t" :disabled="!canCfg" @click="save(t)">保存该类型</el-button>
             </div>
           </div>
         </el-collapse-item>
@@ -62,7 +62,7 @@
       <div class="card-b">
         <div class="card-head">
           <h3>阶段签批设置</h3>
-          <el-button type="primary" size="small" :loading="saving8d" @click="save8d">保存配置</el-button>
+          <el-button type="primary" size="small" :loading="saving8d" :disabled="!canCfg" @click="save8d">保存配置</el-button>
         </div>
         <el-table :data="rows8d" size="small" border>
           <el-table-column label="阶段" width="160">
@@ -153,8 +153,9 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
@@ -166,6 +167,9 @@ import type { D8Stage, EightDApprovalConfig } from '@/api/types/ncm'
 import { AUDIT_TYPE_META } from '@/views/sqm/auditTypeMeta'
 
 const router = useRouter()
+const perm = usePermissionStore()
+// 审核配置页独立权限码(system.audit-config): 控制供应商会签 + 8D 阶段签批两块保存操作。
+const canCfg = computed(() => perm.has('system.audit-config'))
 const types = Object.keys(AUDIT_TYPE_META)
 const activeNames = ref<string[]>(types.slice(0, 1))
 const configs = reactive<Record<string, SqmAuditorItem[]>>({})

@@ -17,8 +17,9 @@ const keyword = ref('')
 const filterStatus = ref('')
 const page = ref(1), size = usePageSize(), total = ref(0)
 
-function goApprove() {
-  router.push('/workbench/tasks')
+function goApprove(row: TlmScrap) {
+  if (row.toolId) router.push(`/tlm/tooling/${row.toolId}`)
+  else router.push('/workbench/tasks')
 }
 
 const statusPill = (s: string) => {
@@ -110,7 +111,7 @@ onMounted(fetch)
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="goTooling(row)">详情</el-button>
-            <el-button v-if="row.status === 'PENDING' && perm.has('tlm.scrap.approve')" link type="primary" size="small" @click="goApprove">去审批</el-button>
+            <el-button v-if="row.status === 'PENDING' && perm.has('tlm.scrap.approve')" link type="primary" size="small" @click="goApprove(row)">去审批</el-button>
           </template>
         </el-table-column>
       </el-table>

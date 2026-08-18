@@ -93,8 +93,10 @@ const closedThisMonthList = computed(() => {
   const now = new Date()
   return myTasks.value.filter((t) => {
     if (!CLOSED_STATUS.includes(t.status || '')) return false
-    if (!t.assignedAt) return false
-    const d = new Date(t.assignedAt)
+    // 按闭环完成时间(closedAt)判断当月; 无闭环时间则回退指派/创建时间(assignedAt)兜底
+    const base = t.closedAt || t.assignedAt
+    if (!base) return false
+    const d = new Date(base)
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
   })
 })

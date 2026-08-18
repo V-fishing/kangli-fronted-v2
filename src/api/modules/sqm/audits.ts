@@ -14,7 +14,6 @@ export const sqmAuditApi = {
   listByChangeId: (changeId: string) => request.get<SqmAuditPlan[]>(`/v1/sqm/audits/plans/by-change/${changeId}`),
   getPlan: (id: string) => request.get<SqmAuditPlan>(`/v1/sqm/audits/plans/${id}`),
   createPlan: (body: Partial<SqmAuditPlan>) => request.post<SqmAuditPlan>('/v1/sqm/audits/plans', body),
-  confirmPlan: (id: string) => request.put<void>(`/v1/sqm/audits/plans/${id}/confirm`),
   startPlan: (id: string) => request.post<SqmAuditPlan>(`/v1/sqm/audits/plans/${id}/start`),
   listRecords: () => request.get<SqmAuditRecord[]>('/v1/sqm/audits/records'),
   getRecord: (id: string) => request.get<SqmAuditRecord>(`/v1/sqm/audits/records/${id}`),

@@ -18,6 +18,8 @@ export interface MyTask {
   overdue?: boolean
   /** 指派时间(ISO 字符串) */
   assignedAt?: string
+  /** 闭环完成时间(ISO 字符串),用于"本月已闭环"聚合 */
+  closedAt?: string
   /** 业务类型编码(与 taskType 互补,用于历史检索) */
   bizType?: string
   /** 前端跳转路径 */

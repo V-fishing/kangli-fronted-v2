@@ -8,7 +8,7 @@
       </div>
       <div class="head-actions">
         <el-button @click="$router.back()">返回</el-button>
-        <el-button v-if="ca?.status !== '已关闭'" type="danger" @click="doClose">关闭措施</el-button>
+        <el-button v-if="ca?.status !== '已关闭' && canClose" type="danger" @click="doClose">关闭措施</el-button>
       </div>
     </div>
 
@@ -49,7 +49,7 @@
       <template #header><span class="card-title">更新进度</span></template>
       <div style="display:flex;align-items:center;gap:16px">
         <el-slider v-model="progressVal" :min="0" :max="100" :step="5" show-input style="flex:1" />
-        <el-button type="primary" :loading="submitting" @click="submitProgress">保存进度</el-button>
+        <el-button type="primary" :loading="submitting" v-if="canUpdateProgress" @click="submitProgress">保存进度</el-button>
       </div>
       <div class="hint" style="margin-top:8px">进度达到 100% 后自动置为「已完成」</div>
     </el-card>
@@ -60,15 +60,19 @@
 
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmCorrectiveActionApi } from '@/api/modules/ncm/corrective-actions'
 import { ncmDefectRecordApi } from '@/api/modules/ncm/defect-records'
 import type { NcmCorrectiveAction } from '@/api/types/ncm'
 
 const route = useRoute()
+const perm = usePermissionStore()
+const canUpdateProgress = computed(() => perm.has('ncm.ca.create'))
+const canClose = computed(() => perm.has('ncm.ca.close'))
 const loading = ref(false)
 const submitting = ref(false)
 const ca = ref<NcmCorrectiveAction | null>(null)

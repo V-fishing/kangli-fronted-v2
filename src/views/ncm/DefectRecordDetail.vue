@@ -11,15 +11,15 @@
         <el-tooltip v-if="record?.caNo" :content="'已发起CA: ' + record.caNo" placement="top">
           <el-button type="success" disabled>发起CA</el-button>
         </el-tooltip>
-        <el-button v-else type="success" @click="openAssign('CA', record.id, record.defectNo)">发起CA</el-button>
+        <el-button v-else type="success" v-if="canLaunchCa" @click="openAssign('CA', record.id, record.defectNo)">发起CA</el-button>
         <el-tooltip v-if="record?.capaNo" :content="'已发起CAPA: ' + record.capaNo" placement="top">
           <el-button type="warning" disabled>发起CAPA</el-button>
         </el-tooltip>
-        <el-button v-else type="warning" @click="openAssign('CAPA', record.id, record.defectNo)">发起CAPA</el-button>
+        <el-button v-else type="warning" v-if="canLaunchCapa" @click="openAssign('CAPA', record.id, record.defectNo)">发起CAPA</el-button>
         <el-tooltip v-if="record?.d8No" :content="'已发起8D: ' + record.d8No" placement="top">
           <el-button type="primary" disabled>发起8D</el-button>
         </el-tooltip>
-        <el-button v-else type="primary" @click="openAssign('8D', record.id, record.defectNo)">发起8D</el-button>
+        <el-button v-else type="primary" v-if="canLaunch8d" @click="openAssign('8D', record.id, record.defectNo)">发起8D</el-button>
       </div>
     </div>
 
@@ -74,7 +74,7 @@
       <template #header>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span class="card-title">关联纠正措施（{{ relatedCas.length }}）</span>
-          <el-button type="success" size="small" @click="openAssign('CA', record.id, record.defectNo)" v-if="record && !record.caNo">发起CA</el-button>
+          <el-button type="success" size="small" @click="openAssign('CA', record.id, record.defectNo)" v-if="record && !record.caNo && canLaunchCa">发起CA</el-button>
         </div>
       </template>
       <el-table :data="relatedCas" v-loading="caLoading" size="small" border stripe style="width:100%" v-if="relatedCas.length">
@@ -107,7 +107,7 @@
         </el-table-column>
       </el-table>
       <el-empty v-if="!caLoading && !relatedCas.length" description="暂无关联纠正措施">
-        <el-button type="success" @click="openAssign('CA', record.id, record.defectNo)" v-if="record && !record.caNo">发起纠正措施</el-button>
+        <el-button type="success" @click="openAssign('CA', record.id, record.defectNo)" v-if="record && !record.caNo && canLaunchCa">发起纠正措施</el-button>
       </el-empty>
     </el-card>
 
@@ -159,16 +159,21 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmDefectRecordApi } from '@/api/modules/ncm/defect-records'
 import { ncmCorrectiveActionApi } from '@/api/modules/ncm/corrective-actions'
 import type { NcmDefectRecord, NcmCorrectiveAction } from '@/api/types/ncm'
 import type { AssignCandidate, NotifyChannelCandidate } from '@/api/modules/ncm/defect-records'
 
 const route = useRoute()
+const perm = usePermissionStore()
+const canLaunch8d = computed(() => perm.has('ncm.8d.create'))
+const canLaunchCapa = computed(() => perm.has('ncm.capa.create'))
+const canLaunchCa = computed(() => perm.has('ncm.ca.create'))
 const loading = ref(false)
 const caLoading = ref(false)
 const record = ref<NcmDefectRecord | null>(null)

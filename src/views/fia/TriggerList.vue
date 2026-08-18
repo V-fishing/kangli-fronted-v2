@@ -2,14 +2,14 @@
   <div class="trigger-list">
     <div class="head-b"><AppBreadcrumb /><h1>触发类型</h1></div>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()" v-if="canEditStd">+ 新建</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
         <el-table-column prop="name" label="名称" />
         <el-table-column label="启用" width="80"><template #default="{row}"><el-switch :model-value="(row as FiaTriggerType).isEnabled" @change="(v:boolean) => toggle(row as FiaTriggerType, v)" size="small" /></template></el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{row}">
-            <el-button link type="warning" size="small" @click="openEdit(row as FiaTriggerType)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete((row as FiaTriggerType).id)">删除</el-button>
+            <el-button link type="warning" size="small" @click="openEdit(row as FiaTriggerType)" v-if="canEditStd">编辑</el-button>
+            <el-button link type="danger" size="small" @click="handleDelete((row as FiaTriggerType).id)" v-if="canEditStd">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -25,12 +25,15 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { fiaTriggerApi } from '@/api/modules/fia/triggers'
 import type { FiaTriggerType } from '@/api/types/fia'
+import { usePermissionStore } from '@/stores/permission'
 
+const perm = usePermissionStore()
+const canEditStd = computed(() => perm.has('fia.std.create'))
 const list = ref<FiaTriggerType[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false), isEdit = ref(false), editId = ref('')

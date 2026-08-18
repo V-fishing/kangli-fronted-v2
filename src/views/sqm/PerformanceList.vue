@@ -24,9 +24,9 @@
         </el-form-item>
         <el-form-item><el-button type="primary" @click="page = 1; fetch()">查询</el-button></el-form-item>
         <el-form-item>
-          <el-button type="success" @click="openCalc">自动计算</el-button>
-          <el-button @click="openCreate">+ 手工录入</el-button>
-          <el-button @click="goConfig">指标配置</el-button>
+          <el-button type="success" @click="openCalc" v-if="canCalc">自动计算</el-button>
+          <el-button @click="openCreate" v-if="canCreate">+ 手工录入</el-button>
+          <el-button @click="goConfig" v-if="canCfg">指标配置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -269,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -282,6 +282,13 @@ import { sqmPerformanceApi } from '@/api/modules/sqm/performance'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { sqmPerfAnalysisApi } from '@/api/modules/sqm/perfAnalysis'
 import type { SqmSupplierPerformance, SqmAuditFreqResult, PerfRankRow, PerfParetoRow } from '@/api/types/sqm'
+import { usePermissionStore } from '@/stores/permission'
+
+const perm = usePermissionStore()
+// 绩效操作权限(后端须同步 seed sqm.perf.* 并改 Controller 校验一致码)
+const canCalc = computed(() => perm.has('sqm.perf.calc'))
+const canCreate = computed(() => perm.has('sqm.perf.create'))
+const canCfg = computed(() => perm.has('sqm.perf.cfg'))
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 

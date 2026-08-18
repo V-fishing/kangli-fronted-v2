@@ -8,7 +8,7 @@
           <span class="stage-hint"><span class="dot" :class="stageClass"></span>{{ stageLabel }}（控制图基于全部样本子组计算，不受阶段限制）</span>
         </el-form-item>
         <el-form-item label="时间范围"><el-date-picker v-model="timeRange" type="datetimerange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width:360px" @change="loadChart" /></el-form-item>
-        <el-form-item><el-button type="primary" plain :disabled="hasCountChart" @click="openManual">设置控制限</el-button></el-form-item>
+        <el-form-item><el-button type="primary" plain :disabled="hasCountChart || !canSetLimit" @click="openManual">设置控制限</el-button></el-form-item>
         <el-form-item>
           <el-button type="primary" :disabled="!paramId" @click="goCollect">
             <span style="display:inline-flex;align-items:center;gap:4px">去采集<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="13" height="13"><path fill="currentColor" d="M339.2 768a32 32 0 0 1 0-45.2L626.8 435.2H416a32 32 0 0 1 0-64h288a32 32 0 0 1 32 32v288a32 32 0 0 1-64 0V435.2L384.4 722.8A32 32 0 0 1 339.2 768"/></svg></span>
@@ -182,7 +182,7 @@
         <el-form-item label="LCL 下控制限"><el-input-number v-model="manual.rlcl" :step="0.001" :min="0" controls-position="right" style="width:100%" /></el-form-item>
       </el-form>
       <div v-if="manualWarn" class="m-warn">⚠ {{ manualWarn }}</div>
-      <template #footer><el-button @click="manualVisible=false">取消</el-button><el-button type="primary" :loading="manualSaving" @click="saveManual">保存覆盖</el-button></template>
+      <template #footer><el-button @click="manualVisible=false">取消</el-button><el-button type="primary" :loading="manualSaving" v-if="canSetLimit" @click="saveManual">保存覆盖</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -192,6 +192,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
@@ -200,6 +201,9 @@ import { spcChartApi } from '@/api/modules/spc/chart'
 import { spcCapabilityApi } from '@/api/modules/spc/capability'
 import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
 import { spcControlLimitApi } from '@/api/modules/spc/control-limits'
+const perm = usePermissionStore()
+// 控制限手动设置权限(后端 spc.param.list 守卫 saveManual)
+const canSetLimit = computed(() => perm.has('spc.param.list'))
 import type { SpcParam, ControlChartVo, SpcCapability, SpcHistogramVo, SpcControlLimit, SpcSubgroup, CountCapabilityVo } from '@/api/types/spc'
 
 const route = useRoute()

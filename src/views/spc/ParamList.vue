@@ -27,7 +27,7 @@
     <el-card shadow="never" class="card-b">
       <!-- 新建入口:手动建参(归产线首件) + 创建抽样任务(走独立流程) -->
       <div style="margin-bottom:12px; display:flex; align-items:center; gap:12px">
-        <el-button type="primary" @click="openCreate()">+ 新建参数</el-button>
+        <el-button type="primary" v-if="canCreateParam" @click="openCreate()">+ 新建参数</el-button>
         <el-button type="primary" size="small" @click="router.push('/spc/sample-tasks')">+ 创建抽样任务</el-button>
       </div>
 
@@ -148,8 +148,8 @@
       <template #footer>
         <el-button type="primary" size="small" @click="goCollect(detailRow)">去采集</el-button>
         <el-button type="primary" size="small" @click="goChart(detailRow)">控制图</el-button>
-        <el-button type="warning" size="small" @click="openEdit(detailRow); detailVisible=false">编辑</el-button>
-        <el-button type="danger" size="small" @click="handleDelete(detailRow.id); detailVisible=false">删除</el-button>
+        <el-button type="warning" size="small" v-if="canCreateParam" @click="openEdit(detailRow); detailVisible=false">编辑</el-button>
+        <el-button type="danger" size="small" v-if="canDeleteParam" @click="handleDelete(detailRow.id); detailVisible=false">删除</el-button>
       </template>
     </el-dialog>
   </div>
@@ -159,6 +159,7 @@
 // @ts-nocheck -- el-select v-model 与 Element Plus EpPropMergeType 严格类型不兼容,运行时正常
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { spcParamApi } from '@/api/modules/spc/params'
@@ -219,6 +220,10 @@ const MEASURE_KINDS = ['Xbar', 'R', 'S', 'I', 'MR']
 const needsSpec = computed(() => chartCandidateArr.value.some(k => MEASURE_KINDS.includes(k)))
 
 const router = useRouter()
+const perm = usePermissionStore()
+// 参数增删改按钮权限(后端 spc.param.create/delete 守卫)
+const canCreateParam = computed(() => perm.has('spc.param.create'))
+const canDeleteParam = computed(() => perm.has('spc.param.delete'))
 // 视图切换:首件 SPC / 产品抽样 SPC(与筛选条件同级);路由 ?view=sample 默认切抽样
 
 const paramList = ref<SpcParam[]>([])

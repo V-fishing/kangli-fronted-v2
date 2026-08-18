@@ -26,7 +26,7 @@
       </el-table>
       <div class="actions">
         <span class="weight-hint">当前参与计算权重合计：<b :class="{ warn: totalWeight !== 100 }">{{ totalWeight.toFixed(2) }}%</b><span v-if="totalWeight !== 100" class="warn-text">（建议合计 100，否则将自动归一）</span></span>
-        <el-button type="primary" :loading="saving" @click="saveAll">保存配置</el-button>
+        <el-button type="primary" :loading="saving" @click="saveAll" v-if="canCfg">保存配置</el-button>
       </div>
     </el-card>
   </div>
@@ -38,6 +38,10 @@ import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { sqmPerfMetricCfgApi } from '@/api/modules/sqm/perfAnalysis'
 import type { SqmPerfMetricCfg } from '@/api/types/sqm'
+import { usePermissionStore } from '@/stores/permission'
+
+const perm = usePermissionStore()
+const canCfg = computed(() => perm.has('sqm.perf.cfg'))
 
 const cfgs = ref<SqmPerfMetricCfg[]>([])
 const loading = ref(false)

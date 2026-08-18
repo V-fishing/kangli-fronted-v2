@@ -27,8 +27,8 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{row}">
             <el-button link type="info" size="small" @click="openDetail(row as SpcAlarm)">详情</el-button>
-            <el-button v-if="(row as SpcAlarm).status !== '已关闭'" link type="danger" size="small" @click="openClose(row as SpcAlarm)">关闭</el-button>
-            <el-button link type="primary" size="small" @click="launch8d((row as SpcAlarm).id)">发起8D</el-button>
+            <el-button v-if="(row as SpcAlarm).status !== '已关闭' && canCloseAlarm" link type="danger" size="small" @click="openClose(row as SpcAlarm)">关闭</el-button>
+            <el-button v-if="canLaunch8d" link type="primary" size="small" @click="launch8d((row as SpcAlarm).id)">发起8D</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -84,7 +84,7 @@
         <template v-else>
           <div class="detail-sec__empty">
             <span class="muted">该告警尚未发起 8D 整改。</span>
-            <el-button type="warning" size="small" @click="launch8d(detailAlarm.id); detailVisible = false">立即发起 8D</el-button>
+            <el-button type="warning" size="small" v-if="canLaunch8d" @click="launch8d(detailAlarm.id); detailVisible = false">立即发起 8D</el-button>
           </div>
         </template>
       </div>
@@ -93,12 +93,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage } from 'element-plus'
 import { spcAlarmApi } from '@/api/modules/spc/alarms'
 import { spcRuleApi } from '@/api/modules/spc/rules'
+const perm = usePermissionStore()
+// 告警操作按钮权限(后端 spc.alarm.close / spc.alarm.launch-8d 守卫)
+const canCloseAlarm = computed(() => perm.has('spc.alarm.close'))
+const canLaunch8d = computed(() => perm.has('spc.alarm.launch-8d'))
 import type { SpcAlarm, SpcRule } from '@/api/types/spc'
 import type { Qms8dReport } from '@/api/types/ncm'
 

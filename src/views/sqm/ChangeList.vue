@@ -9,7 +9,7 @@
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建变更</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" v-if="canCreate" @click="openCreate()">+ 新建变更</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe>
         <el-table-column prop="changeNo" label="变更编号" width="160" />
         <el-table-column prop="title" label="标题" min-width="140" show-overflow-tooltip />
@@ -34,10 +34,10 @@
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status==='待申请'" link type="primary" size="small" @click="submit(row)">提交</el-button>
-            <el-button v-if="row.status==='审批中'" link type="success" size="small" @click="openApprove(row)">审批</el-button>
-            <el-button v-if="row.status==='已批准'" link type="warning" size="small" @click="closeChange(row)">关闭</el-button>
-            <el-button v-if="row.status==='已批准'" link type="danger" size="small" @click="rollback(row)">回滚</el-button>
+            <el-button v-if="row.status==='待申请' && canSubmit" link type="primary" size="small" @click="submit(row)">提交</el-button>
+            <el-button v-if="row.status==='审批中' && canApprove" link type="success" size="small" @click="openApprove(row)">审批</el-button>
+            <el-button v-if="row.status==='已批准' && canClose" link type="warning" size="small" @click="closeChange(row)">关闭</el-button>
+            <el-button v-if="row.status==='已批准' && canRollback" link type="danger" size="small" @click="rollback(row)">回滚</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -158,6 +158,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { sqmChangeApi } from '@/api/modules/sqm/changes'
 import { sqmAuditApi } from '@/api/modules/sqm/audits'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
@@ -167,6 +168,12 @@ import type { SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupp
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canCreate = computed(() => perm.has('sqm.change.create'))
+const canSubmit = computed(() => perm.has('sqm.change.submit'))
+const canApprove = computed(() => perm.has('sqm.change.approve'))
+const canClose = computed(() => perm.has('sqm.change.close'))
+const canRollback = computed(() => perm.has('sqm.change.rollback'))
 const list = ref<SqmChangeOrderListVo[]>([])
 const loading = ref(false)
 const filterStatus = ref('')

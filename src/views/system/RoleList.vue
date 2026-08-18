@@ -4,7 +4,12 @@
     <el-card shadow="never" class="card-b">
       <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 新建角色</el-button></div>
       <el-table :data="list" v-loading="loading" size="small" border stripe style="width:100%">
-        <el-table-column prop="roleCode" label="角色编码" width="130" />
+        <el-table-column label="角色编码" width="170">
+          <template #default="{ row }">
+            <span class="mono code">{{ row.roleCode }}</span>
+            <span class="org-tag" :class="orgTagClass(row.orgId)">{{ orgTagText(row.orgId) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="roleName" label="角色名称" width="130" />
         <el-table-column prop="roleType" label="类型" width="80" />
         <el-table-column prop="permDesc" label="描述" min-width="200" />
@@ -32,7 +37,7 @@ import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { request } from '@/api/client'
-import type { SysRole } from '@/api/types/uop'
+import type { SysRole, SysOrg } from '@/api/types/uop'
 
 const router = useRouter()
 
@@ -40,6 +45,25 @@ const list = ref<SysRole[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false), isEdit = ref(false), editId = ref('')
 const form = reactive({ roleCode: '', roleName: '', roleType: '', permDesc: '' })
+
+// 分公司标识: orgId -> orgCode(MZ/SZ), 空为集团
+const orgMap = ref<Record<string, string>>({})
+async function loadOrgs() {
+  try {
+    const orgs = await request.get<SysOrg[]>('/v1/uop/orgs')
+    const m: Record<string, string> = {}
+    for (const o of orgs) m[o.id] = o.orgCode
+    orgMap.value = m
+  } catch { orgMap.value = {} }
+}
+function orgTagText(orgId?: string | null) {
+  if (!orgId) return '集团'
+  return orgMap.value[orgId] || '未知'
+}
+function orgTagClass(orgId?: string | null) {
+  if (!orgId) return 'tag-group'
+  return orgMap.value[orgId] === 'SZ' ? 'tag-sz' : 'tag-mz'
+}
 
 async function fetch() { loading.value = true; try { list.value = await request.get<SysRole[]>('/v1/uop/roles') } finally { loading.value = false } }
 function openCreate() { isEdit.value = false; editId.value = ''; Object.assign(form, { roleCode: '', roleName: '', roleType: '', permDesc: '' }); dialogVisible.value = true }
@@ -51,7 +75,7 @@ async function handleSubmit() {
   dialogVisible.value = false; fetch()
 }
 async function handleDelete(id: string) { await ElMessageBox.confirm('确认删除?'); await request.delete(`/v1/uop/roles/${id}`); ElMessage.success('已删除'); fetch() }
-onMounted(() => fetch())
+onMounted(() => { loadOrgs(); fetch() })
 </script>
 
 <style lang="scss" scoped>
@@ -60,4 +84,10 @@ onMounted(() => fetch())
 .head-b .crumb { font-family: $font-mono; font-size: 11px; color: $ink-faint; letter-spacing: 1px; margin-bottom: 6px; }
 .head-b h1 { font-family: $font-display; font-size: 28px; font-weight: 800; }
 .card-b { background: $white; border: 1px solid $hairline; border-radius: 12px; }
+// 角色编码列: 编码(mono) + 分公司标签(MZ/SZ/集团)
+.role-list :deep(.code) { font-weight: 600; }
+.role-list :deep(.org-tag) { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: $font-mono; vertical-align: middle; }
+.role-list :deep(.tag-mz) { background: $cobalt-dim; color: $cobalt; }
+.role-list :deep(.tag-sz) { background: $green-dim; color: $green; }
+.role-list :deep(.tag-group) { background: $hairline-soft; color: $ink-faint; }
 </style>

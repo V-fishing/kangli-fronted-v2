@@ -12,7 +12,7 @@
       </el-form>
     </el-card>
     <el-card shadow="never" class="card-b">
-      <div style="margin-bottom:12px"><el-button type="primary" @click="openCreate()">+ 录入不良</el-button></div>
+      <div style="margin-bottom:12px"><el-button type="primary" v-if="canCreateRecord" @click="openCreate()">+ 录入不良</el-button></div>
       <el-table :data="list" v-loading="loading" size="small">
         <el-table-column prop="defectNo" label="记录编号" width="170">
           <template #default="{row}">
@@ -66,15 +66,15 @@
             <el-tooltip v-if="(row as NcmDefectRecord).d8No" :content="'已发起8D: ' + (row as NcmDefectRecord).d8No" placement="top">
               <el-button link type="primary" size="small" disabled>发起8D</el-button>
             </el-tooltip>
-            <el-button v-else link type="primary" size="small" @click="openAssign('8D', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起8D</el-button>
+            <el-button v-else link type="primary" size="small" v-if="canLaunch8d" @click="openAssign('8D', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起8D</el-button>
             <el-tooltip v-if="(row as NcmDefectRecord).capaNo" :content="'已发起CAPA: ' + (row as NcmDefectRecord).capaNo" placement="top">
               <el-button link type="warning" size="small" disabled>发起CAPA</el-button>
             </el-tooltip>
-            <el-button v-else link type="warning" size="small" @click="openAssign('CAPA', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起CAPA</el-button>
+            <el-button v-else link type="warning" size="small" v-if="canLaunchCapa" @click="openAssign('CAPA', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起CAPA</el-button>
             <el-tooltip v-if="(row as NcmDefectRecord).caNo" :content="'已发起CA: ' + (row as NcmDefectRecord).caNo" placement="top">
               <el-button link type="success" size="small" disabled>发起CA</el-button>
             </el-tooltip>
-            <el-button v-else link type="success" size="small" @click="openAssign('CA', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起CA</el-button>
+            <el-button v-else link type="success" size="small" v-if="canLaunchCa" @click="openAssign('CA', (row as NcmDefectRecord).id, (row as NcmDefectRecord).defectNo)">发起CA</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -180,17 +180,23 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionStore } from '@/stores/permission'
 import { ncmDefectRecordApi } from '@/api/modules/ncm/defect-records'
 import { ncmDefectDictApi } from '@/api/modules/ncm/defect-dicts'
 import type { NcmDefectRecord, NcmDefectDict } from '@/api/types/ncm'
 import type { AssignCandidate, NotifyChannelCandidate } from '@/api/modules/ncm/defect-records'
 
 const auth = useAuthStore()
+const perm = usePermissionStore()
+const canCreateRecord = computed(() => perm.has('ncm.record.create'))
+const canLaunch8d = computed(() => perm.has('ncm.8d.create'))
+const canLaunchCapa = computed(() => perm.has('ncm.capa.create'))
+const canLaunchCa = computed(() => perm.has('ncm.ca.create'))
 const list = ref<NcmDefectRecord[]>([])
 const loading = ref(false), dictLoading = ref(false)
 const dicts = ref<NcmDefectDict[]>([])

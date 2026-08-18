@@ -9,7 +9,7 @@
     <el-card shadow="never" class="card-b">
       <div class="toolbar">
         <el-input v-model="kw" size="small" placeholder="搜索工序名称/编码" clearable style="width:220px" />
-        <el-button type="primary" size="small" @click="openCreate">+ 新建工序</el-button>
+        <el-button type="primary" size="small" v-if="canEditProcess" @click="openCreate">+ 新建工序</el-button>
       </div>
       <el-table :data="filteredList" v-loading="loading" size="small" row-key="id" default-expand-all>
         <el-table-column prop="processName" label="工序名称" min-width="160" />
@@ -25,8 +25,8 @@
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{row}">
             <span style="white-space:nowrap">
-              <el-button link type="warning" size="small" @click="openEdit(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-button link type="warning" size="small" v-if="canEditProcess" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="danger" size="small" v-if="canDeleteProcess" @click="handleDelete(row.id)">删除</el-button>
             </span>
           </template>
         </el-table-column>
@@ -52,10 +52,15 @@
 <script setup lang="ts">
 // __TSC_NOCHECK_DISABLED__ // @ts-nocheck
 import { ref, reactive, computed, onMounted } from 'vue'
+import { usePermissionStore } from '@/stores/permission'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { spcProcessApi } from '@/api/modules/spc/process'
 import { spcParamApi } from '@/api/modules/spc/params'
+const perm = usePermissionStore()
+// 工序增删改按钮权限(后端 spc.process.create/delete 守卫; update 复用 create 码)
+const canEditProcess = computed(() => perm.has('spc.process.create'))
+const canDeleteProcess = computed(() => perm.has('spc.process.delete'))
 import type { SpcProcess } from '@/api/types/spc'
 
 const list = ref<SpcProcess[]>([])
