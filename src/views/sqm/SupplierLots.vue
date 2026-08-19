@@ -32,15 +32,13 @@
           </template>
         </el-table-column>
         <el-table-column prop="receiveDate" label="接收日期" width="120" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="goTrace(row)">追溯 →</el-button>
-            <el-button link type="primary" size="small" @click="openRoutine(row)">量产抽样 SPC</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <SpcRoutineEntryDialog v-model="routineVisible" :ctx="routineCtx" />
       <div v-if="!loading && all.length === 0" style="padding:28px;text-align:center;color:#999">该供应商暂无来料批次（来料首件合格后才会免审直录到此）</div>
       <div style="margin-top:12px;display:flex;justify-content:flex-end" v-if="total > 0">
         <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="total"
@@ -59,7 +57,6 @@ import { useRoute, useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
 import type { SqmIncomingLot } from '@/api/types/sqm'
-import SpcRoutineEntryDialog from '@/components/workflow/SpcRoutineEntryDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,18 +82,6 @@ async function fetch() {
 function goTrace(row: any) {
   // 统一到方案 B: 以来料批次号定位源表条码集合, 在 MesTraceView 渲染 MES 追溯森林
   router.push({ path: '/sqm/trace/mes-view', query: { lotNo: row.lotNo } })
-}
-
-// 量产抽样 SPC 录入入口(ROUTINE):以来料批次号定位,带入料号;首件前置校验在弹窗内完成
-const routineVisible = ref(false)
-const routineCtx = ref<{ batchNo?: string; woNo?: string; partNo?: string; procName?: string; productName?: string }>({})
-function openRoutine(row: any) {
-  routineCtx.value = {
-    batchNo: row.lotNo,
-    partNo: row.partNo,
-    productName: row.partName,
-  }
-  routineVisible.value = true
 }
 onMounted(fetch)
 </script>
