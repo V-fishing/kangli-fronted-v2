@@ -161,12 +161,12 @@
           </div>
           <div class="gauge-stats">
             <div class="g-stat">
-              <span class="g-label">CPU</span>
-              <span class="g-val mono" :class="cpkClass(cpuCpl.cpu)">{{ fmtNum(cpuCpl.cpu) }}</span>
+              <span class="g-label">PPU</span>
+              <span class="g-val mono" :class="cpkClass(ppuPpl.ppu)">{{ fmtNum(ppuPpl.ppu) }}</span>
             </div>
             <div class="g-stat">
-              <span class="g-label">CPL</span>
-              <span class="g-val mono" :class="cpkClass(cpuCpl.cpl)">{{ fmtNum(cpuCpl.cpl) }}</span>
+              <span class="g-label">PPL</span>
+              <span class="g-val mono" :class="cpkClass(ppuPpl.ppl)">{{ fmtNum(ppuPpl.ppl) }}</span>
             </div>
             <div class="g-stat">
               <span class="g-label">样本量</span>
@@ -224,32 +224,45 @@
         </div>
       </div>
 
-      <!-- 供应商 CPK 对比 -->
-      <div class="card-b" :style="{ animationDelay: '0.15s' }" v-if="detail && supplierData.length">
+      <!-- 跨参数 CPK 对比 -->
+      <div class="card-b" :style="{ animationDelay: '0.15s' }" v-if="detail && paramCpkData.length">
         <div class="card-head">
-          <h2 class="card-title">供应商 CPK 对比</h2>
+          <h2 class="card-title">跨参数 CPK 对比</h2>
+          <span class="sub">按 CPK 升序 · 当前参数高亮</span>
         </div>
         <table class="native-table">
           <thead>
             <tr>
               <th>参数名称</th>
+              <th>工序</th>
               <th class="mono">CPK</th>
               <th>等级</th>
+              <th class="mono">样本量</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(s, i) in supplierData" :key="s.mat || s.sup || i" :style="{ animationDelay: (0.18 + i * 0.02) + 's' }">
-              <td>{{ s.mat || '-' }}</td>
+            <tr
+              v-for="(s, i) in paramCpkData"
+              :key="s.paramId || i"
+              :style="{ animationDelay: (0.18 + i * 0.02) + 's' }"
+              :class="{ 'row-active': s.paramId === selectedParamId }"
+            >
+              <td>
+                {{ s.paramName || '-' }}
+                <span v-if="s.srcWoNo" class="mute"> · {{ s.srcWoNo }}</span>
+              </td>
+              <td class="mono">{{ s.procName || '-' }}</td>
               <td class="mono"><span :class="cpkClass(s.cpk)">{{ fmtNum(s.cpk) }}</span></td>
               <td>
-                <span :class="levelPill(s.lvl || '')">{{ levelLabel(s.lvl || '') }}</span>
+                <span :class="levelPill(s.level)">{{ levelLabel(s.level) }}</span>
               </td>
+              <td class="mono">{{ s.sampleCount ?? '-' }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="card-b" :style="{ animationDelay: '0.15s' }" v-if="detail && !supplierData.length">
-        <p class="empty-hint">暂无供应商对比数据</p>
+      <div class="card-b" :style="{ animationDelay: '0.15s' }" v-if="detail && !paramCpkData.length">
+        <p class="empty-hint">暂无跨参数对比数据</p>
       </div>
     </template>
   </div>
@@ -266,7 +279,7 @@ import { spcSubgroupApi } from '@/api/modules/spc/subgroups'
 const perm = usePermissionStore()
 // 能力计算权限(后端 spc.capability.list 守卫)
 const canCalc = computed(() => perm.has('spc.capability.list'))
-import type { SpcCapability, SpcSupplierCpkVo, SpcHistogramVo, SpcParam, CountCapabilityVo } from '@/api/types/spc'
+import type { SpcCapability, SpcParamCpkVo, SpcHistogramVo, SpcParam, CountCapabilityVo } from '@/api/types/spc'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -294,7 +307,7 @@ const detail = ref<SpcCapability | null>(null)
 const countCapability = ref<CountCapabilityVo | null>(null)
 const histogram = ref<SpcHistogramVo | null>(null)
 const trends = ref<SpcCapability[]>([])
-const supplierData = ref<SpcSupplierCpkVo[]>([])
+const paramCpkData = ref<SpcParamCpkVo[]>([])
 
 // ====== 图表 DOM ======
 const pieChartRef = ref<HTMLDivElement>()
@@ -342,15 +355,15 @@ const fmtTime = (v: string | null | undefined): string => {
   return v.replace('T', ' ').slice(0, 16)
 }
 
-/** 单侧能力指数 CPU/CPL:基于规格限与直方图的整体 σ(默认 k=3),与 Ppk 同口径 */
-const cpuCpl = computed(() => {
+/** 单侧过程能力指数 PPU/PPL:基于规格限与直方图的整体 σ(默认 k=3),与 Ppk 同口径 */
+const ppuPpl = computed(() => {
   const u = detail.value?.usl
   const l = detail.value?.lsl
   const m = histogram.value?.mean
   const s = histogram.value?.sigma
-  if (u == null || l == null || m == null || !s) return { cpu: null as number | null, cpl: null as number | null }
+  if (u == null || l == null || m == null || !s) return { ppu: null as number | null, ppl: null as number | null }
   const k = 3
-  return { cpu: (u - m) / (k * s), cpl: (m - l) / (k * s) }
+  return { ppu: (u - m) / (k * s), ppl: (m - l) / (k * s) }
 })
 
 /** 等级归一化：后端返回 level 可能是中文(充足/尚可/不足)或英文码(A/B/C)，统一映射。 */
@@ -457,7 +470,7 @@ const selectParam = async (row: SpcCapability) => {
       spcCapabilityApi.calc({ paramId: pid }).catch((e: any) => { console.error('[能力分析] selectParam calc 失败:', e?.message, e); return null }),
       spcChartApi.histogram({ paramId: pid }).catch((e: any) => { console.error('[能力分析] histogram 失败:', e?.message, e); return null }),
       spcCapabilityApi.trend({ paramId: pid, months: 12 }).catch((e: any) => { console.error('[能力分析] trend 失败:', e?.message, e); return [] as SpcCapability[] }),
-      spcCapabilityApi.supplierCpk().catch((e: any) => { console.error('[能力分析] supplierCpk 失败:', e?.message, e); return [] as SpcSupplierCpkVo[] }),
+      spcCapabilityApi.paramCpk().catch((e: any) => { console.error('[能力分析] paramCpk 失败:', e?.message, e); return [] as SpcParamCpkVo[] }),
       spcSubgroupApi.countCapability(pid).catch((e: any) => { console.error('[能力分析] countCapability 失败:', e?.message, e); return null }),
     ])
     // calc 返回实体不含 paramName/paramCode,从所点击行补全,保证详情头正确显示
@@ -465,7 +478,7 @@ const selectParam = async (row: SpcCapability) => {
     histogram.value = hist
     countCapability.value = cc?.countType ? cc : null
     trends.value = trend || []
-    supplierData.value = supplier || []
+    paramCpkData.value = supplier || []
     await nextTick()
     renderGauges()
     renderHistogram()
@@ -481,7 +494,7 @@ const backToOverview = () => {
   detail.value = null
   histogram.value = null
   trends.value = []
-  supplierData.value = []
+  paramCpkData.value = []
   countCapability.value = null
   loadOverview()
 }
@@ -843,6 +856,11 @@ onBeforeUnmount(() => {
 }
 
 .dim {
+  color: $ink-faint;
+  font-size: 12px;
+}
+
+.mute {
   color: $ink-faint;
   font-size: 12px;
 }

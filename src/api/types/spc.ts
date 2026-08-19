@@ -285,17 +285,17 @@ export interface SpcCapability {
   calcTime?: string
 }
 
-export interface SpcSupplierCpkVo {
+export interface SpcParamCpkVo {
   paramId: string
   paramName: string
+  /** 工序显示名(区分同名参数) */
+  procName?: string
+  /** 来源工单号(同名参数时用于进一步区分) */
+  srcWoNo?: string
   cpk?: number
   level?: string
-  /** 物料(供应商对比行) */
-  mat?: string
-  /** 供应商(供应商对比行) */
-  sup?: string
-  /** 等级(供应商对比行) */
-  lvl?: string
+  sampleCount?: number
+  calcNote?: string
 }
 
 // ── 控制图/直方图/看板 ──
