@@ -821,3 +821,36 @@ export interface PerfParetoRow {
   defectCode: string
   cnt: number
 }
+
+// ── 供应商资质证书 ──
+export interface SqmSupplierCert {
+  id: string
+  supplierId?: string
+  orgId?: string
+  /** 证书类型: 营业执照/医疗器械生产许可证/医疗器械经营许可证 */
+  certType?: string
+  certName?: string
+  certNo?: string
+  issueDate?: string
+  expiryDate?: string
+  /** MinIO objectKey */
+  fileUrl?: string
+  fileHash?: string
+  /** 证书版本(避让乐观锁 version) */
+  certVersion?: number
+  /** 生效/失效/过期 */
+  status?: string
+  /** 预警级别 */
+  warnLevel?: string
+}
+
+// ── 供应商档案详情聚合(后端 SqmSupplierOverviewVo) ──
+export interface SqmSupplierOverview {
+  supplier: SqmSupplier
+  certCount: number
+  auditCount: number
+  performanceCount: number
+  abnormalCount: number
+  changeCount: number
+  lotCount: number
+}

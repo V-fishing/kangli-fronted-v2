@@ -73,7 +73,9 @@
       <el-form :model="createForm" label-width="90px">
         <el-form-item label="标题" required><el-input v-model="createForm.title" /></el-form-item>
         <el-form-item label="供应商" required><el-select v-model="createForm.supplierId" filterable clearable placeholder="选择供应商" style="width:100%"><el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item>
-        <el-form-item label="料号"><el-input v-model="createForm.partNo" placeholder="如 KL-PART-001" /></el-form-item>
+        <el-form-item label="料号"><el-select v-model="createForm.partNo" filterable remote clearable :remote-method="remoteSearchPart" :loading="partLoading" placeholder="输入料号/名称模糊搜索" style="width:100%" @change="onPartPick"><el-option v-for="p in partOptions" :key="p.partNo" :label="`${p.partNo} · ${p.productName}`" :value="p.partNo || ''" /></el-select>
+          <div class="hint" v-if="partSupplierHint">该料号归属供应商: {{ partSupplierHint }}</div>
+        </el-form-item>
         <el-form-item label="变更类型"><el-select v-model="createForm.changeType" style="width:100%"><el-option v-for="t in ['材料','工艺','设计','供应商','其他']" :key="t" :label="t" :value="t" /></el-select></el-form-item>
         <el-form-item label="风险"><el-select v-model="createForm.riskPreMark" style="width:100%"><el-option v-for="r in ['高','中','低']" :key="r" :label="r" :value="r" /></el-select></el-form-item>
         <el-form-item label="紧急度"><el-select v-model="createForm.urgency" style="width:100%"><el-option v-for="u in ['高','中','低']" :key="u" :label="u" :value="u" /></el-select></el-form-item>
@@ -266,7 +268,7 @@ import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
 import { fileApi } from '@/api/modules/common/files'
 import type { SqmChangeOrder, SqmChangeOrderListVo, SqmChangeOrderVo, SqmChangeApproval, SqmSupplier, SqmAuditPlan, SqmChangeStrictInspect } from '@/api/types/sqm'
-import type { FiaTask } from '@/api/types/fia'
+import type { FiaTask, ProductSearchResult } from '@/api/types/fia'
 
 const route = useRoute()
 const router = useRouter()
@@ -300,6 +302,10 @@ async function fetch() {
 // ── 新建(评估资料:变更说明文本 + 验证报告/风险评估附件) ──
 const createVisible = ref(false)
 const uploading = ref(false)
+// 料号模糊搜索
+const partOptions = ref<ProductSearchResult[]>([])
+const partLoading = ref(false)
+const partSupplierHint = ref('')
 const suppliers = ref<SqmSupplier[]>([])
 const verifyInput = ref<HTMLInputElement>()
 const riskInput = ref<HTMLInputElement>()
@@ -315,8 +321,33 @@ const createForm = reactive({
 async function openCreate() {
   Object.assign(createForm, { title: '', supplierId: filterSupplierId.value || '', partNo: '', changeType: '材料', reason: '', verifyReport: '', riskFile: '', riskPreMark: '中', urgency: '中', orgId: auth.user?.orgId || '', oldPartNo: '', newPartNo: '', effDate: null, switchDate: null, impactDesc: '', strictFlag: false, customerNotify: false, customerApproved: false })
   uploadNames.verifyReport = ''; uploadNames.riskFile = ''
+  partOptions.value = []
+  partSupplierHint.value = ''
   createVisible.value = true
   if (!suppliers.value.length) { try { suppliers.value = await sqmSupplierApi.list() } catch { /* 忽略 */ } }
+}
+
+// 料号模糊搜索(远程, 复用 FIA 产品检索接口)
+async function remoteSearchPart(kw: string) {
+  const k = (kw || '').trim()
+  if (!k) { partOptions.value = []; return }
+  partLoading.value = true
+  try {
+    partOptions.value = await fiaTaskApi.searchProduct({ orgId: auth.user?.orgId || '', keyword: k }).catch(() => [])
+  } finally { partLoading.value = false }
+}
+
+// 选中料号: 轻量提示其归属供应商, 若与已选供应商不符则告警(不自动覆盖)
+function onPartPick(partNo: string) {
+  const hit = (partOptions.value || []).find((p: ProductSearchResult) => p.partNo === partNo)
+  if (hit && hit.matchedSupplierName) {
+    partSupplierHint.value = hit.matchedSupplierName
+    if (createForm.supplierId && hit.matchedSupplierId && hit.matchedSupplierId !== createForm.supplierId) {
+      ElMessage.warning(`该料号归属「${hit.matchedSupplierName}」,与已选供应商不一致,请核对`)
+    }
+  } else {
+    partSupplierHint.value = ''
+  }
 }
 
 async function onPick(field: 'verifyReport' | 'riskFile', e: Event) {
@@ -507,4 +538,5 @@ onMounted(async () => {
 .tl-click:hover { text-decoration: underline; }
 .tl-arrow { font-size: 12px; }
 .tl-hint { color: $ink-faint; font-size: 12px; margin-top: 2px; }
+.hint { color: $ink-faint; font-size: 12px; margin-top: 6px; font-family: $font-mono; }
 </style>

@@ -19,11 +19,11 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{row}">
             <el-button link type="warning" size="small" @click="openEdit(row as FiaInspStd)" v-if="canEditStd">编辑</el-button>
-            <template v-if="(row as FiaInspStd).status !== '草稿'">
-              <el-button v-if="(row as FiaInspStd).status === '生效'" link type="info" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '停用')" v-if="canEditStd">停用</el-button>
-              <el-button v-else link type="success" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '生效')" v-if="canEditStd">启用</el-button>
+            <template v-if="canEditStd && (row as FiaInspStd).status !== '草稿'">
+              <el-button v-if="(row as FiaInspStd).status === '生效'" link type="info" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '停用')">停用</el-button>
+              <el-button v-else link type="success" size="small" @click="handleChangeStatus((row as FiaInspStd).id, '生效')">启用</el-button>
             </template>
-            <el-button v-if="(row as FiaInspStd).status === '草稿'" link type="danger" size="small" @click="handleDelete((row as FiaInspStd).id)" v-if="canDeleteStd">删除</el-button>
+            <el-button v-if="canDeleteStd && (row as FiaInspStd).status === '草稿'" link type="danger" size="small" @click="handleDelete((row as FiaInspStd).id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

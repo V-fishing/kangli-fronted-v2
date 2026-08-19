@@ -531,6 +531,8 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
+// 内容型卡片(长表单 + SPC 参数)需允许溢出可见,否则底部「创建任务」按钮会被全局 .card-b 的 overflow:hidden 裁掉
+.task-create :deep(.card-b) { overflow: visible; }
 .src-banner { font-size: 13px; color: $ink-soft; background: $paper; border: 1px solid $hairline; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
 .src-banner .mono { font-family: $font-mono; color: $cobalt; }
 .hint { font-size: 12px; color: #409eff; margin-top: 4px; }

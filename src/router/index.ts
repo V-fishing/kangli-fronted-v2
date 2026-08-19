@@ -72,6 +72,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ncm/defect-records/:id', name: 'NcmDefectRecordDetail', component: () => import('@/views/ncm/DefectRecordDetail.vue'), meta: { title: '不良记录详情' } },
       { path: 'sqm', redirect: '/sqm/suppliers' },
       { path: 'sqm/suppliers', name: 'SqmSuppliers', component: () => import('@/views/sqm/SupplierList.vue'), meta: { title: '供应商' } },
+      { path: 'sqm/suppliers/:id', name: 'SqmSupplierDetail', component: () => import('@/views/sqm/SupplierDetail.vue'), meta: { title: '供应商详情' } },
       { path: 'sqm/abnormals', name: 'SqmAbnormals', component: () => import('@/views/sqm/AbnormalList.vue'), meta: { title: '来料异常' } },
       { path: 'sqm/audits', name: 'SqmAudits', component: () => import('@/views/sqm/AuditList.vue'), meta: { title: '审核' } },
       { path: 'sqm/audits/execute/:planId', name: 'SqmAuditExecute', component: () => import('@/views/sqm/AuditExecute.vue'), meta: { title: '审核执行' } },

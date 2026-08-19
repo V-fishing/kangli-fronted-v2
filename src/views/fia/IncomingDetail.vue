@@ -111,7 +111,7 @@
       <el-input v-model="signPassword" type="password" placeholder="密码" show-password />
       <template #footer>
         <el-button @click="signVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitSign" :loading="signLoading" v-if="canSign">确认签名</el-button>
+        <el-button type="primary" @click="submitSign" :loading="signLoading" v-if="canSignPerm">确认签名</el-button>
       </template>
     </el-dialog>
   </div>
@@ -132,7 +132,7 @@ import type { SqmSupplier } from '@/api/types/sqm'
 
 const route = useRoute()
 const perm = usePermissionStore()
-const canSign = computed(() => perm.has('fia.sign.inspector'))
+const canSignPerm = computed(() => perm.has('fia.sign.inspector'))
 const canDisposition = computed(() => perm.has('fia.sign.disposition'))
 const vo = ref<FiaTaskVo | null>(null)
 const id = route.params.id as string
