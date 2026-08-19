@@ -10,7 +10,7 @@ describe('v-permission 指令（越权按钮防护）', () => {
 
   /** 模拟指令挂载：构造 DOM 元素并调用 mounted 钩子 */
   function runMounted(el: HTMLElement, value: string | string[]) {
-    permission.mounted!(el, { value } as any)
+    permission.mounted!(el, { value } as any, null as any, null as any)
   }
 
   it('无权限时调用 el.remove() 移除元素', () => {

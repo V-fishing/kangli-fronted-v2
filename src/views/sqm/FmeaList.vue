@@ -59,7 +59,7 @@
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row as QmsFmeaRisk)">详情</el-button>
-            <el-button link type="warning" size="small" @click="openAssign(row as QmsFmeaRisk)">改派</el-button>
+            <el-button v-permission="'sqm.fmea.edit'" link type="warning" size="small" @click="openAssign(row as QmsFmeaRisk)">改派</el-button>
             <el-button v-permission="'sqm.fmea.edit'" v-if="row.status !== '已闭环'" link type="primary" size="small" @click="openEdit(row as QmsFmeaRisk)">编辑</el-button>
             <el-button v-permission="'sqm.fmea.close'" v-if="row.status !== '已闭环'" link type="success" size="small" @click="openClose(row as QmsFmeaRisk)">闭环</el-button>
             <el-button v-permission="'sqm.fmea.reopen'" v-if="row.status === '已闭环'" link type="warning" size="small" @click="reopen(row as QmsFmeaRisk)">重开</el-button>
@@ -108,18 +108,18 @@
         <el-divider content-position="left">RPN 评估（严重度 × 频度 × 探测度）</el-divider>
         <el-row :gutter="16" align="middle">
           <el-col :span="7">
-            <el-form-item label="严重度 S" required>
-              <el-input-number v-model="editForm.severityS" :min="1" :max="10" @change="predictRpn" style="width:100%" />
+            <el-form-item label="严重度 S" label-width="70px" required>
+              <el-input-number v-model="editForm.severityS" :min="1" :max="10" controls-position="right" @change="predictRpn" style="width:100%" />
             </el-form-item>
           </el-col>
           <el-col :span="7">
-            <el-form-item label="频度 O" required>
-              <el-input-number v-model="editForm.occurrenceO" :min="1" :max="10" @change="predictRpn" style="width:100%" />
+            <el-form-item label="频度 O" label-width="70px" required>
+              <el-input-number v-model="editForm.occurrenceO" :min="1" :max="10" controls-position="right" @change="predictRpn" style="width:100%" />
             </el-form-item>
           </el-col>
           <el-col :span="7">
-            <el-form-item label="探测度 D" required>
-              <el-input-number v-model="editForm.detectionD" :min="1" :max="10" @change="predictRpn" style="width:100%" />
+            <el-form-item label="探测度 D" label-width="70px" required>
+              <el-input-number v-model="editForm.detectionD" :min="1" :max="10" controls-position="right" @change="predictRpn" style="width:100%" />
             </el-form-item>
           </el-col>
           <el-col :span="3">
@@ -161,13 +161,39 @@
     <!-- 闭环弹窗 -->
     <el-dialog v-model="closeVisible" title="闭环风险项" width="540px" append-to-body>
       <el-alert v-if="closeRow && closeRow.highRiskFlag" type="warning" :closable="false" style="margin-bottom:14px">
-        高风险项：闭环前须勾选“已验证三个月无复发”，并提交闭环证据。
+        高风险项：闭环前须勾选"已验证三个月无复发"，并提交闭环证据。
       </el-alert>
       <el-form :model="closeForm" label-width="100px">
         <el-form-item label="闭环证据" required>
           <el-input v-model="closeForm.evidence" type="textarea" :rows="3" placeholder="填写验证结果、措施完成证明等" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="closeForm.note" type="textarea" :rows="2" /></el-form-item>
+        <el-divider content-position="left">措施实施后重评（可选，对比 RPN 下降）</el-divider>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="重评 S" label-width="60px">
+              <el-input-number v-model="closeForm.resevalS" :min="1" :max="10" controls-position="right" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="重评 O" label-width="60px">
+              <el-input-number v-model="closeForm.resevalO" :min="1" :max="10" controls-position="right" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="重评 D" label-width="60px">
+              <el-input-number v-model="closeForm.resevalD" :min="1" :max="10" controls-position="right" style="width:100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <div v-if="resevalRpn != null" class="rpn-compare">
+          <span class="rpn-lab">重评 RPN</span>
+          <span class="pill" :class="riskClass(resevalLevel)"><span class="d"></span>{{ resevalRpn }}</span>
+          <span v-if="rpnCompare && rpnCompare.dir === 'down'" class="c-green">原 {{ rpnCompare.before }}，↓ 下降 {{ rpnCompare.before - rpnCompare.after }}</span>
+          <span v-else-if="rpnCompare && rpnCompare.dir === 'up'" class="c-red">原 {{ rpnCompare.before }}，↑ 上升 {{ rpnCompare.after - rpnCompare.before }}</span>
+          <span v-else-if="rpnCompare" class="rpn-flat">原 {{ rpnCompare.before }}，持平</span>
+        </div>
+        <div v-else class="rpn-compare rpn-flat">填写三项 S/O/D 后实时预览重评 RPN</div>
         <el-form-item v-if="closeRow && closeRow.highRiskFlag" label="无复发验证" required>
           <el-checkbox v-model="closeForm.recurrenceVerified">已验证三个月无复发</el-checkbox>
         </el-form-item>
@@ -203,6 +229,22 @@
         <el-descriptions-item label="责任人">{{ detail.owner || '—' }}</el-descriptions-item>
         <el-descriptions-item label="目标日期">{{ detail.targetDate || '—' }}</el-descriptions-item>
         <el-descriptions-item label="闭环日期">{{ detail.closeDate || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="重评 S/O/D" :span="2">
+          <template v-if="detail.resevalSeverity != null">
+            <span class="sod">{{ detail.resevalSeverity }}/{{ detail.resevalOccurrence }}/{{ detail.resevalDetection }}</span>
+          </template>
+          <template v-else><span class="pill p-mute"><span class="d"></span>未重评</span></template>
+        </el-descriptions-item>
+        <el-descriptions-item label="重评 RPN" :span="2">
+          <template v-if="detail.rpnAfter != null">
+            <span class="pill" :class="riskClass(detail.riskLevel)">{{ detail.rpn ?? '—' }}</span>
+            <span class="rpn-arrow">→</span>
+            <span class="pill" :class="riskClass(riskLevelOf(detail.rpnAfter, detail.resevalSeverity))">{{ detail.rpnAfter }}</span>
+            <span v-if="detail.rpn != null && detail.rpnAfter < detail.rpn" class="c-green rpn-delta">↓ {{ detail.rpn - detail.rpnAfter }}</span>
+            <span v-else-if="detail.rpn != null && detail.rpnAfter > detail.rpn" class="c-red rpn-delta">↑ {{ detail.rpnAfter - detail.rpn }}</span>
+          </template>
+          <template v-else>—</template>
+        </el-descriptions-item>
         <el-descriptions-item label="闭环证据" :span="2">{{ detail.evidence || '—' }}</el-descriptions-item>
         <el-descriptions-item label="闭环备注" :span="2">{{ detail.note || '—' }}</el-descriptions-item>
       </el-descriptions>
@@ -243,7 +285,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
@@ -389,23 +431,25 @@ async function submitEdit() {
 const closeVisible = ref(false)
 const closing = ref(false)
 const closeRow = ref<QmsFmeaRisk | null>(null)
-const closeForm = reactive<{ evidence: string; note: string; recurrenceVerified: boolean }>({ evidence: '', note: '', recurrenceVerified: false })
+const closeForm = reactive<{ evidence: string; note: string; recurrenceVerified: boolean; resevalS?: number; resevalO?: number; resevalD?: number }>({ evidence: '', note: '', recurrenceVerified: false, resevalS: undefined, resevalO: undefined, resevalD: undefined })
 
 function openClose(r: QmsFmeaRisk) {
   closeRow.value = r
   closeForm.evidence = ''; closeForm.note = ''; closeForm.recurrenceVerified = false
+  closeForm.resevalS = undefined; closeForm.resevalO = undefined; closeForm.resevalD = undefined
   closeVisible.value = true
 }
 
 async function submitClose() {
   if (!closeRow.value) return
   if (!closeForm.evidence) { ElMessage.warning('请填写闭环证据'); return }
-  if (closeRow.value.highRiskFlag && !closeForm.recurrenceVerified) { ElMessage.warning('高风险项须勾选“已验证三个月无复发”'); return }
+  if (closeRow.value.highRiskFlag && !closeForm.recurrenceVerified) { ElMessage.warning('高风险项须勾选"已验证三个月无复发"'); return }
   closing.value = true
   try {
     await sqmFmeaApi.close(closeRow.value.id, {
       evidence: closeForm.evidence, note: closeForm.note,
       recurrenceVerified: closeRow.value.highRiskFlag ? closeForm.recurrenceVerified : undefined,
+      resevalSeverity: closeForm.resevalS, resevalOccurrence: closeForm.resevalO, resevalDetection: closeForm.resevalD,
     })
     ElMessage.success('已闭环')
     closeVisible.value = false
@@ -453,7 +497,28 @@ async function onAssignSubmit(body: DefectLaunchRequest) {
   } finally { /* 弹窗内部保留 submitting 态 */ }
 }
 
+// ── 重评 RPN 实时预览 ──
+const resevalRpn = computed<number | null>(() => {
+  if (closeForm.resevalS == null || closeForm.resevalO == null || closeForm.resevalD == null) return null
+  return closeForm.resevalS * closeForm.resevalO * closeForm.resevalD
+})
+const resevalLevel = computed<string>(() => {
+  if (resevalRpn.value == null) return ''
+  return riskLevelOf(resevalRpn.value, closeForm.resevalS)
+})
+const rpnCompare = computed<{ dir: 'down' | 'up' | 'flat'; before: number; after: number } | null>(() => {
+  if (resevalRpn.value == null || closeRow.value?.rpn == null) return null
+  const before = closeRow.value.rpn
+  const after = resevalRpn.value
+  return { dir: after < before ? 'down' : after > before ? 'up' : 'flat', before, after }
+})
+
 // ── 色标 ──
+function riskLevelOf(rpn: number, severity?: number) {
+  if ((severity ?? 0) >= 9 || rpn >= 100) return '高'
+  if (rpn >= 50) return '中'
+  return '低'
+}
 function riskClass(l?: string) { return ({ '高': 'p-lock', '中': 'p-wait', '低': 'p-done' } as Record<string, string>)[l || ''] || '' }
 function fmeaStatusClass(s: string) {
   return ({ '创建': 'p-wait', '待闭环': 'p-wait', '进行中': 'p-run', '已闭环': 'p-done' } as Record<string, string>)[s] || ''
@@ -479,6 +544,11 @@ onMounted(() => { loadOptions(); fetch() })
 .rpn-box { text-align: center; border-radius: 10px; padding: 6px 0; }
 .rpn-box .rpn-num { font-family: $font-display; font-size: 22px; font-weight: 800; }
 .rpn-box .rpn-lab { font-size: 11px; }
+.rpn-arrow { margin: 0 6px; color: $ink-faint; font-family: $font-mono; }
+.rpn-compare { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 10px 14px; border-radius: $radius-md; background: $hairline-soft; font-size: 12px; font-family: $font-mono; color: $ink-soft; }
+.rpn-compare .rpn-lab { font-size: 11px; color: $ink-faint; }
+.rpn-flat { color: $ink-faint; }
+.rpn-delta { margin-left: 8px; font-family: $font-mono; font-size: 12px; }
 .track-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .track-op { font-size: 12px; color: $ink-faint; }
 .track-note { font-size: 12px; color: $ink-soft; margin-top: 4px; }

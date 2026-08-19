@@ -627,6 +627,14 @@ export interface QmsFmeaRisk {
   detectionD?: number
   /** 风险优先数 RPN = S × O × D */
   rpn?: number
+  /** 措施实施后重评 RPN(二次 RPN) */
+  rpnAfter?: number
+  /** 措施实施后重评严重度 S(1-10),NULL 表示未重评 */
+  resevalSeverity?: number
+  /** 措施实施后重评频度 O(1-10),NULL 表示未重评 */
+  resevalOccurrence?: number
+  /** 措施实施后重评探测度 D(1-10),NULL 表示未重评 */
+  resevalDetection?: number
   /** 风险等级 高/中/低 */
   riskLevel?: string
   /** 高风险标志(后端: S>=9 或 RPN>=100) */

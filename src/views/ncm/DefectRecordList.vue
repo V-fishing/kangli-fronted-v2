@@ -19,8 +19,18 @@
             <router-link :to="`/ncm/defect-records/${(row as NcmDefectRecord).id}`" class="mono link">{{ (row as NcmDefectRecord).defectNo }}</router-link>
           </template>
         </el-table-column>
-        <el-table-column prop="woNo" label="工单号" width="140" />
-        <el-table-column prop="processCode" label="工序" width="90" />
+        <el-table-column label="工单号" width="140">
+          <template #default="{row}">
+            <span v-if="(row as NcmDefectRecord).woNo" class="mono">{{ (row as NcmDefectRecord).woNo }}</span>
+            <span v-else class="no-measure">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="工序" width="90">
+          <template #default="{row}">
+            <span v-if="(row as NcmDefectRecord).processCode" class="mono">{{ (row as NcmDefectRecord).processCode }}</span>
+            <span v-else class="no-measure">—</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="defectDictCode" label="缺陷编码" width="100" />
         <el-table-column prop="stage" label="阶段" width="100" />
         <el-table-column prop="severity" label="严重度" width="80" />

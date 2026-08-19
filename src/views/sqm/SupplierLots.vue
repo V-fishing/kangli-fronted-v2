@@ -35,7 +35,7 @@
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="goTrace(row)">追溯 →</el-button>
-            <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
+            <el-button link type="primary" size="small" @click="openDetail(row as SqmIncomingLot)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -31,8 +31,15 @@ export const sqmFmeaApi = {
   update: (id: string, data: Partial<QmsFmeaRisk>) =>
     request.put<QmsFmeaRisk>(`/v1/sqm/fmea/${id}`, data),
 
-  /** 闭环(提交证据; 高风险需 recurrenceVerified) */
-  close: (id: string, body: { evidence: string; note?: string; recurrenceVerified?: boolean }) =>
+  /** 闭环(提交证据; 高风险需 recurrenceVerified; 可选措施重评 S/O/D) */
+  close: (id: string, body: {
+    evidence: string
+    note?: string
+    recurrenceVerified?: boolean
+    resevalSeverity?: number
+    resevalOccurrence?: number
+    resevalDetection?: number
+  }) =>
     request.post<QmsFmeaRisk>(`/v1/sqm/fmea/${id}/close`, body),
 
   /** 闭环轨迹 */

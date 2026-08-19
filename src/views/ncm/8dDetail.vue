@@ -11,7 +11,7 @@
           <template v-else>{{ vo.report.source }}</template>
           · <span class="pill" :class="vo.report.severity==='高'?'p-lock':''"><span class="d"></span>{{ vo.report.severity }}</span>
         </div></div>
-        <div class="field"><div class="l">类型</div><div class="v"><span class="tag-b">{{ vo.report.flowType }}</span></div></div>
+        <div class="field"><div class="l">类型</div><div class="v"><span class="tag-b">{{ vo.report.flowType || '8D' }}</span></div></div>
         <div class="field"><div class="l">状态</div><div class="v"><span class="pill" :class="vo.report.status==='已闭环'?'p-done':'p-run'"><span class="d"></span>{{ vo.report.status }}</span></div></div>
         <div class="field"><div class="l">团队</div><div class="v">{{ vo.report.team || '-' }}</div></div>
       </div>
