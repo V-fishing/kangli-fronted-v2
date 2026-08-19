@@ -99,21 +99,6 @@ export const fiaTaskApi = {
   getTaskStdItems: (id: string) =>
     request.get<TaskStdItemVo[]>(`/v1/fia/tasks/${id}/std-items`),
 
-  /** GET /v1/fia/tasks/by-setup 按 setup(工单+物料+工序)查询最新首件结论,供量产监控前置校验 */
-  getBySetup: (params: { woNo?: string; partNo?: string; procName?: string }) =>
-    request.get<{
-      exists: boolean
-      released: boolean
-      taskId?: string
-      code?: string
-      status?: string
-      overallJudge?: string
-      woNo?: string
-      partNo?: string
-      procName?: string
-      message?: string
-    }>('/v1/fia/tasks/by-setup', { params }),
-
   /** GET /v1/fia/tasks/by-change?changeId= 变更单关联的供应商来料首件(变更→首件绑定追溯) */
   byChange: (changeId: string) =>
     request.get<FiaTask | null>('/v1/fia/tasks/by-change', { params: { changeId } }),

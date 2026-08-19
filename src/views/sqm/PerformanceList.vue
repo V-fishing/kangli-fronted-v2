@@ -200,13 +200,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="起止周期">
-          <el-select v-model="trendStart" style="width:120px" @change="loadTrend">
-            <el-option v-for="p in periodOptions" :key="p" :label="p" :value="p" />
-          </el-select>
+          <el-date-picker v-model="trendStart" type="month" value-format="YYYY-MM" placeholder="起始月" style="width:130px" @change="loadTrend" />
           <span class="tilde">~</span>
-          <el-select v-model="trendEnd" style="width:120px" @change="loadTrend">
-            <el-option v-for="p in periodOptions" :key="p" :label="p" :value="p" />
-          </el-select>
+          <el-date-picker v-model="trendEnd" type="month" value-format="YYYY-MM" placeholder="结束月" style="width:130px" @change="loadTrend" />
         </el-form-item>
       </el-form>
       <div ref="trendScoreRef" class="chart tall"></div>

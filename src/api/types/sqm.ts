@@ -363,6 +363,10 @@ export interface SqmIncomingLot {
   poNo?: string
   /** MES 供应商编号(VEN 编号) */
   venCode?: string
+  /** 来料条码(MES material_inspection.material_barcode 映射, 追溯详情定位用) */
+  materialBarcode?: string
+  /** 物料批次号(MES material_inspection.material_batch_no 映射, 追溯详情定位用) */
+  materialBatchNo?: string
 }
 
 // ── 追溯节点(实体) ──

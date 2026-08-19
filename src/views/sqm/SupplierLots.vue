@@ -32,9 +32,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="receiveDate" label="接收日期" width="120" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{row}">
             <el-button link type="primary" size="small" @click="goTrace(row)">追溯 →</el-button>
+            <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -47,14 +48,25 @@
           @size-change="(s: number) => { size = s as number; page = 1; fetch() }" small />
       </div>
     </el-card>
+
+    <!-- 复用追溯源表明细弹窗: 来料检验明细 -->
+    <SourceDetailDialog
+      v-if="detailState.visible"
+      ref="detailRef"
+      :source-type="detailState.sourceType"
+      :biz-key="detailState.bizKey"
+      @update:visible="detailState.visible = $event"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { usePageSize } from '@/composables/usePageSize'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import SourceDetailDialog from '@/components/sqm/SourceDetailDialog.vue'
 import { sqmTraceApi } from '@/api/modules/sqm/trace'
 import type { SqmIncomingLot } from '@/api/types/sqm'
 
@@ -83,6 +95,24 @@ function goTrace(row: any) {
   // 统一到方案 B: 以来料批次号定位源表条码集合, 在 MesTraceView 渲染 MES 追溯森林
   router.push({ path: '/sqm/trace/mes-view', query: { lotNo: row.lotNo } })
 }
+
+// 详情: 复用追溯源表明细弹窗, 展示该来料批次的来料检验明细(material)
+const detailRef = ref<InstanceType<typeof SourceDetailDialog> | null>(null)
+const detailState = reactive({ visible: false, sourceType: '', bizKey: '' })
+function openDetail(row: SqmIncomingLot) {
+  // 来料批次 lot_no 即源表 material_inspection.record_no(记录编号, 唯一),
+  // 用 lotNo 定位最稳定; 后端 material 分支同时兼容条码/批次号/记录编号。
+  const bizKey = row.lotNo || row.materialBarcode || row.materialBatchNo
+  if (!bizKey) {
+    ElMessage.warning('该批次缺少可查询的源表业务条码')
+    return
+  }
+  detailState.sourceType = 'material'
+  detailState.bizKey = bizKey
+  detailState.visible = true
+  nextTick(() => detailRef.value?.open())
+}
+
 onMounted(fetch)
 </script>
 
