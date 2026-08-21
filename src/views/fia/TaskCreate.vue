@@ -60,6 +60,15 @@
           <div class="hint" v-if="fromChange">已从物料变更单料号自动匹配产品名称,锁定不可改</div>
         </el-form-item>
 
+        <!-- 产品首件(非来料/非变更)工单号改为下拉选 MES 生产订单号(MO0*/WTM*),必填 -->
+        <el-form-item v-if="taskKind === 'product' && !fromChange && form.category !== 'material'" label="生产订单号" required>
+          <el-select v-model="form.woNo" filterable clearable remote :remote-method="remoteSearchOrder"
+            :loading="orderLoading" placeholder="选择 MES 生产订单号" style="width: 100%" @change="onOrderPick">
+            <el-option v-for="o in orderOptions" :key="o" :label="o" :value="o" />
+          </el-select>
+          <div class="hint">首件工单号对齐 MES 生产订单号,选中后自动带出物料/产品/型号规格</div>
+        </el-form-item>
+
         <el-form-item v-if="taskKind === 'product'" label="品类">
           <el-radio-group v-model="form.category" :disabled="fromChange" @change="onCategoryChange">
             <el-radio value="material">物料首件</el-radio>
@@ -146,6 +155,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionStore } from '@/stores/permission'
 import { fiaTaskApi } from '@/api/modules/fia/tasks'
+import { finishInspectionApi } from '@/api/modules/fia/finishInspection'
 import { fiaTriggerApi } from '@/api/modules/fia/triggers'
 import { fiaStdApi } from '@/api/modules/fia/stds'
 import { spcParamApi } from '@/api/modules/spc/params'
@@ -186,6 +196,9 @@ const productLoading = ref(false)
 // 工装首件: 关联工装选项
 const toolOptions = ref<TlmTooling[]>([])
 const toolLoading = ref(false)
+// 产品首件: MES 生产订单号下拉(对齐首件工单号)
+const orderOptions = ref<string[]>([])
+const orderLoading = ref(false)
 
 // SPC 参数勾选:仅接受已关联 FIA 标准项(fiaStdItemId)的参数,确保提交后精确生成对应检验项
 const spcParams = ref<SpcParam[]>([])
@@ -214,6 +227,7 @@ const form = reactive({
   toolId: '',
   lotId: '',
   batchNo: '',
+  woNo: '',
   isUrgent: false,
   remark: '',
   changeId: '',
@@ -275,6 +289,8 @@ async function submitCreate() {
   }
 
   // 产品首件分支(原逻辑)
+  // 产品首件(非来料/非变更)工单号已改为下拉选 MES 生产订单号,必填
+  if (form.category !== 'material' && !form.woNo) { ElMessage.warning('请选择生产订单号'); return }
   if (!form.partNo) { ElMessage.warning('请选择产品料号'); return }
   // 变更驱动首件: 供应商/品类已由变更单锁定,仅补产品名称兜底
   if (fromChange.value) {
@@ -331,6 +347,19 @@ async function remoteSearchTool(kw: string) {
     const r = await tlmToolingApi.page({ keyword: k, page: 1, size: 20 }).catch(() => null)
     toolOptions.value = (r?.records || []) as TlmTooling[]
   } finally { toolLoading.value = false }
+}
+
+// 产品首件: MES 生产订单号下拉(关键词过滤)
+async function remoteSearchOrder(kw: string) {
+  const k = (kw || '').trim()
+  if (!k) { orderOptions.value = []; return }
+  orderLoading.value = true
+  try {
+    orderOptions.value = await finishInspectionApi.mesProductionOrders(k).catch(() => [])
+  } finally { orderLoading.value = false }
+}
+function onOrderPick(_wo: string) {
+  // 选中生产订单号后,首件工单号对齐 MES;产品料号仍由用户在下方选择(已带出所需字段)
 }
 
 // 选中工装: 自动带出 工序(proc_name)/产品编码(product_code)/供应商(supplier_id/name),并匹配标准+SPC参数

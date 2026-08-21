@@ -30,6 +30,7 @@
           @keyup.enter="doSearch"
         />
         <button class="btn-b" @click="doSearch">查询</button>
+        <el-button type="primary" @click="goFinishInspection" v-if="canCreateFinish">新建完工检验</el-button>
         <el-button type="primary" link @click="lotDialogVisible = true" v-if="canCreateLot">+ 新建来料批次</el-button>
       </div>
       <span class="tl-summary" v-if="total > 0">共 <b class="mono">{{ total }}</b> 条</span>
@@ -184,6 +185,8 @@ const auth = useAuthStore()
 const perm = usePermissionStore()
 const canCreateLot = computed(() => perm.has('sqm.trace.create'))
 const pageSize = usePageSize()
+// 半成品/成品子表: 提供「完工检验」新建入口(带品类跳转独立向导页)
+const canCreateFinish = computed(() => perm.has('fia.finish.create') && (activeTab.value === 'semi' || activeTab.value === 'finished'))
 
 // 组织隔离: 当前选中的组织视图(非空且非 'ALL' 时透传给后端)
 const orgParam = computed(() => (auth.currentOrgId && auth.currentOrgId !== 'ALL' ? auth.currentOrgId : undefined))
@@ -273,6 +276,13 @@ function onFilterChange() {
 
 function doSearch() {
   loadData(1)
+}
+
+// ====== 完工检验新建 ======
+// TraceList 子表 tab 值 semi/finished -> 后端 category 语义 semi/product
+function goFinishInspection() {
+  const cat = activeTab.value === 'semi' ? 'semi' : 'product'
+  router.push({ path: '/fia/finish-inspection', query: { category: cat } })
 }
 
 // ====== 追溯 ======

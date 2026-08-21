@@ -68,7 +68,7 @@
           </div>
         </div>
         <div class="card-b" v-if="isVariable">
-          <div class="card-head"><h2>直方图</h2><span class="sub" v-if="hist">μ={{ hist.mean?.toFixed(3) }} σ={{ hist.sigma?.toFixed(3) }}</span></div>
+          <div class="card-head"><h2>直方图</h2><span class="sub" v-if="hist">μ={{ hist.mean?.toFixed(3) }} σ={{ hist.sigma?.toFixed(3) }}<template v-if="hist.basedOn === 'XBAR'"> · 基于子组均值</template></span></div>
           <div class="chart" ref="histChartRef" style="height:220px"></div>
         </div>
         <div class="card-b" v-if="isVariable">
@@ -311,9 +311,9 @@ function levelClass(l: string) { return { '充足': 'p-done', '尚可': 'p-run',
 
 async function loadChart() {
   if (!paramId.value) return
-  // 控制图/直方图统一基于全量子组计算(忽略 stage 维度), 与过程能力口径一致;
-  // stage 入口参数在此作废(不再作为过滤条件), 仅保留展示标签意义。
-  const p = { paramId: paramId.value, startTime: timeRange.value?.[0], endTime: timeRange.value?.[1], stage: 'ALL', sampleTaskId: sampleTaskId.value || undefined }
+  // 控制图/直方图统一基于全量子组计算(忽略 stage/sampleTaskId 维度), 与过程能力口径一致;
+  // stage/sampleTaskId 入口参数仅作展示标签(标题"抽样任务视图"), 不再作为过滤条件。
+  const p = { paramId: paramId.value, startTime: timeRange.value?.[0], endTime: timeRange.value?.[1], stage: 'ALL' }
   const [data, cap, h, cc] = await Promise.all([
     spcChartApi.controlChart(p).catch(() => null),
     spcCapabilityApi.calc({ paramId: paramId.value }).catch(() => null),

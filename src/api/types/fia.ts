@@ -50,6 +50,32 @@ export interface FiaTask {
   createdBy?: string
   version?: number
   changeId?: string // 关联物料变更单 ID(变更驱动的首件)
+  firstArticleId?: string // 关联首件任务 ID(完工检验单↔首件 1:1 绑定,放行前须非空)
+  // ---- 完工检验补收字段(V248) ----
+  modelSpec?: string // 型号规格
+  productionDate?: string // 生产日期(YYYY-MM-DD)
+  submittedQty?: number // 提交数量
+  unit?: string // 单位
+  plantCode?: string // 工厂编码
+  plantName?: string // 工厂名称
+}
+
+/** 某工单「最近一次首件」视图(完工检验建单 1:1 选择并带出生产字段) */
+export interface EligibleFirstArticleVO {
+  taskId: string
+  code: string
+  woNo?: string
+  productName?: string
+  partNo?: string
+  procName?: string
+  overallJudge?: string
+  status?: string // 任务状态(已完成=已放行可绑定;其余为未放行,仅用于带字段)
+  createdAt?: string
+  // ---- 生产字段(从 MES 成品表按工单带出,定死不可手填) ----
+  modelSpec?: string // 型号规格
+  productionDate?: string // 生产日期(YYYY-MM-DD)
+  submittedQty?: number // 提交数量
+  unit?: string // 单位
 }
 
 // ── 检验项 ──
@@ -114,6 +140,14 @@ export interface CreateFiaTaskRequest {
   isUrgent?: boolean
   remark?: string
   changeId?: string // 关联物料变更单 ID(非空时后端强制绑定 supplier/partNo + source=SUPPLIER)
+  // ---- 完工检验补收字段(trigger_type='完工检验' 时使用,普通首件忽略) ----
+  eligibleFirstArticleId?: string // 选中的最近合格首件任务 ID
+  modelSpec?: string // 型号规格
+  productionDate?: string // 生产日期(YYYY-MM-DD)
+  submittedQty?: number // 提交数量
+  unit?: string // 单位
+  plantCode?: string // 工厂编码
+  plantName?: string // 工厂名称
 }
 
 /** 工装首件检验任务创建(人工入口): 按 toolId 取工装档案自动匹配标准,批次号必填 */
@@ -360,4 +394,232 @@ export interface BatchByLotResult {
   /** 建单失败数量 */
   tasksFailed?: number
   tasks?: FiaTask[]
+}
+
+// ── 完工检验(直读直写 MES qms.finished_goods_inspection) ──
+/** 完工检验详情/列表视图(MES 表 40 列对齐)。id 为 PostgreSQL ctid 文本(无主键定位键)。 */
+export interface FinishInspectionVO {
+  id?: string
+  reportNo?: string
+  inspectionRequestNo?: string
+  productionOrderNo?: string
+  materialCode?: string
+  productName?: string
+  modelSpec?: string
+  prodBatchOrSn?: string
+  productionDate?: string
+  expiryDate?: string
+  submittedQty?: number | string
+  inspectedQty?: number | string
+  qualifiedQty?: number | string
+  unqualifiedQty?: number | string
+  unit?: string
+  inspectorName?: string
+  inspectionResult?: string // 合格/不合格/警告
+  drugRegNo?: string // 药品注册号
+  perfTestMethod?: string // 性能测试方法
+  perfSampleBatchNo?: string // 性能样本批号
+  qcReviewer?: string
+  qcReviewTime?: string
+  mgrRepresentative?: string
+  mgrApprovalTime?: string
+  signatureUser?: string
+  signatureTime?: string
+  signatureReason?: string
+  qcReview?: string
+  mgrApproval?: string
+  isUrgent?: string // 0/1
+  isEntrusted?: string // 0/1
+  isValid?: string // 0/1
+  category?: string // 成品/半成品
+  plantCode?: string
+  plantName?: string
+  createdBy?: string
+  updatedBy?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** 完工检验建单请求(基本信息) */
+export interface FinishInspectionCreateRequest {
+  productionOrderNo: string
+  materialCode: string
+  productName?: string
+  modelSpec?: string
+  prodBatchOrSn?: string
+  productionDate?: string
+  category?: string // 成品/半成品
+  isUrgent?: boolean
+  isEntrusted?: boolean
+  plantCode?: string
+  plantName?: string
+  unit?: string
+}
+
+/** 完工检验更新请求(检验汇总 / 审核签核 共用) */
+export interface FinishInspectionUpdateRequest {
+  inspectorName?: string
+  inspectionResult?: string
+  inspectionRequestNo?: string // 检验申请号
+  expiryDate?: string // 有效期至
+  drugRegNo?: string // 药品注册号
+  perfTestMethod?: string // 性能测试方法
+  perfSampleBatchNo?: string // 性能样本批号
+  submittedQty?: number
+  inspectedQty?: number
+  qualifiedQty?: number
+  unqualifiedQty?: number
+  unit?: string
+  qcReview?: string
+  qcReviewer?: string
+  qcReviewTime?: string
+  mgrApproval?: string
+  mgrRepresentative?: string
+  mgrApprovalTime?: string
+  signatureUser?: string
+  signatureTime?: string
+  signatureReason?: string
+  isValid?: string
+}
+
+/** 完工检验分页查询 */
+export interface FinishInspectionPageQuery {
+  category?: string
+  productionOrderNo?: string
+  materialCode?: string
+  keyword?: string
+  page?: number
+  size?: number
+}
+
+// ── 物料检验(来料检验,直读直写 MES qms.material_inspection) ──
+/** 物料检验详情/列表视图(MES 表 62 列对齐)。id 为 record_no(新建行由应用生成 MI- 前缀唯一号)。 */
+export interface MaterialInspectionVO {
+  id?: string
+  processNo?: string
+  formVersion?: string
+  isCustomerSupplied?: string // 0/1
+  memo?: string
+  materialCategory?: string
+  isValid?: string // 0/1
+  reviewStatus?: string
+  signatureStatus?: string
+  isUrgent?: string // 0/1
+  dataRecordFlag?: string
+  isInvalid?: string
+  reportGenerated?: string
+  recordNo?: string
+  purchaseOrder?: string
+  inboundNo?: string
+  inspectionRequestNo?: string
+  mesInspectionNo?: string
+  inspectionDate?: string
+  judgementDate?: string
+  inspector?: string
+  inspectionResult?: string // 合格/不合格/让步接收等
+  supplierName?: string
+  supplierCode?: string
+  materialCode?: string
+  materialName?: string
+  specModel?: string
+  materialBatchNo?: string
+  qualifiedQty?: number | string
+  unqualifiedQty?: number | string
+  submittedQty?: number | string
+  lossQty?: number | string
+  unit?: string
+  defectDesc?: string
+  handlingMethod?: string
+  unqualifiedFinalStatus?: string
+  unqualifiedReview?: string
+  unqualifiedReviewNo?: string
+  inspectionCategory?: string
+  arrivalDate?: string
+  receivingNo?: string
+  poLineNo?: string
+  receivingLineNo?: string
+  shelfLifeDays?: string
+  reinspectRemark?: string
+  judge?: string
+  inspectionEndDate?: string
+  reviewer?: string
+  reviewDate?: string
+  submitter?: string
+  submitDate?: string
+  remark?: string
+  extId?: string
+  lastModifiedBy?: string
+  signatureUser?: string
+  signatureTime?: string
+  signatureReason?: string
+  plantCode?: string
+  plantName?: string
+  createdBy?: string
+  updatedBy?: string
+  isDeleted?: string
+  version?: string
+  createdAt?: string
+  updatedAt?: string
+  materialBarcode?: string
+}
+
+/** 物料检验建单请求(基本信息) */
+export interface MaterialInspectionCreateRequest {
+  materialCode: string
+  materialName?: string
+  specModel?: string
+  materialBatchNo?: string
+  materialBarcode?: string
+  supplierName?: string
+  supplierCode?: string
+  materialCategory?: string
+  inspectionCategory?: string
+  unit?: string
+  isCustomerSupplied?: boolean
+  isUrgent?: boolean
+  plantCode?: string
+  plantName?: string
+  remark?: string
+}
+
+/** 物料检验更新请求(检验汇总 / 审核签核 共用) */
+export interface MaterialInspectionUpdateRequest {
+  inspector?: string
+  inspectionResult?: string
+  inspectionRequestNo?: string // 检验申请号
+  mesInspectionNo?: string // MES 检验单号
+  inspectionDate?: string // 检验日期
+  judgementDate?: string // 判定日期
+  inspectionEndDate?: string // 检验完成日期
+  defectDesc?: string // 缺陷描述
+  handlingMethod?: string // 处理方式
+  submittedQty?: number
+  qualifiedQty?: number
+  unqualifiedQty?: number
+  lossQty?: number
+  unit?: string
+  reviewer?: string
+  reviewDate?: string
+  unqualifiedReview?: string
+  unqualifiedFinalStatus?: string
+  judge?: string
+  submitter?: string
+  submitDate?: string
+  reinspectRemark?: string
+  signatureUser?: string
+  signatureTime?: string
+  signatureReason?: string
+  remark?: string
+}
+
+/** 物料检验分页查询 */
+export interface MaterialInspectionPageQuery {
+  supplierName?: string
+  materialCode?: string
+  inspectionRequestNo?: string
+  recordNo?: string
+  inspectionResult?: string
+  keyword?: string
+  page?: number
+  size?: number
 }

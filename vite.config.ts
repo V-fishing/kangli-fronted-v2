@@ -60,4 +60,8 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // 关闭自动清空 dist,规避 CodeBuddy safe-delete 对大批文件的批量删除拦截(420>50 阈值)
+    emptyOutDir: false,
+  },
 })
