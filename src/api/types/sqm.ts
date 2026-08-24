@@ -1,3 +1,45 @@
+// ── MES 关键物料绑定关系 ──
+export interface MaterialBindingCreate {
+  /** 父实例条码(成品/半成品 prod_batch_or_sn) */
+  productBarcode: string
+  /** 父料号(回退标识) */
+  productMaterialNo?: string
+  /** 父名 */
+  productName?: string
+  workOrderNo?: string
+  workOrderQty?: string
+  plantCode?: string
+  plantName?: string
+  /** 子件条码 */
+  materialBarcode: string
+  materialCode?: string
+  materialName?: string
+  specModel?: string
+  processCode?: string
+  processName?: string
+  /** 子件类别: 半成品 / 来料 */
+  category: string
+  remark?: string
+}
+
+export interface MaterialBindingUpdate {
+  productMaterialNo?: string
+  productName?: string
+  workOrderNo?: string
+  workOrderQty?: string
+  plantCode?: string
+  plantName?: string
+  materialCode?: string
+  materialName?: string
+  specModel?: string
+  processCode?: string
+  processName?: string
+  category?: string
+  remark?: string
+}
+
+export type MaterialBindingRow = Record<string, any>
+
 // ── 供应商 ──
 export interface SqmSupplier {
   id: string

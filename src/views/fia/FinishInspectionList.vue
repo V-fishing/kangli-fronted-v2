@@ -127,6 +127,7 @@
                 <el-button link type="primary" size="small">更多 ▾</el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item v-if="perm.has('sqm.binding.create')" :command="{cmd:'bind',row}">绑定父子级</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has(rowActionPerm(row, 'edit'))" :command="{cmd:'edit',row}">编辑</el-dropdown-item>
                     <el-dropdown-item v-if="perm.has(rowActionPerm(row, 'delete'))" :command="{cmd:'delete',row}" divided style="color:var(--el-color-danger)">删除</el-dropdown-item>
                   </el-dropdown-menu>
@@ -143,6 +144,29 @@
           @current-change="(p:number)=>fetchData(p)" />
       </div>
     </el-card>
+
+    <!-- 绑定父子级弹窗(自动识别方向: 成品/半成品行=父级→搜子件; 物料行=子件→搜父级) -->
+    <el-dialog v-model="bindVisible" :title="bindTitle" width="560px" :close-on-click-modal="false" append-to-body>
+      <el-alert :title="bindHint" type="info" :closable="false" style="margin-bottom:14px" />
+      <el-input v-model="bindKeyword" :placeholder="bindSearchPlaceholder" clearable style="margin-bottom:12px"
+        @input="onBindSearch" @keyup.enter="onBindSearch" />
+      <div class="bind-list" v-loading="bindLoading">
+        <div v-for="c in bindCandidates" :key="c.barcode + c.code" class="bind-item" @click="doBind(c)">
+          <div class="bind-main">
+            <span class="mono bind-bc">{{ c.barcode }}</span>
+            <el-tag size="small" class="bind-tag">{{ c.category || '-' }}</el-tag>
+          </div>
+          <div class="bind-sub">
+            <span class="mono">{{ c.code || '-' }}</span>
+            <span class="bind-name">{{ c.name || '-' }}</span>
+          </div>
+        </div>
+        <div v-if="!bindCandidates.length && !bindLoading" class="bind-empty">输入关键字搜索可绑定的目标</div>
+      </div>
+      <template #footer>
+        <el-button @click="bindVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -154,6 +178,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { finishInspectionApi } from '@/api/modules/fia/finishInspection'
 import { materialInspectionApi } from '@/api/modules/fia/materialInspection'
 import { mergedInspectionApi } from '@/api/modules/fia/mergedInspection'
+import { sqmBindingApi } from '@/api/modules/sqm/binding'
+import type { MaterialBindingCreate } from '@/api/types/sqm'
 import { usePermissionStore } from '@/stores/permission'
 
 /** 行宽类型:完工(MES finished_goods_inspection)与物料(MES material_inspection)两套字段取并集;全部档带 srcType */
@@ -272,6 +298,85 @@ function goDetail(row: RowVO) {
 function onCommand(c: { cmd: string; row: RowVO }, _row: RowVO) {
   if (c.cmd === 'edit') goDetail(c.row)
   else if (c.cmd === 'delete') doDelete(c.row)
+  else if (c.cmd === 'bind') openBind(c.row)
+}
+
+// ====== 绑定父子级(直写 MES 绑定表, 即时生效) ======
+// 方向自动识别: 成品/半成品行=父级(anchor=parent, 搜子件); 物料行=子件(anchor=child, 搜父级)
+const bindVisible = ref(false)
+const bindAnchor = ref<RowVO | null>(null)
+const bindRole = ref<'child' | 'parent'>('child') // 要搜索的目标角色
+const bindKeyword = ref('')
+const bindLoading = ref(false)
+const bindCandidates = ref<Record<string, any>[]>([])
+const bindTitle = ref('')
+const bindHint = ref('')
+const bindSearchPlaceholder = ref('')
+
+function openBind(row: RowVO) {
+  bindAnchor.value = row
+  bindVisible.value = true
+  bindKeyword.value = ''
+  bindCandidates.value = []
+  // 成品/半成品行 → 作为父级, 搜索可绑定的子件(半成品/来料)
+  if (rowMaterial(row)) {
+    bindRole.value = 'child'
+    bindTitle.value = '为物料绑定父级'
+    bindHint.value = `当前物料【${row.materialCode || row.materialName || ''}】将作为子件, 请搜索其父级(成品/半成品)。`
+    bindSearchPlaceholder.value = '输入父级条码 / 料号 / 名称模糊搜索'
+  } else {
+    bindRole.value = 'parent'
+    bindTitle.value = `为${row.category || '成品'}绑定子件`
+    bindHint.value = `当前${row.category || '成品'}【${row.productName || row.materialCode || ''}】将作为父级, 请搜索其子件(半成品/来料)。`
+    bindSearchPlaceholder.value = '输入子件条码 / 料号 / 名称模糊搜索'
+  }
+}
+
+async function onBindSearch() {
+  const kw = bindKeyword.value.trim()
+  if (!kw) { bindCandidates.value = []; return }
+  bindLoading.value = true
+  try {
+    const res: any = await sqmBindingApi.candidates({ role: bindRole.value, keyword: kw })
+    bindCandidates.value = res ?? []
+  } catch { /* request 已弹错 */ }
+  finally { bindLoading.value = false }
+}
+
+async function doBind(cand: Record<string, any>) {
+  const anchor = bindAnchor.value
+  if (!anchor) return
+  // 构造绑定行: 父级=product_*, 子件=material_* + category(子件类别)
+  const base = { productBarcode: '', productMaterialNo: '', productName: '', workOrderNo: '', materialBarcode: '', materialCode: '', materialName: '', category: '' }
+  const body = { ...base } as MaterialBindingCreate
+  if (bindRole.value === 'child') {
+    // anchor 物料 → 子件; cand 成品/半成品 → 父级
+    body.productBarcode = cand.barcode
+    body.productMaterialNo = cand.code
+    body.productName = cand.name
+    body.workOrderNo = cand.workOrderNo || ''
+    body.materialBarcode = anchor.materialBatchNo || anchor.materialCode || ''
+    body.materialCode = anchor.materialCode || ''
+    body.materialName = anchor.materialName || ''
+    body.category = cand.category || '半成品'
+  } else {
+    // anchor 成品/半成品 → 父级; cand 子件 → material_*
+    body.productBarcode = anchor.prodBatchOrSn || anchor.productionOrderNo || ''
+    body.productMaterialNo = anchor.materialCode || ''
+    body.productName = anchor.productName || ''
+    body.workOrderNo = anchor.productionOrderNo || ''
+    body.materialBarcode = cand.barcode
+    body.materialCode = cand.code
+    body.materialName = cand.name
+    body.category = cand.category || '来料'
+  }
+  try {
+    await sqmBindingApi.create(body)
+    ElMessage.success(`已绑定: ${body.productBarcode} → ${body.materialBarcode}`)
+    bindVisible.value = false
+  } catch (e: any) {
+    ElMessage.error('绑定失败: ' + (e.message || '未知错误'))
+  }
 }
 
 async function doDelete(row: RowVO) {
@@ -332,4 +437,17 @@ onMounted(() => {
 .card-title { font-family: $font-display; font-size: 16px; font-weight: 600; color: $ink; }
 .card-sub { font-size: 12px; color: $ink-faint; }
 .pager { padding: 14px 22px; display: flex; justify-content: flex-end; }
+
+/* 绑定父子级弹窗 */
+.bind-list { max-height: 320px; overflow-y: auto; border: 1px solid $hairline; border-radius: 8px; }
+.bind-item { padding: 10px 14px; border-bottom: 1px solid $hairline; cursor: pointer; transition: background .12s; }
+.bind-item:last-child { border-bottom: none; }
+.bind-item:hover { background: $green-dim; }
+.bind-main { display: flex; align-items: center; gap: 8px; }
+.bind-bc { font-weight: 500; }
+.bind-tag { flex-shrink: 0; }
+.bind-sub { display: flex; align-items: center; gap: 10px; margin-top: 3px; font-size: 12px; color: $ink-faint; }
+.bind-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bind-empty { padding: 28px; text-align: center; color: $ink-faint; font-size: 13px; }
+.mono { font-family: $font-mono; }
 </style>
