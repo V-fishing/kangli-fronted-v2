@@ -65,6 +65,16 @@
           <el-checkbox v-model="base.isUrgent">加急</el-checkbox>
           <el-checkbox v-model="base.isCustomerSupplied">客户供料</el-checkbox>
         </el-form-item>
+        <el-divider content-position="left">来料收货溯源</el-divider>
+        <el-row :gutter="16">
+          <el-col :span="12"><el-form-item label="采购订单号"><el-input v-model="base.purchaseOrder" placeholder="采购订单号" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="入库单号"><el-input v-model="base.inboundNo" placeholder="入库单号" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="到货日期"><el-date-picker v-model="base.arrivalDate" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="收货单号"><el-input v-model="base.receivingNo" placeholder="收货单号" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="PO 行号"><el-input v-model="base.poLineNo" placeholder="PO 行号" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="收货行号"><el-input v-model="base.receivingLineNo" placeholder="收货行号" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="保质期天数"><el-input-number v-model="base.shelfLifeDays" :min="0" controls-position="right" style="width:100%" /></el-form-item></el-col>
+        </el-row>
         <el-form-item label="工厂/组织">
           <el-input :model-value="plantText" disabled placeholder="按当前用户组织自动带入" />
         </el-form-item>
@@ -138,6 +148,7 @@
             </el-select>
           </el-form-item></el-col>
           <el-col :span="12"><el-form-item label="不合格最终状态"><el-input v-model="signoff.unqualifiedFinalStatus" placeholder="退货/让步接收等" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="不合格评审号"><el-input v-model="signoff.unqualifiedReviewNo" placeholder="不合格评审单号" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="判定人"><el-input v-model="signoff.judge" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="提交人"><el-input v-model="signoff.submitter" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="提交日期"><el-date-picker v-model="signoff.submitDate" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
@@ -180,14 +191,16 @@ const base = reactive<MaterialInspectionCreateRequest>({
   materialCode: '', materialName: '', specModel: '', materialBatchNo: '', materialBarcode: '',
   supplierName: '', supplierCode: '', materialCategory: '', inspectionCategory: '',
   unit: '', isCustomerSupplied: false, isUrgent: false, plantCode: '', plantName: '', remark: '',
+  purchaseOrder: '', inboundNo: '', arrivalDate: '', receivingNo: '', poLineNo: '', receivingLineNo: '', shelfLifeDays: undefined,
 })
 const insp = reactive<MaterialInspectionUpdateRequest>({
   inspector: '', inspectionResult: '', inspectionRequestNo: '', mesInspectionNo: '',
   inspectionDate: '', judgementDate: '', inspectionEndDate: '', defectDesc: '', handlingMethod: '',
+  purchaseOrder: '', inboundNo: '', arrivalDate: '', receivingNo: '', poLineNo: '', receivingLineNo: '', shelfLifeDays: undefined,
 })
 const signoff = reactive<MaterialInspectionUpdateRequest>({
   submittedQty: undefined, qualifiedQty: undefined, unqualifiedQty: undefined, lossQty: undefined,
-  unit: '', reviewer: '', reviewDate: '', unqualifiedReview: '', unqualifiedFinalStatus: '',
+  unit: '', reviewer: '', reviewDate: '', unqualifiedReview: '', unqualifiedFinalStatus: '', unqualifiedReviewNo: '',
   judge: '', submitter: '', submitDate: '', reinspectRemark: '',
   signatureUser: '', signatureTime: '', signatureReason: '', remark: '',
 })
@@ -242,6 +255,9 @@ async function persistInspection() {
     inspectionRequestNo: insp.inspectionRequestNo, mesInspectionNo: insp.mesInspectionNo,
     inspectionDate: insp.inspectionDate, judgementDate: insp.judgementDate,
     inspectionEndDate: insp.inspectionEndDate, defectDesc: insp.defectDesc, handlingMethod: insp.handlingMethod,
+    purchaseOrder: insp.purchaseOrder, inboundNo: insp.inboundNo, arrivalDate: insp.arrivalDate,
+    receivingNo: insp.receivingNo, poLineNo: insp.poLineNo, receivingLineNo: insp.receivingLineNo,
+    shelfLifeDays: insp.shelfLifeDays,
   })
 }
 async function persistSignoff() {
@@ -252,6 +268,7 @@ async function persistSignoff() {
     unqualifiedQty: signoff.unqualifiedQty, lossQty: signoff.lossQty,
     unit: signoff.unit || base.unit, reviewer: signoff.reviewer, reviewDate: signoff.reviewDate,
     unqualifiedReview: signoff.unqualifiedReview, unqualifiedFinalStatus: signoff.unqualifiedFinalStatus,
+    unqualifiedReviewNo: signoff.unqualifiedReviewNo,
     judge: signoff.judge, submitter: signoff.submitter, submitDate: signoff.submitDate,
     reinspectRemark: signoff.reinspectRemark, signatureUser: signoff.signatureUser,
     signatureTime: signoff.signatureTime, signatureReason: signoff.signatureReason, remark: signoff.remark,
@@ -302,6 +319,20 @@ async function loadDetail() {
     base.plantCode = v.plantCode || ''
     base.plantName = v.plantName || ''
     base.remark = v.remark || ''
+    base.purchaseOrder = v.purchaseOrder || ''
+    base.inboundNo = v.inboundNo || ''
+    base.arrivalDate = v.arrivalDate || ''
+    base.receivingNo = v.receivingNo || ''
+    base.poLineNo = v.poLineNo || ''
+    base.receivingLineNo = v.receivingLineNo || ''
+    base.shelfLifeDays = v.shelfLifeDays != null ? Number(v.shelfLifeDays) : undefined
+    insp.purchaseOrder = v.purchaseOrder || ''
+    insp.inboundNo = v.inboundNo || ''
+    insp.arrivalDate = v.arrivalDate || ''
+    insp.receivingNo = v.receivingNo || ''
+    insp.poLineNo = v.poLineNo || ''
+    insp.receivingLineNo = v.receivingLineNo || ''
+    insp.shelfLifeDays = v.shelfLifeDays != null ? Number(v.shelfLifeDays) : undefined
     insp.inspector = v.inspector || ''
     insp.inspectionResult = v.inspectionResult || ''
     insp.inspectionRequestNo = v.inspectionRequestNo || ''
@@ -320,6 +351,7 @@ async function loadDetail() {
     signoff.reviewDate = v.reviewDate || ''
     signoff.unqualifiedReview = v.unqualifiedReview || ''
     signoff.unqualifiedFinalStatus = v.unqualifiedFinalStatus || ''
+    signoff.unqualifiedReviewNo = v.unqualifiedReviewNo || ''
     signoff.judge = v.judge || ''
     signoff.submitter = v.submitter || ''
     signoff.submitDate = v.submitDate || ''

@@ -580,6 +580,13 @@ export interface MaterialInspectionCreateRequest {
   plantCode?: string
   plantName?: string
   remark?: string
+  purchaseOrder?: string
+  inboundNo?: string
+  arrivalDate?: string
+  receivingNo?: string
+  poLineNo?: string
+  receivingLineNo?: string
+  shelfLifeDays?: number
 }
 
 /** 物料检验更新请求(检验汇总 / 审核签核 共用) */
@@ -593,6 +600,13 @@ export interface MaterialInspectionUpdateRequest {
   inspectionEndDate?: string // 检验完成日期
   defectDesc?: string // 缺陷描述
   handlingMethod?: string // 处理方式
+  purchaseOrder?: string // 采购订单号
+  inboundNo?: string // 入库单号
+  arrivalDate?: string // 到货日期
+  receivingNo?: string // 收货单号
+  poLineNo?: string // PO 行号
+  receivingLineNo?: string // 收货行号
+  shelfLifeDays?: number // 保质期天数
   submittedQty?: number
   qualifiedQty?: number
   unqualifiedQty?: number
@@ -602,6 +616,7 @@ export interface MaterialInspectionUpdateRequest {
   reviewDate?: string
   unqualifiedReview?: string
   unqualifiedFinalStatus?: string
+  unqualifiedReviewNo?: string
   judge?: string
   submitter?: string
   submitDate?: string
