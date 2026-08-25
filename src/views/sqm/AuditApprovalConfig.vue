@@ -73,9 +73,15 @@
               <el-switch v-model="row.needApproval" />
             </template>
           </el-table-column>
-          <el-table-column label="指定签批人" min-width="220">
+          <el-table-column label="指定签批人(可多选)" min-width="260">
             <template #default="{ row }">
-              <el-input v-model="row.signer" placeholder="留空 = 任意审核人" :disabled="!row.needApproval" />
+              <el-select v-model="row.signerIds" multiple filterable collapse-tags
+                placeholder="留空 = 任意审核人" style="width:100%" :disabled="!row.needApproval">
+                <el-option v-for="u in userOptions" :key="u.id" :label="u.realName || u.username" :value="u.id">
+                  <span>{{ u.realName || u.username }}</span>
+                  <span style="color:#999;margin-left:6px;font-size:12px">{{ u.username }}</span>
+                </el-option>
+              </el-select>
             </template>
           </el-table-column>
         </el-table>
@@ -260,6 +266,7 @@ async function load8d() {
       stageCode: c.stageCode,
       needApproval: !!c.needApproval,
       signer: c.signer || null,
+      signerIds: parseSignerIds(c.signer),
       sortOrder: c.sortOrder,
     }))
   } catch (e: any) {
@@ -267,17 +274,31 @@ async function load8d() {
   }
   ensureAll8d()
 }
+// 将存储的 signer(逗号分隔 userId,兼容历史单 username)解析为可绑定多选下拉的 id 数组。
+// 仅保留能匹配到用户的 id;历史 username 令牌不匹配任何选项时丢弃(管理员可重新选取)。
+function parseSignerIds(signer: string | null | undefined): string[] {
+  if (!signer) return []
+  const ids = (userOptions.value || []).map(u => u.id)
+  return signer.split(',').map(s => s.trim()).filter(s => ids.includes(s))
+}
 function ensureAll8d() {
   const have = new Set(rows8d.value.map(r => r.stageCode))
   for (const s of ALL8D) {
-    if (!have.has(s)) rows8d.value.push({ stageCode: s, needApproval: false, signer: null })
+    if (!have.has(s)) rows8d.value.push({ stageCode: s, needApproval: false, signer: null, signerIds: [] })
   }
   rows8d.value.sort((a, b) => ALL8D.indexOf(a.stageCode) - ALL8D.indexOf(b.stageCode))
 }
 async function save8d() {
   saving8d.value = true
   try {
-    await ncm8dApi.saveApprovalConfig(rows8d.value)
+    const payload = rows8d.value.map(r => ({
+      stageCode: r.stageCode,
+      needApproval: !!r.needApproval,
+      // 指定签批人存为逗号分隔 userId(OR 语义:任一可签);为空表示任意审核人
+      signer: ((r.signerIds || []) as string[]).filter(Boolean).join(','),
+      sortOrder: r.sortOrder,
+    }))
+    await ncm8dApi.saveApprovalConfig(payload)
     ElMessage.success('8D 配置已保存')
     await load8d()
   } catch (e: any) {

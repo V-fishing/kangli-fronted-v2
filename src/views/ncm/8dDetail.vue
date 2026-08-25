@@ -209,9 +209,11 @@ async function loadConfig() {
 }
 function needApprove(st: string) { return !!approvalConfig.value[st]?.needApproval }
 function signerOf(st: string) {
-  const id = approvalConfig.value[st]?.signer || ''
-  if (!id) return ''
-  return userNameMap.value[id] || id
+  const raw = approvalConfig.value[st]?.signer || ''
+  if (!raw) return ''
+  // signer 为逗号分隔的多人 userId(OR 语义:任一可签);解析为真实姓名展示,兼容历史单 username
+  const names = raw.split(',').map(s => s.trim()).filter(Boolean).map(t => userNameMap.value[t] || t)
+  return names.join('、')
 }
 const signerPlaceholder = computed(() => '请输入登录密码')
 const defaultOwner = computed(() => vo.value?.report?.team || authStore.user?.username || '')

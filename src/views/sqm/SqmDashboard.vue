@@ -7,18 +7,11 @@
         <h1>供应商质量看板</h1>
         <div class="filters">
           <el-select v-model="filters.level" multiple collapse-tags clearable placeholder="等级"
-            class="f-sel" @change="reloadAll">
+            class="f-sel" @change="reloadSupplierScoped">
             <el-option v-for="l in LEVELS" :key="l" :label="l" :value="l" />
           </el-select>
           <el-input v-model="filters.keyword" placeholder="供应商关键词" clearable class="f-input"
-            @keyup.enter="reloadAll" @clear="reloadAll" />
-          <el-select v-model="filters.startYm" placeholder="起始月" class="f-sel" @change="reloadAll">
-            <el-option v-for="m in MONTHS" :key="m" :label="m" :value="m" />
-          </el-select>
-          <span class="tilde">~</span>
-          <el-select v-model="filters.endYm" placeholder="截止月" class="f-sel" @change="reloadAll">
-            <el-option v-for="m in MONTHS" :key="m" :label="m" :value="m" />
-          </el-select>
+            @keyup.enter="reloadSupplierScoped" @clear="reloadSupplierScoped" />
         </div>
       </div>
     </div>
@@ -26,15 +19,30 @@
     <!-- 总览行:等级占比 + 检验结论 + 双率散点 -->
     <div class="overview">
       <el-card shadow="never" class="card-b">
-        <template #header><span class="card-title">供应商等级占比</span></template>
+        <template #header>
+          <div class="card-head">
+            <span class="card-title">供应商等级占比</span>
+            <YmRange v-model:start="ranges.pie.startYm" v-model:end="ranges.pie.endYm" @change="loadPie" />
+          </div>
+        </template>
         <div ref="pieRef" class="chart tall" v-loading="loading.pie"></div>
       </el-card>
       <el-card shadow="never" class="card-b">
-        <template #header><span class="card-title">检验结论分布</span></template>
+        <template #header>
+          <div class="card-head">
+            <span class="card-title">检验结论分布</span>
+            <YmRange v-model:start="ranges.inspect.startYm" v-model:end="ranges.inspect.endYm" @change="loadInspect" />
+          </div>
+        </template>
         <div ref="inspectRef" class="chart" v-loading="loading.inspect"></div>
       </el-card>
       <el-card shadow="never" class="card-b">
-        <template #header><span class="card-title">交付及时率 × 来料合格率</span></template>
+        <template #header>
+          <div class="card-head">
+            <span class="card-title">交付及时率 × 来料合格率</span>
+            <YmRange v-model:start="ranges.scatter.startYm" v-model:end="ranges.scatter.endYm" @change="loadScatter" />
+          </div>
+        </template>
         <div ref="scatterRef" class="chart" v-loading="loading.scatter"></div>
       </el-card>
     </div>
@@ -48,6 +56,7 @@
             <span v-for="b in BUCKETS" :key="b.bucket" class="lg">
               <i class="dot" :style="{ background: bucketColor(b.bucket) }"></i>{{ b.label }}
             </span>
+            <YmRange v-model:start="ranges.bar.startYm" v-model:end="ranges.bar.endYm" @change="loadBar" />
           </div>
         </div>
       </template>
@@ -59,10 +68,13 @@
       <template #header>
         <div class="card-head">
           <span class="card-title">重点供应商合格率趋势</span>
-          <el-select v-model="compareIds" multiple filterable clearable placeholder="追加对比供应商"
-            class="compare-sel" @change="loadTrend">
-            <el-option v-for="s in allSuppliers" :key="s.id" :label="s.name" :value="s.id" />
-          </el-select>
+          <div class="heat-ctrl">
+            <YmRange v-model:start="ranges.trend.startYm" v-model:end="ranges.trend.endYm" @change="loadTrend" />
+            <el-select v-model="compareIds" multiple filterable clearable placeholder="追加对比供应商"
+              class="compare-sel" @change="loadTrend">
+              <el-option v-for="s in allSuppliers" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </div>
         </div>
       </template>
       <div ref="lineRef" class="chart tall" v-loading="loading.line"></div>
@@ -109,6 +121,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppBreadcrumb from '@/components/shell/AppBreadcrumb.vue'
+import YmRange from '@/components/common/YmRange.vue'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart, PieChart, ScatterChart, HeatmapChart } from 'echarts/charts'
 import {
@@ -157,8 +170,12 @@ const MONTHS = (() => {
   return arr
 })()
 
-const filters = reactive<{ level?: string; keyword?: string; startYm?: string; endYm?: string }>({
-  startYm: MONTHS[11], endYm: MONTHS[0],
+const filters = reactive<{ level?: string; keyword?: string }>({})
+// 每个卡片独立的时间段(起始月~截止月),默认取最近 12 个月区间
+const defaultRange = () => ({ startYm: MONTHS[11], endYm: MONTHS[0] })
+const ranges = reactive<Record<string, { startYm: string; endYm: string }>>({
+  pie: defaultRange(), inspect: defaultRange(), scatter: defaultRange(),
+  bar: defaultRange(), trend: defaultRange(),
 })
 const heatYear = ref(YEARS[0])
 const heatTopN = ref(15)
@@ -185,19 +202,20 @@ const drawer = reactive<{ visible: boolean; title: string; loading: boolean; lis
   visible: false, title: '', loading: false, list: [],
 })
 
-function buildFilters() {
+function buildFiltersFor(key: string) {
+  const r = ranges[key] || { startYm: undefined, endYm: undefined }
   return {
     level: filters.level,
     keyword: filters.keyword || undefined,
-    startYm: filters.startYm || undefined,
-    endYm: filters.endYm || undefined,
+    startYm: r.startYm || undefined,
+    endYm: r.endYm || undefined,
   }
 }
 
 async function loadPie() {
   loading.pie = true
   try {
-    const data = await supplierBoardApi.levelRatio(buildFilters())
+    const data = await supplierBoardApi.levelRatio(buildFiltersFor('pie'))
     const total = data.reduce((s, d) => s + Number(d.count), 0) || 1
     // 横向条形排名:等级 × 供应商数,小占比也清晰可见
     const rows = data.slice().sort((a, b) => Number(b.count) - Number(a.count))
@@ -247,7 +265,7 @@ function inspectColor(r: string): string {
 async function loadInspect() {
   loading.inspect = true
   try {
-    const data: InspectResultItem[] = await supplierBoardApi.inspectResult(buildFilters())
+    const data: InspectResultItem[] = await supplierBoardApi.inspectResult(buildFiltersFor('inspect'))
     const total = data.reduce((s, d) => s + Number(d.count), 0) || 1
     // 横向条形排名:结论 × 批次,小项独立可见(与等级占比风格一致)
     const rows = data.slice().sort((a, b) => Number(b.count) - Number(a.count))
@@ -289,7 +307,7 @@ async function loadInspect() {
 async function loadScatter() {
   loading.scatter = true
   try {
-    const data: DeliveryVsPassItem[] = await supplierBoardApi.deliveryVsPass(buildFilters())
+    const data: DeliveryVsPassItem[] = await supplierBoardApi.deliveryVsPass(buildFiltersFor('scatter'))
     // 按等级分组
     const groups: Record<string, any[]> = {}
     for (const d of data) {
@@ -325,7 +343,7 @@ async function loadScatter() {
 async function loadBar() {
   loading.bar = true
   try {
-    const data: PassRateDistItem[] = await supplierBoardApi.passRateDist(buildFilters())
+    const data: PassRateDistItem[] = await supplierBoardApi.passRateDist(buildFiltersFor('bar'))
     const cats = data.map(d => d.label)
     const vals = data.map(d => d.count)
     const option = {
@@ -346,7 +364,7 @@ async function loadBar() {
 async function loadTrend() {
   loading.line = true
   try {
-    const data = await supplierBoardApi.passRateTrend(true, compareIds.value, filters.startYm, filters.endYm)
+    const data = await supplierBoardApi.passRateTrend(true, compareIds.value, ranges.trend.startYm, ranges.trend.endYm)
     // 按 supplier 聚合
     const map: Record<string, { name: string; points: [string, number][] }> = {}
     for (const p of data) {
@@ -402,9 +420,9 @@ async function loadHeat() {
   } finally { loading.heat = false }
 }
 
-async function reloadAll() {
+// 等级/关键词为供应商维度全局筛选:变化时刷新所有依赖供应商范围的卡片
+async function reloadSupplierScoped() {
   await Promise.all([loadPie(), loadInspect(), loadScatter(), loadBar(), loadTrend()])
-  loadHeat()
 }
 
 // 下钻:点击分布长条
@@ -414,7 +432,7 @@ async function drillBucket(bucket: string, label: string) {
   drawer.loading = true
   drawer.list = []
   try {
-    const data: PassRateDistItem[] = await supplierBoardApi.passRateDist(buildFilters())
+    const data: PassRateDistItem[] = await supplierBoardApi.passRateDist(buildFiltersFor('bar'))
     const item = data.find(d => d.bucket === bucket)
     drawer.list = item ? item.suppliers : []
   } finally { drawer.loading = false }
@@ -452,7 +470,7 @@ onMounted(async () => {
   try {
     allSuppliers.value = await sqmSupplierApi.list()
   } catch { allSuppliers.value = [] }
-  await reloadAll()
+  await reloadSupplierScoped()
 })
 
 onBeforeUnmount(() => {
@@ -460,9 +478,9 @@ onBeforeUnmount(() => {
   pieChart?.dispose(); inspectChart?.dispose(); scatterChart?.dispose(); barChart?.dispose(); lineChart?.dispose(); heatChart?.dispose()
 })
 
-// 筛选变化时 bar/trend 依赖月份,scatter/pie/inspect 依赖 level/keyword
-watch(() => [filters.level, filters.keyword], () => { loadPie(); loadInspect(); loadScatter() })
-watch(() => [filters.startYm, filters.endYm], () => { loadBar(); loadTrend() })
+// 等级/关键词为供应商维度全局筛选,变化时刷新所有依赖供应商范围的卡片
+// (各卡片的时间段由其自身 YmRange 的 @change 单独触发对应 loader)
+watch(() => [filters.level, filters.keyword], () => { reloadSupplierScoped() })
 </script>
 
 <style lang="scss" scoped>
