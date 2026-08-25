@@ -51,21 +51,30 @@
       </div>
     </el-card>
 
-    <!-- 审批弹窗(采购→研发→质量 依次签字) -->
-    <el-dialog v-model="approveVisible" title="依次签字审批" width="520px" append-to-body>
+    <!-- 审批弹窗(采购/研发/质量 三方会签,任意顺序) -->
+    <el-dialog v-model="approveVisible" title="三方会签审批" width="520px" append-to-body>
       <el-steps :active="approveStep" align-center style="margin-bottom:18px">
         <el-step v-for="a in approvals" :key="a.id" :title="a.roleLabel || a.approvalRole"
-          :status="a.status==='done' ? 'success' : a.status==='rejected' ? 'error' : (currentNode && a.id===currentNode.id ? 'process' : 'wait')"
+          :status="a.status==='done' ? 'success' : a.status==='rejected' ? 'error' : 'wait'"
           :description="a.status==='done' ? `已通过 ${a.operator || ''}` : a.status==='rejected' ? `已驳回 ${a.operator || ''}` : '待审批'" />
       </el-steps>
-      <el-alert v-if="currentNode" :title="`当前节点:【${currentNode.roleLabel}】审批(顺序:采购→研发→质量,任一驳回即终止)`" type="info" :closable="false" style="margin-bottom:14px" />
-      <el-form :model="approveForm" label-width="80px">
+      <el-alert title="按「审核配置」指定的审批人签署;每个节点签一次,任一驳回即终止,全部通过即批准。" type="info" :closable="false" style="margin-bottom:14px" />
+      <el-alert v-if="!myEligibleApprovals.length" title="您不在当前待审批节点的指定审批人名单内,无权审批此变更。" type="warning" :closable="false" style="margin-bottom:14px" />
+      <el-form v-else :model="approveForm" label-width="80px">
+        <el-form-item label="签署角色" required>
+          <el-select v-model="approveForm.approvalRole" style="width:100%" placeholder="选择本次签署的角色">
+            <el-option v-for="a in myEligibleApprovals" :key="a.id" :label="a.roleLabel || a.approvalRole" :value="a.approvalRole" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="决议" required>
           <el-select v-model="approveForm.approved" style="width:100%"><el-option label="通过" :value="true" /><el-option label="驳回" :value="false" /></el-select>
         </el-form-item>
         <el-form-item label="意见"><el-input v-model="approveForm.opinion" type="textarea" :rows="2" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="approveVisible=false">取消</el-button><el-button type="primary" :disabled="!currentNode" @click="submitApprove">签字提交</el-button></template>
+      <template #footer>
+        <el-button @click="approveVisible=false">取消</el-button>
+        <el-button type="primary" :disabled="!myEligibleApprovals.length || !approveForm.approvalRole" @click="submitApprove">签字提交</el-button>
+      </template>
     </el-dialog>
 
     <!-- 新建弹窗 -->
@@ -212,7 +221,7 @@
       </el-timeline>
 
       <template v-if="detail && detail.approvals.length">
-        <el-divider content-position="left">签字进度(采购→研发→质量)</el-divider>
+        <el-divider content-position="left">签字进度(采购/研发/质量,任意顺序)</el-divider>
         <el-table :data="sortedApprovals" size="small" border>
           <el-table-column label="顺序" width="60"><template #default="{row}">{{ row.seqOrder || '—' }}</template></el-table-column>
           <el-table-column prop="roleLabel" label="角色" width="80" />
@@ -381,28 +390,37 @@ async function submitCreate() {
 
 async function submit(r: any) { await sqmChangeApi.submit(r.id); ElMessage.success('已提交,已通知采购/研发/质量三方'); fetch() }
 
-// ── 审批(强制串行:采购→研发→质量) ──
+// ── 审批(采购/研发/质量 三方会签,任意顺序) ──
 const approveVisible = ref(false)
 const approveId = ref('')
 const approvals = ref<SqmChangeApproval[]>([])
 const approveForm = reactive({ approvalRole: '', approved: true, opinion: '' })
 
-const currentNode = computed(() => approvals.value.find(a => a.status === 'pending') || null)
+const pendingApprovals = computed(() => approvals.value.filter(a => a.status === 'pending'))
+/** 当前登录用户有资格签署的待审节点:节点 approverId 为空(兼容历史)=有权限者均可签;否则须命中其一 */
+const myEligibleApprovals = computed(() => {
+  const myId = auth.user?.userId
+  return pendingApprovals.value.filter(a => {
+    if (!a.approverId || !a.approverId.trim()) return true
+    return a.approverId.split(',').map(s => s.trim()).includes(myId || '')
+  })
+})
 const approveStep = computed(() => approvals.value.filter(a => a.status !== 'pending').length)
 
 async function openApprove(r: any) {
   approveId.value = r.id
-  approveForm.approved = true; approveForm.opinion = ''
+  approveForm.approved = true; approveForm.opinion = ''; approveForm.approvalRole = ''
   const vo = await sqmChangeApi.get(r.id)
   approvals.value = [...vo.approvals].sort((a, b) => (a.seqOrder || 99) - (b.seqOrder || 99))
   approveVisible.value = true
 }
 
 async function submitApprove() {
-  const node = currentNode.value
-  if (!node) return
-  await sqmChangeApi.approve(approveId.value, { approvalRole: node.approvalRole, approved: approveForm.approved, opinion: approveForm.opinion })
-  ElMessage.success(approveForm.approved ? `【${node.roleLabel}】签字通过` : `【${node.roleLabel}】已驳回`)
+  const role = approveForm.approvalRole
+  if (!role) { ElMessage.warning('请选择本次签署的角色'); return }
+  const label = (approvals.value.find(a => a.approvalRole === role)?.roleLabel) || role
+  await sqmChangeApi.approve(approveId.value, { approvalRole: role, approved: approveForm.approved, opinion: approveForm.opinion })
+  ElMessage.success(approveForm.approved ? `【${label}】签字通过` : `【${label}】已驳回`)
   approveVisible.value = false
   fetch()
 }
@@ -476,7 +494,7 @@ function changeStatusClass(s: string) { return ({ '待申请': 'p-wait', '审批
 // 驳回/回滚:审批中节点标红"已终止";关闭/归档节点在已关闭·已回滚时视为完成
 const CHANGE_FLOW = [
   { key: 'apply', label: '申请', hint: '变更提出' },
-  { key: 'approve', label: '审批中', hint: '采购→研发→质量' },
+  { key: 'approve', label: '审批中', hint: '采购/研发/质量 三方会签(任意顺序)' },
   { key: 'approved', label: '已批准', hint: '待首件/SPC 验证' },
   { key: 'close', label: '关闭/归档', hint: '首件合格 + SPC 连续稳定后归档' },
 ]

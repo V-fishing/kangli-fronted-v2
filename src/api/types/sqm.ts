@@ -257,14 +257,16 @@ export interface SqmChangeOrderListVo {
 export interface SqmChangeApproval {
   id: string
   changeId: string
-  approvalRole: string // purchase/rd/quality(串行:采购→研发→质量)
+  approvalRole: string // 节点 role(由审核配置派生, 带 seq 后缀保证唯一)
   roleLabel?: string
   status: string // pending/done/rejected
   hasVeto?: boolean
-  seqOrder?: number // 串行顺序 1/2/3
+  seqOrder?: number
   operator?: string
   operateDate?: string
   opinion?: string
+  /** 指定审批人 user_id 逗号串(OR 语义任一可签);为空=有权限者均可签 */
+  approverId?: string
 }
 
 export interface SqmChangeStrictInspect {

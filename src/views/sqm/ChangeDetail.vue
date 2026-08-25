@@ -316,7 +316,7 @@ function changeStatusClass(s: string) { return ({ '待申请': 'p-wait', '审批
 
 const CHANGE_FLOW = [
   { key: 'apply', label: '申请', hint: '变更提出' },
-  { key: 'approve', label: '审批中', hint: '采购→研发→质量' },
+  { key: 'approve', label: '审批中', hint: '采购/研发/质量 三方会签(任意顺序)' },
   { key: 'approved', label: '已批准', hint: '待首件/SPC 验证' },
   { key: 'close', label: '关闭/归档', hint: '首件合格 + SPC 连续稳定后归档' },
 ]

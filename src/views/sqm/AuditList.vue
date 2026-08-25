@@ -13,7 +13,7 @@
     <el-card shadow="never" class="card-b" style="margin-bottom:16px">
       <el-form :inline="true">
         <el-form-item label="状态"><el-select v-model="filterStatus" clearable placeholder="全部" style="width:120px"><el-option v-for="s in ['计划中','待执行','进行中','已完成']" :key="s" :label="s" :value="s" /></el-select></el-form-item>
-        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:140px"><el-option v-for="t in auditTypeKeys" :key="t" :label="t" :value="t" /></el-select></el-form-item>
+        <el-form-item label="类型"><el-select v-model="filterType" clearable placeholder="全部" style="width:140px"><el-option v-for="t in listableAuditTypes" :key="t" :label="t" :value="t" /></el-select></el-form-item>
         <el-form-item><el-button type="primary" @click="fetch">查询</el-button></el-form-item>
         <el-form-item v-if="filterSupplierId"><el-tag closable type="warning" @close="clearSupplierFilter">供应商: {{ filterSupplierName || filterSupplierId }}</el-tag></el-form-item>
       </el-form>
@@ -233,8 +233,12 @@ const canApprove = computed(() => perm.has('sqm.audit.approve'))
 // 审核类型选项(来自元数据配置,单一数据源)
 const auditTypeKeys = Object.keys(AUDIT_TYPE_META)
 // 「物料变更审核」只能由变更单提交联动派生(changeId 由后端回填),不应手动创建,
-// 故新建弹窗的类型下拉剔除它,避免与二级菜单「物料变更审核」(变更单管理)造成重复观感
+// 故新建弹窗的类型下拉、以及本列表页的类型筛选/列表数据均剔除它,避免与变更单详情的
+// 双向追溯(变更单 → 审核计划)造成重复观感;该类型只在变更单详情页可见。
 const creatableAuditTypes = auditTypeKeys.filter(t => t !== '物料变更审核')
+const listableAuditTypes = auditTypeKeys.filter(t => t !== '物料变更审核')
+// 列表页数据主权:仅展示自主创建的审核,变更联动审核(物料变更审核)由变更单详情反查
+const CHANGE_LINKED_AUDIT_TYPE = '物料变更审核'
 const list = ref<SqmAuditPlan[]>([])
 const loading = ref(false)
 const filterStatus = ref(''), filterType = ref('')
@@ -297,8 +301,10 @@ async function fetch() {
       sqmAuditApi.listRecords(),
     ])
     records.value = recs
-    list.value = res.records
-    total.value = res.total
+    // 列表只展示自主创建的审核,剔除变更联动的「物料变更审核」(其数据主权在变更单详情)
+    const filtered = (res.records || []).filter(p => p.auditType !== CHANGE_LINKED_AUDIT_TYPE)
+    list.value = filtered
+    total.value = Math.max(0, (res.total || 0) - ((res.records || []).length - filtered.length))
     // 列表级会签进度:仅对"待执行且独立审核"的计划拉取,驱动开始执行按钮的禁用态
     const pending = list.value.filter(p => p.status === '待执行' && !(p.changeId && p.changeId.trim()))
     if (pending.length) {
