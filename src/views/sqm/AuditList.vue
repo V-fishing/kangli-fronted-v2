@@ -223,6 +223,7 @@ import type { DefectLaunchRequest } from '@/api/modules/ncm/defect-records'
 import AssignDialog from '@/components/common/AssignDialog.vue'
 import type { SqmAuditPlan, SqmAuditApproval, SqmAuditRecord, SqmSupplier, SqmChangeOrder } from '@/api/types/sqm'
 import { AUDIT_TYPE_META, auditMeta, parseExt, processStepsOf } from '@/views/sqm/auditTypeMeta'
+import { listableAuditTypesOf, filterAuditPlans } from '@/views/sqm/auditListFilter'
 
 const route = useRoute()
 const router = useRouter()
@@ -233,12 +234,9 @@ const canApprove = computed(() => perm.has('sqm.audit.approve'))
 // 审核类型选项(来自元数据配置,单一数据源)
 const auditTypeKeys = Object.keys(AUDIT_TYPE_META)
 // 「物料变更审核」只能由变更单提交联动派生(changeId 由后端回填),不应手动创建,
-// 故新建弹窗的类型下拉、以及本列表页的类型筛选/列表数据均剔除它,避免与变更单详情的
-// 双向追溯(变更单 → 审核计划)造成重复观感;该类型只在变更单详情页可见。
-const creatableAuditTypes = auditTypeKeys.filter(t => t !== '物料变更审核')
-const listableAuditTypes = auditTypeKeys.filter(t => t !== '物料变更审核')
-// 列表页数据主权:仅展示自主创建的审核,变更联动审核(物料变更审核)由变更单详情反查
-const CHANGE_LINKED_AUDIT_TYPE = '物料变更审核'
+// 故新建弹窗的类型下拉、以及本列表页的类型筛选/列表数据均剔除它(见 auditListFilter.ts)
+const creatableAuditTypes = listableAuditTypesOf(auditTypeKeys)
+const listableAuditTypes = listableAuditTypesOf(auditTypeKeys)
 const list = ref<SqmAuditPlan[]>([])
 const loading = ref(false)
 const filterStatus = ref(''), filterType = ref('')
@@ -302,9 +300,9 @@ async function fetch() {
     ])
     records.value = recs
     // 列表只展示自主创建的审核,剔除变更联动的「物料变更审核」(其数据主权在变更单详情)
-    const filtered = (res.records || []).filter(p => p.auditType !== CHANGE_LINKED_AUDIT_TYPE)
+    const { list: filtered, total: filteredTotal } = filterAuditPlans(res.records || [], res.total || 0)
     list.value = filtered
-    total.value = Math.max(0, (res.total || 0) - ((res.records || []).length - filtered.length))
+    total.value = filteredTotal
     // 列表级会签进度:仅对"待执行且独立审核"的计划拉取,驱动开始执行按钮的禁用态
     const pending = list.value.filter(p => p.status === '待执行' && !(p.changeId && p.changeId.trim()))
     if (pending.length) {

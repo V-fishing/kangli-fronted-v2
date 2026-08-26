@@ -130,6 +130,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { supplierBoardApi, type PassRateDistItem, type DeliveryVsPassItem, type InspectResultItem } from '@/api/modules/sqm/supplierBoard'
+import { buildDashboardRanges } from '@/views/sqm/dashboardRanges'
 import { sqmSupplierApi } from '@/api/modules/sqm/suppliers'
 import type { SqmSupplier } from '@/api/types/sqm'
 
@@ -172,11 +173,7 @@ const MONTHS = (() => {
 
 const filters = reactive<{ level?: string; keyword?: string }>({})
 // 每个卡片独立的时间段(起始月~截止月),默认取最近 12 个月区间
-const defaultRange = () => ({ startYm: MONTHS[11], endYm: MONTHS[0] })
-const ranges = reactive<Record<string, { startYm: string; endYm: string }>>({
-  pie: defaultRange(), inspect: defaultRange(), scatter: defaultRange(),
-  bar: defaultRange(), trend: defaultRange(),
-})
+const ranges = reactive<Record<string, { startYm: string; endYm: string }>>(buildDashboardRanges(MONTHS))
 const heatYear = ref(YEARS[0])
 const heatTopN = ref(15)
 const compareIds = ref<string[]>([])
